@@ -5,6 +5,7 @@ from temporalio import workflow
 with workflow.unsafe.imports_passed_through():
     from workers.sitegen import activities as A  # noqa
 
+
 @workflow.defn
 class SiteGenWorkflow:
     @workflow.run
@@ -14,30 +15,33 @@ class SiteGenWorkflow:
         provider: str = params.get("provider", "vercel")
         creds: Dict[str, Any] = params.get("creds", {})
 
-        ia = await workflow.execute_activity(
+        await workflow.execute_activity(
             A.sitearchitect_generate,
             site_id,
-            start_to_close_timeout=workflow.timedelta(seconds=60),
-            task_queue="sitegen.activities",
+            start_to_close_timeout=workflow.timedelta(seconds=30),
         )
 
         copy = await workflow.execute_activity(
             A.copyweb_write_all,
-            site_id, spec,
+            site_id,
+            spec,
             start_to_close_timeout=workflow.timedelta(seconds=120),
             task_queue="sitegen.activities",
         )
 
         imgs = await workflow.execute_activity(
             A.visualgen_generate,
-            site_id, spec,
+            site_id,
+            spec,
             start_to_close_timeout=workflow.timedelta(seconds=120),
             task_queue="sitegen.activities",
         )
 
         repo_dir = await workflow.execute_activity(
             A.webbuilder_materialize,
-            site_id, copy, imgs,
+            site_id,
+            copy,
+            imgs,
             start_to_close_timeout=workflow.timedelta(seconds=120),
             task_queue="sitegen.activities",
         )
@@ -51,14 +55,18 @@ class SiteGenWorkflow:
 
         preview_url = await workflow.execute_activity(
             A.deploy_preview,
-            repo_dir, provider, creds,
+            repo_dir,
+            provider,
+            creds,
             start_to_close_timeout=workflow.timedelta(seconds=120),
             task_queue="sitegen.activities",
         )
 
         prod_url = await workflow.execute_activity(
             A.deploy_promote,
-            preview_url, provider, creds,
+            preview_url,
+            provider,
+            creds,
             start_to_close_timeout=workflow.timedelta(seconds=120),
             task_queue="sitegen.activities",
         )

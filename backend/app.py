@@ -24,18 +24,19 @@ app.include_router(sitegen_draft_router)
 app.include_router(deployments_router)
 app.include_router(workflows_router)
 
+
 @app.on_event("startup")
 def startup():
-	# Retry for a bounded time so dev server doesn't crash if DB is late
-	deadline = time.time() + settings.DB_STARTUP_RETRY_SECS
-	logged_once = False
-	while time.time() < deadline:
-		if ping_db():
-			log.info("Database reachable.")
-			return
-		if not logged_once:
-			log.warning("Database not reachable yet; will retry until ready...")
-			logged_once = True
-		time.sleep(1.0)
-	# Out of budget: continue to serve liveness, but readiness will be false
-	log.error("Database not reachable within startup budget; continuing without DB.")
+    # Retry for a bounded time so dev server doesn't crash if DB is late
+    deadline = time.time() + settings.DB_STARTUP_RETRY_SECS
+    logged_once = False
+    while time.time() < deadline:
+        if ping_db():
+            log.info("Database reachable.")
+            return
+        if not logged_once:
+            log.warning("Database not reachable yet; will retry until ready...")
+            logged_once = True
+        time.sleep(1.0)
+    # Out of budget: continue to serve liveness, but readiness will be false
+    log.error("Database not reachable within startup budget; continuing without DB.")

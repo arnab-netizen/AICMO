@@ -3,6 +3,7 @@ from backend.app import app
 
 client = TestClient(app)
 
+
 def test_workflows_routes_exist_and_respond():
     # Describe (may 500 if Temporal is down; route must exist)
     r = client.get("/workflows/sitegen-1")

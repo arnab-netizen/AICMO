@@ -9,6 +9,7 @@ from backend.sitegen.activities import ensure_home_page, record_deployment
 TEMPORAL_ADDRESS = os.getenv("TEMPORAL_ADDRESS", "localhost:7233")
 TEMPORAL_NAMESPACE = os.getenv("TEMPORAL_NAMESPACE", "default")
 
+
 async def main() -> None:
     client = await Client.connect(TEMPORAL_ADDRESS, namespace=TEMPORAL_NAMESPACE)
     worker = Worker(
@@ -19,6 +20,7 @@ async def main() -> None:
     )
     print(f"⚙️  SiteGen worker started (namespace={TEMPORAL_NAMESPACE}, task_queue={TASK_QUEUE})")
     await worker.run()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

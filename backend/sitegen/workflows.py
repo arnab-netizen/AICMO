@@ -7,6 +7,7 @@ with workflow.unsafe.imports_passed_through():
 
 TASK_QUEUE = "sitegen"
 
+
 @dataclass
 class SiteGenInput:
     site_id: int
@@ -24,7 +25,9 @@ class SiteGenWorkflow:
             )
             dep_id = await workflow.execute_activity(
                 record_deployment,
-                inp.site_id, "succeeded", "Generated home page",
+                inp.site_id,
+                "succeeded",
+                "Generated home page",
                 schedule_to_close_timeout=workflow.timedelta(seconds=30),
             )
             return {"deployment_id": dep_id, "page": page}
@@ -33,7 +36,9 @@ class SiteGenWorkflow:
             try:
                 await workflow.execute_activity(
                     record_deployment,
-                    inp.site_id, "failed", str(e),
+                    inp.site_id,
+                    "failed",
+                    str(e),
                     schedule_to_close_timeout=workflow.timedelta(seconds=30),
                 )
             except Exception:

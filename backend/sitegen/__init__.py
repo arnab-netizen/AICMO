@@ -1,2 +1,1 @@
 """Site generation (Temporal) package."""
-

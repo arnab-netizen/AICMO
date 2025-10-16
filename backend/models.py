@@ -1,7 +1,9 @@
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column
 from sqlalchemy import String, TIMESTAMP
 from sqlalchemy.sql import func
+
 Base = declarative_base()
+
 
 class Site(Base):
     __tablename__ = "site"

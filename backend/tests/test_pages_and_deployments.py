@@ -3,6 +3,7 @@ from backend.app import app
 
 client = TestClient(app)
 
+
 def test_list_pages_and_deployments_routes_exist():
     # pages for a site (may be empty if SiteGen hasn't run)
     r = client.get("/sites/1/pages")

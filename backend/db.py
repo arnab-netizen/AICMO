@@ -26,7 +26,11 @@ if create_engine is not None:
             ENGINE = create_engine(
                 DATABASE_URL,
                 pool_pre_ping=True,
-                connect_args={"connect_timeout": settings.DB_CONNECT_TIMEOUT} if DATABASE_URL.startswith("postgresql") else {},
+                connect_args=(
+                    {"connect_timeout": settings.DB_CONNECT_TIMEOUT}
+                    if DATABASE_URL.startswith("postgresql")
+                    else {}
+                ),
                 future=True,
             )
         SessionLocal = sessionmaker(bind=ENGINE, autocommit=False, autoflush=False, future=True)
@@ -50,7 +54,9 @@ def ping_db() -> bool:
 @contextmanager
 def get_session():
     if SessionLocal is None:
-        raise RuntimeError("Database session unavailable: DB driver not installed or ENGINE not initialized")
+        raise RuntimeError(
+            "Database session unavailable: DB driver not installed or ENGINE not initialized"
+        )
     s = SessionLocal()
     try:
         yield s
@@ -68,5 +74,7 @@ def get_engine():
     Useful for scripts that want to run raw SQL (migrations, seeds).
     """
     if ENGINE is None:
-        raise RuntimeError("ENGINE not initialized; DB driver missing or DATABASE_URL misconfigured")
+        raise RuntimeError(
+            "ENGINE not initialized; DB driver missing or DATABASE_URL misconfigured"
+        )
     return ENGINE

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 from backend.security import require_admin
+
 
 def make_app():
     app = FastAPI()

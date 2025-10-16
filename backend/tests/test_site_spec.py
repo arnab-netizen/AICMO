@@ -5,23 +5,39 @@ from backend.db import get_session
 
 client = TestClient(app)
 
+
 def ensure_seed():
     with get_session() as s:
         slug = "founder-os"
         exists = s.execute(text("select 1 from site where slug=:slug"), {"slug": slug}).fetchone()
         if not exists:
-            sid = s.execute(text("""
+            sid = s.execute(
+                text(
+                    """
                 INSERT INTO site(slug,title) VALUES(:slug,'Founder-OS') RETURNING id
-            """), {"slug": slug}).scalar_one()
-            s.execute(text("""
+            """
+                ),
+                {"slug": slug},
+            ).scalar_one()
+            s.execute(
+                text(
+                    """
                 INSERT INTO page(site_id,path,title,seo)
                 VALUES(:sid,'/','Home','{"title":"Founder-OS"}')
                 ON CONFLICT (site_id,path) DO NOTHING
-            """), {"sid": sid})
-            s.execute(text("""
+            """
+                ),
+                {"sid": sid},
+            )
+            s.execute(
+                text(
+                    """
                 INSERT INTO site_section(site_id,"type",props,"order")
                 VALUES(:sid,'hero','{"headline":"Ship faster"}',1)
-            """), {"sid": sid})
+            """
+                ),
+                {"sid": sid},
+            )
             s.commit()
 
 

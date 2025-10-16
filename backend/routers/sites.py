@@ -12,11 +12,13 @@ from backend.db import get_engine
 
 router = APIRouter(prefix="/sites", tags=["sites"])
 
-SITE_SPEC_SQL = text("""
+SITE_SPEC_SQL = text(
+    """
 SELECT to_jsonb(sp) AS spec
 FROM site_spec sp
 WHERE slug = :slug
-""")
+"""
+)
 
 
 class SiteIn(BaseModel):
@@ -27,6 +29,7 @@ class SiteOut(BaseModel):
     id: int
     name: str
     slug: str
+
     class Config:
         from_attributes = True
 
@@ -54,7 +57,8 @@ def list_sites(db: Session = Depends(get_db)):
 def create_site(payload: SiteIn, db: Session = Depends(get_db)):
     # compute a slug similar to DB regexp_replace used elsewhere
     import re
-    slug = re.sub(r'[^a-zA-Z0-9]+', '-', payload.name).strip('-').lower()
+
+    slug = re.sub(r"[^a-zA-Z0-9]+", "-", payload.name).strip("-").lower()
     obj = Site(name=payload.name, slug=slug)
     db.add(obj)
     try:
@@ -91,10 +95,19 @@ def get_site_spec(slug: str):
 def list_site_pages(site_id: int = Path(...)):
     engine = get_engine()
     with engine.begin() as conn:
-        rows = conn.execute(text("""
+        rows = (
+            conn.execute(
+                text(
+                    """
             SELECT id, site_id, path, title, body
             FROM page
             WHERE site_id = :sid
             ORDER BY path ASC
-        """), {"sid": site_id}).mappings().all()
+        """
+                ),
+                {"sid": site_id},
+            )
+            .mappings()
+            .all()
+        )
         return [dict(r) for r in rows]

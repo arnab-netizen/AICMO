@@ -26,7 +26,9 @@ async def start_sitegen(payload: SiteGenStart):
     site_id = payload.site_id
     if site_id is None and payload.slug:
         with get_engine().begin() as conn:
-            row = conn.execute(text("SELECT id FROM site WHERE slug = :s"), {"s": payload.slug}).scalar()
+            row = conn.execute(
+                text("SELECT id FROM site WHERE slug = :s"), {"s": payload.slug}
+            ).scalar()
             if not row:
                 raise HTTPException(status_code=404, detail="Site not found")
             site_id = int(row)

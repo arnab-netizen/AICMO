@@ -6,6 +6,7 @@ from temporalio.client import Client
 from workers.sitegen.workflows import SiteGenWorkflow
 from workers.sitegen import activities as A
 
+
 async def main() -> None:
     address = os.getenv("TEMPORAL_ADDRESS", "temporal:7233")
     task_queue = os.getenv("SITEGEN_TASK_QUEUE", "sitegen.activities")
@@ -27,6 +28,7 @@ async def main() -> None:
     )
     print(f"[SiteGen Worker] Connected to {address}, tq={task_queue}")
     await worker.run()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -7,6 +7,7 @@ from backend.app import app
 
 client = TestClient(app)
 
+
 # ---- Fake Temporal client/handle --------------------------------------------
 class FakeHandle:
     def __init__(self, workflow_id: str):
@@ -37,6 +38,7 @@ class FakeClient:
     def get_workflow_handle(self, workflow_id: str):
         return FakeHandle(workflow_id)
 
+
 # ---- Async factory to replace Client.connect --------------------------------
 async def fake_connect(addr: str, namespace: str):
     assert addr  # just to match signature
@@ -47,6 +49,7 @@ async def fake_connect(addr: str, namespace: str):
 def test_workflows_routes_with_mock(monkeypatch):
     # Patch temporalio.client.Client.connect to our fake_connect
     import temporalio.client as tclient
+
     monkeypatch.setattr(tclient.Client, "connect", staticmethod(fake_connect))
 
     # Describe

@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 from backend.app import app
 
+
 def test_sitegen_endpoint_exists():
     client = TestClient(app)
     r = client.post("/sitegen/start", json={"site_id": 1})

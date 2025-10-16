@@ -1,4 +1,6 @@
 from temporalio import workflow
+from datetime import timedelta
+
 
 @workflow.defn
 class SiteGenerationWorkflow:
@@ -6,9 +8,12 @@ class SiteGenerationWorkflow:
     async def run(self, site_data):
         # Call activities to generate the site
         result = await workflow.execute_activity(
-            "generate_site_activity", site_data, start_to_close_timeout=timedelta(minutes=5)
+            "generate_site_activity",
+            site_data,
+            start_to_close_timeout=timedelta(minutes=5),
         )
         return result
+
 
 @workflow.defn
 class AnotherWorkflow:

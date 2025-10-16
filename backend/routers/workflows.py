@@ -90,6 +90,7 @@ async def get_workflow_result(
         except asyncio.TimeoutError:
             # Not done yet → 202
             from fastapi import Response
+
             Response.status_code = 202  # type: ignore[attr-defined]
             return WorkflowResultOut(workflow_id=workflow_id, done=False, result=None)
     except Exception as e:

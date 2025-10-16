@@ -2,6 +2,7 @@ import glob
 from sqlalchemy import text
 from backend.db import ENGINE
 
+
 def run():
     files = sorted(glob.glob("backend/migrations/*.sql"))
     if not files:
@@ -17,6 +18,7 @@ def run():
             for stmt in filter(None, [s.strip() for s in sql.split(";")]):
                 conn.execute(text(stmt))
     print("Migrations complete.")
+
 
 if __name__ == "__main__":
     run()

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import pytest
 from fastapi import HTTPException
 from backend.security import require_admin, admin_token_enabled

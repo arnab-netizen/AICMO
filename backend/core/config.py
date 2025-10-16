@@ -7,6 +7,7 @@ class Settings:
     Avoids pydantic so the code runs in environments with either pydantic v1 or v2
     (and without pydantic-settings installed).
     """
+
     APP_NAME: str = os.getenv("APP_NAME", "AICMO API")
     DB_URL: str = os.getenv("DB_URL", "postgresql+psycopg://app:app@localhost:5432/appdb")
     DB_CONNECT_TIMEOUT: int = int(os.getenv("DB_CONNECT_TIMEOUT", "2"))
