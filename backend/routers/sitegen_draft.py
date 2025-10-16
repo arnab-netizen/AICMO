@@ -13,8 +13,16 @@ def draft(brief: dict):  # type: ignore
 @router.post("/materialize")
 def materialize(spec: dict):  # type: ignore
     """
-    Input: site-spec JSON.
-    Output: basic build plan (pages, assets) without writing disk yet.
+    Persist a minimal site-spec into an in-memory repo (for Phase 2 quick iteration).
     """
-    pages = [p.get("slug", "home") for p in spec.get("pages", [{"slug": "home"}])]
-    return {"ok": True, "pages": pages}
+    from sitegen.builder.repo_memory import upsert_site, upsert_page, list_pages
+
+    site = spec.get("site", {}) or {}
+    pages = spec.get("pages", []) or [{"slug": "home"}]
+    slug = site.get("slug") or (site.get("name", "demo").lower().replace(" ", "-"))
+
+    upsert_site(slug=slug, name=site.get("name", slug))
+    for p in pages:
+        upsert_page(site_slug=slug, slug=p.get("slug", "home"), data=p)
+
+    return {"ok": True, "site": slug, "pages": [p["slug"] for p in list_pages(slug)]}
