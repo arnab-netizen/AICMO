@@ -55,6 +55,19 @@ test:
 lint:
 	ruff check . || true
 
+.PHONY: fmt lint test ci
+
+fmt: ## Check formatting (black)
+	black --check backend
+
+lint: ## Static analysis (ruff)
+	ruff check backend
+
+test: ## Run tests
+	pytest -q backend/tests
+
+ci: fmt lint test ## Run CI locally (strict)
+	@echo "CI passed"
 .PHONY: ci
 fmt:
 	black --check backend || true

@@ -21,20 +21,19 @@ jobs:
           cache: "pip"
           cache-dependency-path: backend/requirements.txt
 
-      - name: Install Python Dependencies
+      - name: Install dev tools
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
-          # Install lint/format tools
-          pip install -r backend/requirements.txt -r requirements-dev.txt || true
-
-      - name: Ruff (lint)
-        run: ruff check backend || true
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
 
       - name: Black (format check)
-        run: black --check backend || true
+        run: black --check backend
 
-      - name: Run Tests
+      - name: Ruff (lint)
+        run: ruff check backend
+
+      - name: Pytest
         env:
           # Leave ADMIN_TOKEN unset by default; tests monkeypatch as needed.
           PYTHONPATH: ${{ github.workspace }}

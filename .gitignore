@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+.env
+.venv
+venv/
+.env.*.bak
+
+# Node / Frontend
+node_modules/
+.npm/
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+dist/
+.build/
+.next/
+.expo/
+.expo-shared/
+
+# Logs / Artifacts
+*.log
+logs/
+*.pid
+coverage/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Containers
+*.local.yml
+**/docker-data/
