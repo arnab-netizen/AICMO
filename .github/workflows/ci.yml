@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          # Install lint/format tools
+          pip install -r backend/requirements.txt -r requirements-dev.txt || true
+
+      - name: Ruff (lint)
+        run: ruff check backend || true
+
+      - name: Black (format check)
+        run: black --check backend || true
+
+      - name: Run Tests
+        env:
+          # Leave ADMIN_TOKEN unset by default; tests monkeypatch as needed.
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          pytest -q backend/tests
+
+      # Optional gates (enable if you have config):
+      # - name: Ruff (lint)
+      #   run: ruff check backend
+      # - name: Black (format check)
+      #   run: black --check backend

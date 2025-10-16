@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:14
+    container_name: pg
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal -d temporal"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  temporal:
+    image: temporalio/auto-setup:1.23.1
+    container_name: temporal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB: postgresql
+      DB_PORT: 5432
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: temporal
+      POSTGRES_SEEDS: postgres
+    ports:
+      - "7233:7233"
+    healthcheck:
+      # basic TCP check for the gRPC port
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/7233'" ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  temporal-ui:
+    image: temporalio/ui:2.30.0
+    container_name: temporal-ui
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      TEMPORAL_GRPC_ENDPOINT: temporal:7233
+      TEMPORAL_UI_PORT: 8080
+    ports:
+      - "8080:8080"
+
+networks:
+  default:
+    name: aicmo-net

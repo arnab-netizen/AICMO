@@ -19,4 +19,3 @@ class SiteSection(Base):
     props: Mapped[str] = mapped_column(String, nullable=False)  # JSON string of props
     order: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
-psql -h localhost -U arnabp -d appdb

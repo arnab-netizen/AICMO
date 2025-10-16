@@ -1,0 +1,104 @@
+version: "3.9"
+
+x-env: &common-env
+  DB_URL: ${DB_URL:-postgresql+psycopg2://app:app@db:5432/appdb}
+  PYTHONPATH: /app
+  TEMPORAL_ADDRESS: ${TEMPORAL_ADDRESS:-temporal:7233}
+  TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE:-default}
+
+services:
+  db:
+    image: postgres:16
+    container_name: aicmo-postgres
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: appdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d appdb -h 127.0.0.1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  adminer:
+    image: adminer:4
+    container_name: aicmo-adminer
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+
+  temporal:
+    image: temporalio/auto-setup:1.25
+    container_name: aicmo-temporal
+    environment:
+      DB: postgresql
+      DB_PORT: 5432
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: appdb
+      POSTGRES_SEEDS: db
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development.yaml
+    ports:
+      - "7233:7233"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  temporal-ui:
+    image: temporalio/ui:2.26
+    container_name: aicmo-temporal-ui
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000,http://localhost:8000,http://127.0.0.1:8000
+    ports:
+      - "8233:8233"
+    depends_on:
+      - temporal
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: aicmo-api
+    environment:
+      <<: *common-env
+    command: bash -lc "python -m backend.scripts.migrate && uvicorn backend.app:app --host 0.0.0.0 --port 8000"
+    volumes:
+      - ./:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health/ready >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: aicmo-worker
+    environment:
+      <<: *common-env
+    command: bash -lc "python -m backend.sitegen.worker"
+    volumes:
+      - ./:/app
+    depends_on:
+      api:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+
+volumes:
+  pgdata:

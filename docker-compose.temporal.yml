@@ -1,0 +1,78 @@
+version: "3.9"
+
+services:
+  temporal:
+    image: temporalio/auto-setup:1.25
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=app
+      - POSTGRES_PASSWORD=app
+      - POSTGRES_DB=appdb
+      - POSTGRES_SEEDS=db
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development.yaml
+    depends_on:
+      - db
+    ports:
+      - "7233:7233"
+
+  temporal-ui:
+    image: temporalio/ui:2.26
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000,http://localhost:8000
+    depends_on:
+      - temporal
+    ports:
+      - "8233:8233"
+
+  db:
+    extends:
+      file: ./docker-compose.db.yml
+      service: db
+version: '3.8'
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pg
+    environment:
+      POSTGRES_DB: appdb
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: appsecret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d appdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - aicmo-net
+
+  temporal:
+    image: temporalio/auto-setup:1.20.2
+    container_name: temporal
+    environment:
+      DB: postgresql
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: appuser
+      POSTGRES_PWD: appsecret
+      POSTGRES_DB: appdb
+      POSTGRES_SEEDS: "postgres:5432"
+    ports:
+      - "7233:7233"
+    depends_on:
+      - postgres
+    networks:
+      - aicmo-net
+
+networks:
+  aicmo-net:
+    driver: bridge
+
+volumes:
+  pg_data: {}
+                  - "7233:7233"
