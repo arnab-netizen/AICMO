@@ -102,3 +102,13 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def exec_sql(session, sql: str, **params):
+    """Helper so callers can execute raw SQL strings safely without relying on session monkey-patching.
+
+    Keeps a single canonical place for text() coercion and parameters.
+    """
+    if text is None:
+        raise RuntimeError("sqlalchemy.text() not available in this environment")
+    return session.execute(text(sql), params)

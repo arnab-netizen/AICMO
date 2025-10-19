@@ -24,15 +24,15 @@ def readiness(response: Response):
 def db_health(response: Response):
     try:
         eng = get_engine()
-    except Exception:
+    except Exception as e:
         # Could not obtain engine -> server error
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-        return {"ok": False}
+        return {"status": "error", "detail": str(e)[:200]}
     try:
         with eng.begin() as cx:
             cx.execute(text("SELECT 1"))
-        return {"ok": True}
-    except Exception:
+        return {"status": "ok"}
+    except Exception as e:
         # DB operation failed; mark as service unavailable
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        return {"ok": False}
+        return {"status": "error", "detail": str(e)[:200]}
