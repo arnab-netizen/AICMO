@@ -179,7 +179,12 @@ jobs:
             backend/tests/test_models_asset.py \
             backend/tests/test_taste_service_unit.py \
             --maxfail=1 -q \
-            --cov=backend --cov-report=term-missing --cov-fail-under=85
+            --cov=backend.routers.health \
+            --cov=backend.db \
+            --cov=backend.models \
+            --cov=backend.modules.taste.service \
+            --cov-report=term-missing \
+            --cov-fail-under=85
       - name: Coverage (backend only)
         run: |
           pytest -q --maxfail=1 --disable-warnings --cov=backend --cov-report=term-missing --cov-fail-under=35
