@@ -97,3 +97,77 @@ jobs:
   #         PYTHONPATH: .
   #       run: make full-test
       #   run: black --check backend
+
+  taste-pgvector:
+    runs-on: ubuntu-latest
+    services:
+      pg:
+        image: ankane/pgvector:latest
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # pip cache (optional but recommended)
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          pip install -r backend/requirements.txt
+          pip install pytest pytest-asyncio httpx alembic prometheus-client
+
+      - name: Install psql client
+        run: |
+          if command -v psql >/dev/null 2>&1; then
+            echo "psql present"
+          else
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            if psql "postgresql://postgres:postgres@127.0.0.1:5432/postgres" -c "SELECT 1" >/dev/null 2>&1; then
+              echo "Postgres is ready"; break
+            fi
+            echo "Waiting for Postgres... ($i)"; sleep 2
+          done
+
+      - name: Prepare DB (Alembic migrate + seed)
+        env:
+          DB_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+          ALEMBIC_CONFIG: backend/alembic.ini
+        run: |
+          alembic -c "$ALEMBIC_CONFIG" upgrade head
+          python -m backend.tools.seed_taste_demo
+
+      - name: Smoke checks
+        run: |
+          python -m backend.tools.smoke_versions
+          SMOKE_SKIP="/api/visualgen/run,/api/copyhook/run" python -m backend.tools.smoke_telemetry
+
+      - name: Run tests (versions + taste)
+        env:
+          DB_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+        run: |
+          pytest -q backend/tests/test_metrics_endpoint.py
+          pytest -q backend/tests/test_version_endpoints.py
+          pytest -q backend/tests/test_taste_endpoints_integration.py
+          pytest -q backend/tests/test_taste_metrics.py
+          pytest -q backend/tests/test_taste_similarity_deterministic.py
