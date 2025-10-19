@@ -3,6 +3,8 @@ uvicorn[standard]>=0.23
 SQLAlchemy>=2.0
 psycopg2-binary>=2.9
 pydantic>=2.5
-temporalio>=1.23
+temporalio==1.18.1
 python-dotenv>=1.0
 pytest>=7.0
+
+-e ./capsule-core

@@ -4,11 +4,14 @@ from backend.db import get_session
 
 router = APIRouter(prefix="/sites", tags=["sites"])
 
-SITE_SPEC_SQL = text("""
+SITE_SPEC_SQL = text(
+    """
 SELECT to_jsonb(sp) AS spec
 FROM site_spec sp
 WHERE slug = :slug
-""")
+"""
+)
+
 
 @router.get("/{slug}/spec")
 def get_site_spec(slug: str):

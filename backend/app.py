@@ -1,16 +1,32 @@
+import time
+import logging
 from fastapi import FastAPI
-from backend.routers import sites as sites_router
+from backend.core.config import settings
+from backend.db import ping_db
+from backend.routers.health import router as health_router
+from backend.routers.test import router as test_router
 
-from backend.startup import init_views
+log = logging.getLogger("uvicorn.error")
 
-def create_app() -> FastAPI:
-	app = FastAPI(title="AI-CMO API")
-	app.include_router(sites_router.router)
-	# initialize views (idempotent)
-	init_views()
-	return app
+app = FastAPI(title=settings.APP_NAME)
+
+# Include routers
+app.include_router(health_router, tags=["health"])
+app.include_router(test_router, tags=["test"])
 
 
-app = create_app()
-
-# ...existing includes / middleware / health endpoints...
+@app.on_event("startup")
+def startup():
+    # Retry for a bounded time so dev server doesn't crash if DB is late
+    deadline = time.time() + settings.DB_STARTUP_RETRY_SECS
+    logged_once = False
+    while time.time() < deadline:
+        if ping_db():
+            log.info("Database reachable.")
+            return
+        if not logged_once:
+            log.warning("Database not reachable yet; will retry until ready...")
+            logged_once = True
+        time.sleep(1.0)
+    # Out of budget: continue to serve liveness, but readiness will be false
+    log.error("Database not reachable within startup budget; continuing without DB.")
