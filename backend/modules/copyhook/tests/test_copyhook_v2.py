@@ -9,7 +9,11 @@ async def test_copyhook_happy(monkeypatch):
         payload = {
             "project_id": "11111111-1111-1111-1111-111111111111",
             "goal": "landing hero for fintech B2B",
-            "constraints": {"tone": "confident, simple", "brand": "Acme", "must_avoid": []},
+            "constraints": {
+                "tone": "confident, simple",
+                "brand": "Acme",
+                "must_avoid": [],
+            },
         }
         r = await c.post("/api/copyhook/run", json=payload)
         assert r.status_code == 200

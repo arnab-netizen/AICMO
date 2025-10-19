@@ -97,7 +97,8 @@ def save_spec(site_id: str, body: SpecIn) -> SpecResp:
         # optional: update name
         if body.name:
             conn.execute(
-                text("UPDATE site SET name=:n WHERE id=:sid"), {"n": body.name, "sid": site_id}
+                text("UPDATE site SET name=:n WHERE id=:sid"),
+                {"n": body.name, "sid": site_id},
             )
         ver = _next_spec_version(conn, site_id)
         conn.execute(
@@ -126,7 +127,12 @@ async def start_build(site_id: str, req: BuildReq) -> BuildResp:
     workflow_id = f"sitegen-{site_id}"
     handle = await client.start_workflow(
         "SiteGenWorkflow.run",
-        {"site_id": site_id, "spec": spec, "provider": req.provider, "creds": req.creds},
+        {
+            "site_id": site_id,
+            "spec": spec,
+            "provider": req.provider,
+            "creds": req.creds,
+        },
         id=workflow_id,
         task_queue=TASK_QUEUE,
     )

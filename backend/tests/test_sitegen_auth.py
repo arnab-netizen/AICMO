@@ -15,7 +15,9 @@ def test_run_requires_api_key_when_set(monkeypatch):
     assert r.status_code == 401
 
     r2 = client.post(
-        "/sitegen/run", json={"project_id": "p", "payload": {}}, headers={"X-API-Key": "secret123"}
+        "/sitegen/run",
+        json={"project_id": "p", "payload": {}},
+        headers={"X-API-Key": "secret123"},
     )
     assert r2.status_code == 200
 

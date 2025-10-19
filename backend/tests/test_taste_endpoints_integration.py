@@ -40,7 +40,8 @@ async def test_taste_record_upserts_without_error():
     async def test_compare_rejects_wrong_dimension():
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
             r = await c.post(
-                "/taste/compare", json={"embedding": [0.1, 0.2], "top_k": 2, "min_taste": 0.0}
+                "/taste/compare",
+                json={"embedding": [0.1, 0.2], "top_k": 2, "min_taste": 0.0},
             )
             assert r.status_code == 422
 
@@ -48,6 +49,7 @@ async def test_taste_record_upserts_without_error():
         async def test_compare_rejects_bad_topk():
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
                 r = await c.post(
-                    "/taste/compare", json={"embedding": [0.0] * 1536, "top_k": 0, "min_taste": 0.0}
+                    "/taste/compare",
+                    json={"embedding": [0.0] * 1536, "top_k": 0, "min_taste": 0.0},
                 )
                 assert r.status_code == 422

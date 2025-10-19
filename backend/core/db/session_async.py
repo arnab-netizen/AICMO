@@ -1,7 +1,11 @@
 from typing import AsyncGenerator
 
 try:
-    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+    from sqlalchemy.ext.asyncio import (
+        create_async_engine,
+        async_sessionmaker,
+        AsyncSession,
+    )
 except Exception:
     # If SQLAlchemy async dependencies are missing, keep module importable and fail at runtime when used.
     create_async_engine = None  # type: ignore

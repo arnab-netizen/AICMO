@@ -41,7 +41,8 @@ def _guard(x_api_key: str | None = Header(None)) -> None:
     if expected:
         if not x_api_key or x_api_key != expected:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="missing/invalid API key"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="missing/invalid API key",
             )
 
 

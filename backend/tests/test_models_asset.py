@@ -5,7 +5,7 @@ from backend.models import Base, Asset  # assumes Base is exported
 
 
 def test_asset_orm_roundtrip(tmp_path, monkeypatch):
-    monkeypatch.setenv("DB_URL", f"sqlite+pysqlite:///{tmp_path/'t.db'}")
+    monkeypatch.setenv("DB_URL", f"sqlite+pysqlite:///{tmp_path / 't.db'}")
     eng = sa.create_engine(os.environ["DB_URL"])
     # Create only the Asset table to avoid collisions with other models' indexes
     from backend.models import Asset as _Asset
@@ -14,7 +14,11 @@ def test_asset_orm_roundtrip(tmp_path, monkeypatch):
 
     with Session(eng) as s:
         a = Asset(
-            name="demo", taste_score=0.8, emotion_score=0.5, tone="minimal", brand_alignment=0.9
+            name="demo",
+            taste_score=0.8,
+            emotion_score=0.5,
+            tone="minimal",
+            brand_alignment=0.9,
         )
         s.add(a)
         s.commit()

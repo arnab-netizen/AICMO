@@ -37,7 +37,7 @@ def main():
             """
                 ),
                 {
-                    "n": f"asset_{i+1}",
+                    "n": f"asset_{i + 1}",
                     "t": round(random.uniform(0.5, 0.95), 2),
                     "e": round(random.uniform(0.2, 0.9), 2),
                     "tone": random.choice(["playful", "bold", "minimal", "luxury"]),

@@ -183,7 +183,10 @@ jobs:
 
       - name: Prepare DB (Alembic migrate + seed)
         env:
-          DB_URL: ${{ env.DB_URL }}
+          # Use the sync DATABASE_URL for Alembic (psycopg) so migrations run in a
+          # synchronous context. Using an async driver (asyncpg) caused
+          # `greenlet_spawn` errors when alembic attempted to connect.
+          DB_URL: ${{ env.DATABASE_URL }}
           ALEMBIC_CONFIG: backend/alembic.ini
         run: |
           alembic -c "$ALEMBIC_CONFIG" upgrade head

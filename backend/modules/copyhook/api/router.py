@@ -4,7 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.db.session_async import get_session
 from capsule_core.run import RunRequest, StatusResponse
 from backend.core.utils.determinism import RunClock, seed_from_payload, estimate_cost
-from backend.core.utils.gates import readability_score, platform_limit_ok, dedup_jaccard_ok
+from backend.core.utils.gates import (
+    readability_score,
+    platform_limit_ok,
+    dedup_jaccard_ok,
+)
 from backend.core.metrics.registry import RUNS_TOTAL, RUNTIME_SECONDS
 from fastapi import Depends
 from typing import List, Dict
@@ -151,7 +155,11 @@ async def run_copyhook(req: RunRequest, session: AsyncSession = Depends(get_sess
         score=0.97,
         result={
             "artifacts": [
-                {"type": "copy.json", "url": f"s3://fake/{run_id}/copy.json", "meta": meta}
+                {
+                    "type": "copy.json",
+                    "url": f"s3://fake/{run_id}/copy.json",
+                    "meta": meta,
+                }
             ]
         },
     )

@@ -3,9 +3,18 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.db.session_async import get_session
 from capsule_core.run import RunRequest, StatusResponse
-from backend.core.utils.determinism import RunClock, seed_from_payload, sha256_bytes, estimate_cost
+from backend.core.utils.determinism import (
+    RunClock,
+    seed_from_payload,
+    sha256_bytes,
+    estimate_cost,
+)
 from backend.core.utils.attachments import validate_b64_asset
-from backend.core.utils.gates import ocr_legibility_stub, contrast_ratio_stub, file_budget_ok
+from backend.core.utils.gates import (
+    ocr_legibility_stub,
+    contrast_ratio_stub,
+    file_budget_ok,
+)
 from backend.core.metrics.registry import RUNS_TOTAL, RUNTIME_SECONDS
 import uuid
 import io
@@ -85,7 +94,11 @@ async def run_visualgen(req: RunRequest, session: AsyncSession = Depends(get_ses
         if t in ("image_base64", "video_base64"):
             try:
                 validate_b64_asset(
-                    {"kind": t, "mime": s.get("mime", ""), "base64": s.get("base64", "")}
+                    {
+                        "kind": t,
+                        "mime": s.get("mime", ""),
+                        "base64": s.get("base64", ""),
+                    }
                 )
             except ValueError as e:
                 raise HTTPException(422, detail={"reason": "source_invalid", "msg": str(e)})

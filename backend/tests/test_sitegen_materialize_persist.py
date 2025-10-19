@@ -5,7 +5,10 @@ client = TestClient(app)
 
 
 def test_materialize_persists_in_memory():
-    spec = {"site": {"name": "Founder OS"}, "pages": [{"slug": "home"}, {"slug": "about"}]}
+    spec = {
+        "site": {"name": "Founder OS"},
+        "pages": [{"slug": "home"}, {"slug": "about"}],
+    }
     r = client.post("/sitegen/materialize", json=spec)
     assert r.status_code == 200
     data = r.json()
