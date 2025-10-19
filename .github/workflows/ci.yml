@@ -102,12 +102,19 @@ jobs:
     runs-on: ubuntu-latest
     services:
       pg:
-        image: ankane/pgvector:0.7.2
+        # use 'latest' to avoid referencing a missing specific tag in the runner
+        image: ankane/pgvector:latest
         ports: ['5432:5432']
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: app
+        # add a docker-level healthcheck so the runner can detect readiness earlier
+        options: >-
+          --health-cmd="pg_isready -U postgres -d app"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
 
     steps:
       - uses: actions/checkout@v4
@@ -152,11 +159,18 @@ jobs:
 
       - name: Wait for Postgres
         run: |
-          for i in {1..30}; do
-            if psql "$DATABASE_URL" -c "SELECT 1" >/dev/null 2>&1; then
-              echo "Postgres is ready"; break
+          # prefer pg_isready if available, otherwise fallback to psql probe
+          for i in {1..40}; do
+            if command -v pg_isready >/dev/null 2>&1; then
+              if pg_isready -h localhost -p 5432 -U postgres >/dev/null 2>&1; then
+                echo "Postgres is ready (pg_isready)"; break
+              fi
+            else
+              if psql "$DATABASE_URL" -c "SELECT 1" >/dev/null 2>&1; then
+                echo "Postgres is ready (psql)"; break
+              fi
             fi
-            echo "Waiting for Postgres... ($i)"; sleep 2
+            echo "Waiting for Postgres... ($i)"; sleep 3
           done
 
       - name: Ensure pgvector extension
