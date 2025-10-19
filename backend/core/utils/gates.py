@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Sequence, Dict
 
 
 # Lightweight stubs; can be replaced with real libs later.
@@ -9,7 +9,9 @@ def readability_score(text: str) -> float:
     return round(206.835 - 1.015 * (words / sentences) - 84.6 * (syll / words), 2)
 
 
-def platform_limit_ok(line: str, google_max=90, linkedin_max=150, x_max=280) -> dict:
+def platform_limit_ok(
+    line: str, google_max: int = 90, linkedin_max: int = 150, x_max: int = 280
+) -> Dict[str, bool]:
     return {
         "google": len(line) <= google_max,
         "linkedin": len(line) <= linkedin_max,
@@ -17,7 +19,7 @@ def platform_limit_ok(line: str, google_max=90, linkedin_max=150, x_max=280) -> 
     }
 
 
-def dedup_jaccard_ok(variants: Sequence[str], max_sim=0.8) -> bool:
+def dedup_jaccard_ok(variants: Sequence[str], max_sim: float = 0.8) -> bool:
     toks = [set(v.lower().split()) for v in variants]
     for i in range(len(toks)):
         for j in range(i + 1, len(toks)):
@@ -38,5 +40,5 @@ def contrast_ratio_stub() -> float:
     return 5.0  # > 4.5 passes WCAG AA for text
 
 
-def file_budget_ok(size_bytes: int, max_bytes=310_000) -> bool:
+def file_budget_ok(size_bytes: int, max_bytes: int = 310_000) -> bool:
     return size_bytes <= max_bytes

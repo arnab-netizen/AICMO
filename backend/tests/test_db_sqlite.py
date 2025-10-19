@@ -13,8 +13,10 @@ def test_sqlite_engine_when_dburl_missing(monkeypatch):
 def test_get_db_yields_session(monkeypatch):
     monkeypatch.setenv("DB_URL", "sqlite+pysqlite:///:memory:")
     sess = None
+    import sqlalchemy as sa
+
     for sess in get_db():
         # simple smoke: connection works
-        sess.execute("SELECT 1")
+        sess.execute(sa.text("SELECT 1"))
         break
     assert sess is not None

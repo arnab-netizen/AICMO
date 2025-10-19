@@ -1,9 +1,8 @@
 from __future__ import annotations
 from typing import Optional, Any
-from sqlalchemy.orm import declarative_base, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import String, Float, Text, JSON, TIMESTAMP, text, Index
-
-Base = declarative_base()
+from backend.db.base import Base
 
 
 class SiteGenRun(Base):

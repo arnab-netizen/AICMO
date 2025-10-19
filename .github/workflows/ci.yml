@@ -130,6 +130,11 @@ jobs:
           if [ -f backend/requirements-dev.txt ]; then pip install -r backend/requirements-dev.txt; fi
           pip install pytest pytest-asyncio httpx alembic prometheus-client
 
+      - name: Run pre-commit (all files)
+        run: |
+          pip install pre-commit
+          pre-commit run --all-files || true
+
       - name: Install psql client
         run: |
           if command -v psql >/dev/null 2>&1; then

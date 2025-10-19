@@ -1,0 +1,364 @@
+backend/minimal_tests/test_capsule_core_wire.py:6: error: Function is missing a
+return type annotation  [no-untyped-def]
+    def test_capsule_core_wired():
+    ^
+backend/minimal_tests/test_capsule_core_wire.py:6: note: Use "-> None" if function does not return a value
+backend/db/__init__.py:10: error: Module "backend.db.session" has no attribute
+"async_engine"; maybe "AsyncEngine" or "create_async_engine"?  [attr-defined]
+    from .session import (
+    ^
+backend/db/__init__.py:10: error: Module "backend.db.session" has no attribute
+"async_session_factory"; maybe "async_sessionmaker"?  [attr-defined]
+    from .session import (
+    ^
+backend/startup.py:5: error: Function is missing a return type annotation 
+[no-untyped-def]
+    def init_views():
+    ^
+backend/startup.py:5: note: Use "-> None" if function does not return a value
+backend/tools/seed_taste_demo.py:4: error: Module "backend.db" has no attribute
+"get_engine"  [attr-defined]
+    from backend.db import get_engine
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/tools/seed_taste_demo.py:7: error: Function is missing a return type
+annotation  [no-untyped-def]
+    def main():
+    ^
+backend/tools/seed_taste_demo.py:7: note: Use "-> None" if function does not return a value
+backend/sitegen/activities.py:4: error: Module "backend.db" has no attribute
+"get_engine"  [attr-defined]
+    from backend.db import get_engine
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/scripts/seed.py:4: error: Module "backend.db" has no attribute
+"get_engine"  [attr-defined]
+    from backend.db import get_engine
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/scripts/migrate.py:3: error: Module "backend.db" has no attribute
+"ENGINE"  [attr-defined]
+    from backend.db import ENGINE
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/scripts/migrate.py:6: error: Function is missing a return type
+annotation  [no-untyped-def]
+    def run():
+    ^
+backend/scripts/migrate.py:6: note: Use "-> None" if function does not return a value
+backend/models.py:21: error: Unused "type: ignore" comment  [unused-ignore]
+        from backend.db.base import Base  # type: ignore
+        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/models.py:25: error: Name "Base" already defined (possibly by an
+import)  [no-redef]
+        class Base(DeclarativeBase):
+        ^
+backend/models.py:46: error: Unused "type: ignore" comment  [unused-ignore]
+        from pgvector.sqlalchemy import Vector  # type: ignore[import]
+        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/models.py:51: error: Unused "type: ignore" comment  [unused-ignore]
+        from sqlalchemy.dialects.postgresql import JSONB  # type: ignore
+        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/models.py:53: error: Cannot assign to a type  [misc]
+        JSONB = None
+        ^~~~~
+backend/models.py:53: error: Incompatible types in assignment (expression has
+type "None", variable has type "type[JSONB]")  [assignment]
+        JSONB = None
+                ^~~~
+backend/models.py:67: error: Function is missing a type annotation 
+[no-untyped-def]
+        def load_dialect_impl(self, dialect):
+        ^
+backend/models.py:75: error: Unused "type: ignore" comment  [unused-ignore]
+                return dialect.type_descriptor(Vector(dim=1536))  # type: ...
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+backend/alembic/env.py:11: error: Argument 1 to "fileConfig" has incompatible
+type "str | PathLike[str] | None"; expected
+"str | bytes | PathLike[str] | PathLike[bytes] | IO[str] | RawConfigParser" 
+[arg-type]
+        fileConfig(config.config_file_name)
+                   ^~~~~~~~~~~~~~~~~~~~~~~
+backend/alembic/env.py:25: error: Function is missing a return type annotation 
+[no-untyped-def]
+    def run_migrations_offline():
+    ^
+backend/alembic/env.py:25: note: Use "-> None" if function does not return a value
+backend/alembic/env.py:32: error: Function is missing a return type annotation 
+[no-untyped-def]
+    def run_migrations_online():
+    ^
+backend/alembic/env.py:32: note: Use "-> None" if function does not return a value
+backend/alembic/versions/20251019_taste.py:10: error: Function is missing a
+return type annotation  [no-untyped-def]
+    def upgrade():
+    ^
+backend/alembic/versions/20251019_taste.py:10: note: Use "-> None" if function does not return a value
+backend/alembic/versions/20251019_taste.py:31: error: Function is missing a
+return type annotation  [no-untyped-def]
+    def downgrade():
+    ^
+backend/alembic/versions/20251019_taste.py:31: note: Use "-> None" if function does not return a value
+backend/alembic/versions/20251019_pgvector_guard.py:17: error: Function is
+missing a return type annotation  [no-untyped-def]
+    def upgrade():
+    ^
+backend/alembic/versions/20251019_pgvector_guard.py:17: note: Use "-> None" if function does not return a value
+backend/alembic/versions/20251019_pgvector_guard.py:22: error: Function is
+missing a return type annotation  [no-untyped-def]
+    def downgrade():
+    ^
+backend/alembic/versions/20251019_pgvector_guard.py:22: note: Use "-> None" if function does not return a value
+backend/sitegen/workflows.py:26: error: No overload variant of
+"execute_activity" matches argument types
+"Callable[[int, str, str | None], Coroutine[Any, Any, int]]", "int", "str",
+"str", "timedelta"  [call-overload]
+                dep_id = await workflow.execute_activity(
+                               ^
+backend/sitegen/workflows.py:26: note: Possible overload variants:
+backend/sitegen/workflows.py:26: note:     def [ReturnType] execute_activity(activity: CallableAsyncNoParam[ReturnType], *, task_queue: str | None = ..., schedule_to_close_timeout: timedelta | None = ..., schedule_to_start_timeout: timedelta | None = ..., start_to_close_timeout: timedelta | None = ..., heartbeat_timeout: timedelta | None = ..., retry_policy: RetryPolicy | None = ..., cancellation_type: ActivityCancellationType = ..., activity_id: str | None = ..., versioning_intent: VersioningIntent | None = ..., summary: str | None = ..., priority: Priority = ...) -> Coroutine[Any, Any, ReturnType]
+backend/sitegen/workflows.py:26: note:     def [ReturnType] execute_activity(activity: CallableSyncNoParam[ReturnType], *, task_queue: str | None = ..., schedule_to_close_timeout: timedelta | None = ..., schedule_to_start_timeout: timedelta | None = ..., start_to_close_timeout: timedelta | None = ..., heartbeat_timeout: timedelta | None = ..., retry_policy: RetryPolicy | None = ..., cancellation_type: ActivityCancellationType = ..., activity_id: str | None = ..., versioning_intent: VersioningIntent | None = ..., summary: str | None = ..., priority: Priority = ...) -> Coroutine[Any, Any, ReturnType]
+backend/sitegen/workflows.py:26: note:     def [ParamType, ReturnType] execute_activity(activity: CallableAsyncSingleParam[ParamType, ReturnType], arg: ParamType, *, task_queue: str | None = ..., schedule_to_close_timeout: timedelta | None = ..., schedule_to_start_timeout: timedelta | None = ..., start_to_close_timeout: timedelta | None = ..., heartbeat_timeout: timedelta | None = ..., retry_policy: RetryPolicy | None = ..., cancellation_type: ActivityCancellationType = ..., activity_id: str | None = ..., versioning_intent: VersioningIntent | None = ..., summary: str | None = ..., priority: Priority = ...) -> Coroutine[Any, Any, ReturnType]
+backend/sitegen/workflows.py:26: note:     def [ParamType, ReturnType] execute_activity(activity: CallableSyncSingleParam[ParamType, ReturnType], arg: ParamType, *, task_queue: str | None = ..., schedule_to_close_timeout: timedelta | None = ..., schedule_to_start_timeout: timedelta | None = ..., start_to_close_timeout: timedelta | None = ..., heartbeat_timeout: timedelta | None = ..., retry_policy: RetryPolicy | None = ..., cancellation_type: ActivityCancellationType = ..., activity_id: str | None = ..., versioning_intent: VersioningIntent | None = ..., summary: str | None = ..., priority: Priority = ...) -> Coroutine[Any, Any, ReturnType]
+backend/sitegen/workflows.py:26: note:     def [ReturnType] execute_activity(activity: Callable[..., Awaitable[ReturnType]], *, args: Sequence[Any], task_queue: str | None = ..., schedule_to_close_timeout: timedelta | None = ..., schedule_to_start_timeout: timedelta | None = ..., start_to_close_timeout: timedelta | None = ..., heartbeat_timeout: timedelta | None = ..., retry_policy: RetryPolicy | None = ..., cancellation_type: ActivityCancellationType = ..., activity_id: str | None = ..., versioning_intent: VersioningIntent | None = ..., summary: str | None = ..., priority: Priority = ...) -> Coroutine[Any, Any, ReturnType]
+backend/sitegen/workflows.py:26: note:     def [ReturnType] execute_activity(activity: Callable[..., ReturnType], *, args: Sequence[Any], task_queue: str | None = ..., schedule_to_close_timeout: timedelta | None = ..., schedule_to_start_timeout: timedelta | None = ..., start_to_close_timeout: timedelta | None = ..., heartbeat_timeout: timedelta | None = ..., retry_policy: RetryPolicy | None = ..., cancellation_type: ActivityCancellationType = ..., activity_id: str | None = ..., versioning_intent: VersioningIntent | None = ..., summary: str | None = ..., priority: Priority = ...) -> Coroutine[Any, Any, ReturnType]
+backend/sitegen/workflows.py:26: note:     def execute_activity(activity: str, arg: Any = ..., *, args: Sequence[Any] = ..., task_queue: str | None = ..., result_type: type[Any] | None = ..., schedule_to_close_timeout: timedelta | None = ..., schedule_to_start_timeout: timedelta | None = ..., start_to_close_timeout: timedelta | None = ..., heartbeat_timeout: timedelta | None = ..., retry_policy: RetryPolicy | None = ..., cancellation_type: ActivityCancellationType = ..., activity_id: str | None = ..., versioning_intent: VersioningIntent | None = ..., summary: str | None = ..., priority: Priority = ...) -> Coroutine[Any, Any, Any]
+backend/sitegen/workflows.py:37: error: No overload variant of
+"execute_activity" matches argument types
+"Callable[[int, str, str | None], Coroutine[Any, Any, int]]", "int", "str",
+"str", "timedelta"  [call-overload]
+                    await workflow.execute_activity(
+                          ^
+backend/sitegen/workflows.py:37: note: Possible overload variants:
+backend/sitegen/workflows.py:37: note:     def [ReturnType] execute_activity(activity: CallableAsyncNoParam[ReturnType], *, task_queue: str | None = ..., schedule_to_close_timeout: timedelta | None = ..., schedule_to_start_timeout: timedelta | None = ..., start_to_close_timeout: timedelta | None = ..., heartbeat_timeout: timedelta | None = ..., retry_policy: RetryPolicy | None = ..., cancellation_type: ActivityCancellationType = ..., activity_id: str | None = ..., versioning_intent: VersioningIntent | None = ..., summary: str | None = ..., priority: Priority = ...) -> Coroutine[Any, Any, ReturnType]
+backend/sitegen/workflows.py:37: note:     def [ReturnType] execute_activity(activity: CallableSyncNoParam[ReturnType], *, task_queue: str | None = ..., schedule_to_close_timeout: timedelta | None = ..., schedule_to_start_timeout: timedelta | None = ..., start_to_close_timeout: timedelta | None = ..., heartbeat_timeout: timedelta | None = ..., retry_policy: RetryPolicy | None = ..., cancellation_type: ActivityCancellationType = ..., activity_id: str | None = ..., versioning_intent: VersioningIntent | None = ..., summary: str | None = ..., priority: Priority = ...) -> Coroutine[Any, Any, ReturnType]
+backend/sitegen/workflows.py:37: note:     def [ParamType, ReturnType] execute_activity(activity: CallableAsyncSingleParam[ParamType, ReturnType], arg: ParamType, *, task_queue: str | None = ..., schedule_to_close_timeout: timedelta | None = ..., schedule_to_start_timeout: timedelta | None = ..., start_to_close_timeout: timedelta | None = ..., heartbeat_timeout: timedelta | None = ..., retry_policy: RetryPolicy | None = ..., cancellation_type: ActivityCancellationType = ..., activity_id: str | None = ..., versioning_intent: VersioningIntent | None = ..., summary: str | None = ..., priority: Priority = ...) -> Coroutine[Any, Any, ReturnType]
+backend/sitegen/workflows.py:37: note:     def [ParamType, ReturnType] execute_activity(activity: CallableSyncSingleParam[ParamType, ReturnType], arg: ParamType, *, task_queue: str | None = ..., schedule_to_close_timeout: timedelta | None = ..., schedule_to_start_timeout: timedelta | None = ..., start_to_close_timeout: timedelta | None = ..., heartbeat_timeout: timedelta | None = ..., retry_policy: RetryPolicy | None = ..., cancellation_type: ActivityCancellationType = ..., activity_id: str | None = ..., versioning_intent: VersioningIntent | None = ..., summary: str | None = ..., priority: Priority = ...) -> Coroutine[Any, Any, ReturnType]
+backend/sitegen/workflows.py:37: note:     def [ReturnType] execute_activity(activity: Callable[..., Awaitable[ReturnType]], *, args: Sequence[Any], task_queue: str | None = ..., schedule_to_close_timeout: timedelta | None = ..., schedule_to_start_timeout: timedelta | None = ..., start_to_close_timeout: timedelta | None = ..., heartbeat_timeout: timedelta | None = ..., retry_policy: RetryPolicy | None = ..., cancellation_type: ActivityCancellationType = ..., activity_id: str | None = ..., versioning_intent: VersioningIntent | None = ..., summary: str | None = ..., priority: Priority = ...) -> Coroutine[Any, Any, ReturnType]
+backend/sitegen/workflows.py:37: note:     def [ReturnType] execute_activity(activity: Callable[..., ReturnType], *, args: Sequence[Any], task_queue: str | None = ..., schedule_to_close_timeout: timedelta | None = ..., schedule_to_start_timeout: timedelta | None = ..., start_to_close_timeout: timedelta | None = ..., heartbeat_timeout: timedelta | None = ..., retry_policy: RetryPolicy | None = ..., cancellation_type: ActivityCancellationType = ..., activity_id: str | None = ..., versioning_intent: VersioningIntent | None = ..., summary: str | None = ..., priority: Priority = ...) -> Coroutine[Any, Any, ReturnType]
+backend/sitegen/workflows.py:37: note:     def execute_activity(activity: str, arg: Any = ..., *, args: Sequence[Any] = ..., task_queue: str | None = ..., result_type: type[Any] | None = ..., schedule_to_close_timeout: timedelta | None = ..., schedule_to_start_timeout: timedelta | None = ..., start_to_close_timeout: timedelta | None = ..., heartbeat_timeout: timedelta | None = ..., retry_policy: RetryPolicy | None = ..., cancellation_type: ActivityCancellationType = ..., activity_id: str | None = ..., versioning_intent: VersioningIntent | None = ..., summary: str | None = ..., priority: Priority = ...) -> Coroutine[Any, Any, Any]
+backend/routers/test.py:7: error: Function is missing a return type annotation 
+[no-untyped-def]
+    def test():
+    ^
+backend/routers/sites.py:17: error: Function is missing a return type
+annotation  [no-untyped-def]
+    def get_site_spec(slug: str):
+    ^
+backend/routers/sites.py:18: error: "AsyncIterator[AsyncSession]" has no
+attribute "__enter__"; maybe "__aiter__"?  [attr-defined]
+        with get_session() as s:
+             ^~~~~~~~~~~~~
+backend/routers/sites.py:18: error: "AsyncIterator[AsyncSession]" has no
+attribute "__exit__"; maybe "__anext__"?  [attr-defined]
+        with get_session() as s:
+             ^~~~~~~~~~~~~
+backend/routers/health.py:2: error: Module "backend.db" has no attribute
+"ping_db"  [attr-defined]
+    from backend.db import ping_db, get_db, exec_sql, get_engine
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/routers/health.py:2: error: Module "backend.db" has no attribute
+"get_db"  [attr-defined]
+    from backend.db import ping_db, get_db, exec_sql, get_engine
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/routers/health.py:2: error: Module "backend.db" has no attribute
+"exec_sql"  [attr-defined]
+    from backend.db import ping_db, get_db, exec_sql, get_engine
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/routers/health.py:2: error: Module "backend.db" has no attribute
+"get_engine"  [attr-defined]
+    from backend.db import ping_db, get_db, exec_sql, get_engine
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/routers/health.py:9: error: Function is missing a return type
+annotation  [no-untyped-def]
+    def liveness():
+    ^
+backend/routers/health.py:15: error: Function is missing a return type
+annotation  [no-untyped-def]
+    def readiness(response: Response):
+    ^
+backend/routers/health.py:23: error: Function is missing a return type
+annotation  [no-untyped-def]
+    def db_health(response: Response, db=Depends(get_db)):
+    ^
+backend/routers/health.py:23: error: Function is missing a type annotation for
+one or more arguments  [no-untyped-def]
+    def db_health(response: Response, db=Depends(get_db)):
+    ^
+backend/routers/deployments.py:6: error: Module "backend.db" has no attribute
+"get_engine"  [attr-defined]
+    from backend.db import get_engine
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/routers/deployments.py:20: error: Function is missing a return type
+annotation  [no-untyped-def]
+    def list_deployments(site_id: int | None = Query(default=None)):
+    ^
+backend/modules/taste/router.py:14: error: Module "backend.db" has no attribute
+"get_db"  [attr-defined]
+    from backend.db import get_db
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/modules/taste/router.py:22: error: Function is missing a type
+annotation  [no-untyped-def]
+        def estimate_cost(*args, **kwargs):
+        ^
+backend/modules/taste/router.py:22: error: All conditional function variants
+must have identical signatures  [misc]
+        def estimate_cost(*args, **kwargs):
+        ^
+backend/modules/taste/router.py:22: note: Original:
+backend/modules/taste/router.py:22: note:     def estimate_cost(tokens_used: int, unit_cost_per_1k_tokens: float = ...) -> float
+backend/modules/taste/router.py:22: note: Redefinition:
+backend/modules/taste/router.py:22: note:     def estimate_cost(*args: Any, **kwargs: Any) -> Any
+backend/modules/taste/router.py:169: error: Function is missing a return type
+annotation  [no-untyped-def]
+    def version():
+    ^
+backend/modules/sitegen/routes.py:16: error: Function is missing a return type
+annotation  [no-untyped-def]
+    def require_api_key(x_api_key: str | None = Header(default=None)):
+    ^
+backend/modules/sitegen/routes.py:22: error: Function is missing a return type
+annotation  [no-untyped-def]
+    def _select_store():
+    ^
+backend/modules/sitegen/routes.py:69: error: Function is missing a return type
+annotation  [no-untyped-def]
+    async def feedback(payload: dict):
+    ^
+backend/modules/sitegen/routes.py:76: error: Function is missing a return type
+annotation  [no-untyped-def]
+    async def metrics():
+    ^
+backend/modules/sitegen/routes.py:82: error: Function is missing a return type
+annotation  [no-untyped-def]
+    async def healthz():
+    ^
+backend/modules/copyhook/api/router.py:23: error: Function is missing a return
+type annotation  [no-untyped-def]
+    async def version():
+    ^
+backend/modules/copyhook/api/router.py:51: error: Function is missing a return
+type annotation  [no-untyped-def]
+    async def run_copyhook(req: RunRequest, session: AsyncSession = Depend...
+    ^
+backend/minimal_tests/test_temporal_smoke.py:8: error: Function is missing a
+return type annotation  [no-untyped-def]
+    def test_temporal_cluster_health():
+    ^
+backend/minimal_tests/test_temporal_smoke.py:8: note: Use "-> None" if function does not return a value
+backend/minimal_tests/test_temporal_smoke.py:17: error: Function is missing a
+return type annotation  [no-untyped-def]
+        async def _check():
+        ^
+backend/minimal_tests/test_temporal_smoke.py:17: note: Use "-> None" if function does not return a value
+backend/minimal_app/main.py:7: error: Function is missing a return type
+annotation  [no-untyped-def]
+    def health():
+    ^
+backend/api/sitegen.py:66: error: Function is missing a type annotation for one
+or more arguments  [no-untyped-def]
+    def _get_latest_spec(conn, site_id: str) -> Optional[dict]:
+    ^
+backend/api/sitegen.py:77: error: Function is missing a type annotation for one
+or more arguments  [no-untyped-def]
+    def _next_spec_version(conn, site_id: str) -> int:
+    ^
+backend/api/sitegen.py:93: error: Value of type "Row[Any] | None" is not
+indexable  [index]
+            return CreateSiteResp(site_id=str(row[0]))
+                                              ^~~~~~
+backend/tools/gate_report.py:9: error: Function is missing a type annotation
+for one or more arguments  [no-untyped-def]
+    def make_gate_summary_png(scores: Dict, width=720, height=320) -> byte...
+    ^
+backend/tools/gate_report.py:27: error: Function is missing a return type
+annotation  [no-untyped-def]
+    def write_report_bundle(
+    ^
+backend/routers/workflows.py:40: error: "WorkflowExecutionDescription" has no
+attribute "execution_config"  [attr-defined]
+                task_queue = getattr(desc.execution_config, "task_queue", ...
+                                     ^~~~~~~~~~~~~~~~~~~~~
+backend/routers/workflows.py:96: error: Unused "type: ignore" comment 
+[unused-ignore]
+                Response.status_code = 202  # type: ignore[attr-defined]
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/routers/sitegen.py:8: error: Module "backend.db" has no attribute
+"get_engine"  [attr-defined]
+    from backend.db import get_engine
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/routers/sitegen.py:22: error: Function is missing a return type
+annotation  [no-untyped-def]
+    async def start_sitegen(payload: SiteGenStart):
+    ^
+backend/routers/sitegen.py:40: error: Argument "site_id" to "SiteGenInput" has
+incompatible type "int | None"; expected "int"  [arg-type]
+                SiteGenInput(site_id=site_id),
+                                     ^~~~~~~
+backend/modules/visualgen/api/router.py:30: error: Function is missing a return
+type annotation  [no-untyped-def]
+    async def version():
+    ^
+backend/modules/visualgen/api/router.py:78: error: Function is missing a return
+type annotation  [no-untyped-def]
+    async def run_visualgen(req: RunRequest, session: AsyncSession = Depen...
+    ^
+backend/modules/visualgen/api/router.py:191: error: Unsupported target for
+indexed assignment ("object")  [index]
+            a_meta["seconds_used"] = seconds
+            ^~~~~~~~~~~~~~~~~~~~~~
+backend/modules/visualgen/api/router.py:192: error: Unsupported target for
+indexed assignment ("object")  [index]
+            a_meta["cost_estimate"] = estimate_cost(0)
+            ^~~~~~~~~~~~~~~~~~~~~~~
+backend/app.py:10: error: Module "backend.db" has no attribute "ping_db" 
+[attr-defined]
+    from backend.db import ping_db
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/app.py:24: error: Function is missing a return type annotation 
+[no-untyped-def]
+    async def lifespan(app: FastAPI):
+    ^
+backend/app.py:62: error: Function is missing a return type annotation 
+[no-untyped-def]
+    def runtime_error_handler(request: Request, exc: RuntimeError):
+    ^
+backend/app.py:71: error: Function is missing a return type annotation 
+[no-untyped-def]
+    def health():
+    ^
+backend/tools/tests/test_packager.py:5: error: Function is missing a type
+annotation  [no-untyped-def]
+    def test_packager_zip_ok(tmp_path):
+    ^
+backend/tools/smoke_versions.py:13: error: Need type annotation for "methods" 
+[var-annotated]
+                methods = getattr(route, "methods", set())
+                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/tools/smoke_telemetry.py:19: error: Function is missing a type
+annotation for one or more arguments  [no-untyped-def]
+    def has_telemetry(obj) -> bool:
+    ^
+backend/tools/smoke_telemetry.py:47: error: Need type annotation for "methods" 
+[var-annotated]
+            methods = getattr(route, "methods", set())
+                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+backend/modules/visualgen/tests/test_visualgen_v2.py:7: error: Function is
+missing a return type annotation  [no-untyped-def]
+    def tiny_png_b64():
+    ^
+backend/modules/visualgen/tests/test_visualgen_v2.py:18: error: Function is
+missing a return type annotation  [no-untyped-def]
+    async def test_visualgen_logo_and_refs_ok():
+    ^
+backend/modules/visualgen/tests/test_visualgen_v2.py:18: note: Use "-> None" if function does not return a value
+backend/modules/copyhook/tests/test_copyhook_v2.py:7: error: Function is
+missing a type annotation  [no-untyped-def]
+    async def test_copyhook_happy(monkeypatch):
+    ^
+backend/modules/copyhook/tests/test_copyhook_v2.py:32: error: Function is
+missing a type annotation  [no-untyped-def]
+    async def test_copyhook_banned(monkeypatch):
+    ^
+backend/minimal_tests/test_minimal.py:7: error: Function is missing a return
+type annotation  [no-untyped-def]
+    def test_health_ok():
+    ^
+backend/minimal_tests/test_minimal.py:7: note: Use "-> None" if function does not return a value
+Found 82 errors in 33 files (checked 91 source files)
