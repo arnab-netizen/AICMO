@@ -258,24 +258,54 @@ if submitted:
                 if not artifacts:
                     st.info("No artifacts returned.")
                 else:
-                    # Try to display images if the artifact looks like one; otherwise show JSON
                     for a in artifacts:
                         atype = (a.get("type") or "").lower()
-                        url = a.get("url") or a.get("path") or ""
+                        url = (a.get("url") or a.get("path") or "").strip()
                         meta = a.get("meta") or {}
+                        b64 = a.get("base64")
+
                         st.write(f"**Artifact:** {atype or 'unknown'}")
-                        if (
-                            atype.endswith(".png")
-                            or atype in ("image", "png", "jpg", "jpeg")
+
+                        # Heuristic: decide if this is an image
+                        is_img = (
+                            atype in ("image", "png", "jpg", "jpeg", "webp")
                             or url.lower().endswith((".png", ".jpg", ".jpeg", ".webp"))
-                        ):
-                            # Display image if accessible by URL; otherwise just show the URL
+                            or (
+                                isinstance(meta, dict)
+                                and meta.get("format", "").lower() in ("png", "jpg", "jpeg", "webp")
+                            )
+                            or bool(b64)
+                        )
+
+                        if is_img:
                             try:
-                                st.image(url, caption=url, use_column_width=True)
-                            except Exception:
-                                st.write(url)
-                        elif atype == "copy.json" or atype == "copy" or "variants" in meta:
-                            # Likely CopyHook result
+                                if b64:
+                                    import base64
+
+                                    st.image(
+                                        base64.b64decode(b64),
+                                        caption=meta.get("caption") or "image",
+                                        use_column_width=True,
+                                    )
+                                elif url.startswith("data:image/"):
+                                    import base64
+
+                                    header, data = url.split(",", 1)
+                                    st.image(
+                                        base64.b64decode(data),
+                                        caption=url[:32] + "…",
+                                        use_column_width=True,
+                                    )
+                                elif url:
+                                    # Public (or signed) URL — let Streamlit fetch it directly
+                                    st.image(url, caption=url, use_column_width=True)
+                                else:
+                                    st.info("Image artifact without url/base64.")
+                            except Exception as e:
+                                st.warning(f"Could not render image: {e}")
+                                st.code(json.dumps(a, indent=2), language="json")
+                        elif atype in ("copy.json", "copy") or ("variants" in (meta or {})):
+                            # Likely CopyHook structured artifact
                             if "variants" in meta:
                                 st.write("**Variants**")
                                 for i, v in enumerate(meta["variants"], 1):

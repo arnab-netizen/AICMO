@@ -23,6 +23,12 @@ e2e-test: up-temporal
 test:
 	pytest -q
 
+.PHONY: ui
+ui:
+	python -m venv .venv && . .venv/bin/activate && \
+	pip install -r requirements-streamlit.txt && \
+	streamlit run app.py
+
 .PHONY: core-dev core-test
 core-dev: ; pip install -e ./capsule-core
 core-test: ; pytest -q capsule-core/tests
