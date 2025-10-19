@@ -64,6 +64,14 @@ jobs:
         run: |
           PYTHONPATH=. pytest -q backend/tests/test_sitegen_auth.py::test_run_requires_api_key_when_set
 
+      - name: Run SiteGen SQLite persistence tests
+        env:
+          SITEGEN_STORE: db
+          DATABASE_URL: "sqlite+pysqlite:///:memory:"
+          SITEGEN_API_KEY: ""
+        run: |
+          PYTHONPATH=. pytest -q backend/tests/test_sitegen_persistence_sqlite.py
+
   # unit-full:
   #   runs-on: ubuntu-latest
   #   needs: unit-minimal
