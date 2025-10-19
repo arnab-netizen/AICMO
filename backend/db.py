@@ -84,7 +84,31 @@ def get_db():
             "Database session unavailable: DB driver not installed or ENGINE not initialized"
         )
     db = SessionLocal()
+    # Wrap execute so tests can pass plain SQL strings (e.g., sess.execute("SELECT 1"))
+    orig_execute = getattr(db, "execute", None)
+
+    def _execute(stmt, *a, **kw):
+        # SQLAlchemy requires text() for raw SQL strings
+        if isinstance(stmt, str):
+            if text is None:
+                raise RuntimeError("text() function unavailable for SQL coercion")
+            return orig_execute(text(stmt), *a, **kw)
+        return orig_execute(stmt, *a, **kw)
+
+    if orig_execute is not None:
+        setattr(db, "execute", _execute)
+
     try:
         yield db
     finally:
         db.close()
+
+
+def exec_sql(session, sql: str, **params):
+    """Helper so callers can execute raw SQL strings safely without relying on session monkey-patching.
+
+    Keeps a single canonical place for text() coercion and parameters.
+    """
+    if text is None:
+        raise RuntimeError("sqlalchemy.text() not available in this environment")
+    return session.execute(text(sql), params)

@@ -3,9 +3,15 @@ PORT?=8000
 DB?=$(DATABASE_URL)
 
 .PHONY: setup migrate run smoke test metrics
+.PHONY: fmt lint type unit-subset dev-install
 
 setup:
 	$(PY) -m venv .venv && . .venv/bin/activate && pip install -r backend/requirements.txt
+
+dev-install:
+	python -m pip install --upgrade pip
+	pip install -r backend/requirements.txt
+	if [ -f backend/requirements-dev.txt ]; then pip install -r backend/requirements-dev.txt; fi
 
 migrate:
 	psql "$(DB)" -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
@@ -34,6 +40,16 @@ api:
 
 minimal-test:
 	PYTHONPATH=. pytest -q backend/minimal_tests
+
+unit-subset:
+	PYTHONPATH=. pytest -q \
+		backend/tests/test_health_endpoints.py \
+		backend/tests/test_db_sqlite.py \
+		backend/tests/test_models_asset.py \
+		backend/tests/test_taste_service_unit.py \
+		backend/tests/test_db_exec_sql_helper.py \
+		backend/tests/test_health_db_errors.py \
+		backend/tests/test_taste_service_extra.py
 
 .PHONY: up-temporal down-temporal e2e-test
 
