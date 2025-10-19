@@ -6,3 +6,5 @@ pydantic>=2.5
 temporalio==1.18.1
 python-dotenv>=1.0
 pytest>=7.0
+
+-e ./capsule-core

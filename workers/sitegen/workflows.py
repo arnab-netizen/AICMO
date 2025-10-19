@@ -18,7 +18,8 @@ class SiteGenWorkflow:
         await workflow.execute_activity(
             A.sitearchitect_generate,
             site_id,
-            start_to_close_timeout=workflow.timedelta(seconds=30),
+            start_to_close_timeout=workflow.timedelta(seconds=60),
+            task_queue="sitegen.activities",
         )
 
         copy = await workflow.execute_activity(

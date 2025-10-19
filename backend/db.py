@@ -66,15 +66,3 @@ def get_session():
         raise
     finally:
         s.close()
-
-
-def get_engine():
-    """Return the SQLAlchemy Engine or raise if not initialized.
-
-    Useful for scripts that want to run raw SQL (migrations, seeds).
-    """
-    if ENGINE is None:
-        raise RuntimeError(
-            "ENGINE not initialized; DB driver missing or DATABASE_URL misconfigured"
-        )
-    return ENGINE

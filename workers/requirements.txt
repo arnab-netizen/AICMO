@@ -1,0 +1,3 @@
+temporalio>=1.18.0
+requests
+# Pin other worker deps if needed (e.g. build tooling)

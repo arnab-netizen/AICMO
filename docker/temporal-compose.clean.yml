@@ -33,30 +33,29 @@ services:
       disable: true
 
   temporal-ready:
-    image: temporalio/admin-tools:1.25
-    container_name: temporal-ready
+    image: temporalio/admin-tools:latest
     depends_on:
       temporal:
         condition: service_started
     environment:
       TEMPORAL_ADDRESS: temporal:7233
-    entrypoint: ["/bin/sh", "-lc"]
-    command: |
-      set -euo pipefail
-      echo "[temporal-ready] Waiting for Temporal at ${TEMPORAL_ADDRESS} ..."
-      # try up to 180s, polling every 3s
-      for i in $(seq 1 60); do
-        if tctl --address "${TEMPORAL_ADDRESS}" cluster health >/dev/null 2>&1; then
-          echo "[temporal-ready] Temporal is healthy. Exiting gate."; exit 0
-        fi
-        sleep 3
-      done
-      echo "ERROR: Temporal not healthy after 180s." >&2
-      exit 1
     restart: "no"
-    stop_signal: SIGINT
-    stop_grace_period: 2s
+    command:
+      - sh
+      - -lc
+      - |
+        set -eu
+        echo "[temporal-ready] Waiting for Temporal at $$TEMPORAL_ADDRESS ..."
+        for i in $$(seq 1 120); do
+          if tctl --address "$$TEMPORAL_ADDRESS" cluster health >/dev/null 2>&1; then
+            echo "[temporal-ready] SERVING (pass)"; exit 0
+          fi
+          echo "[temporal-ready] attempt=$$i waiting 1s..."
+          sleep 1
+        done
+        echo "[temporal-ready] Timeout waiting for Temporal (fail)"; exit 1
 
+  # keep a shell for manual tctl; no healthcheck, no confusion
   admin-tools:
     image: temporalio/admin-tools:latest
     depends_on:
@@ -78,6 +77,7 @@ services:
     ports:
       - "8080:8080"
 
+  # Optional: run the Python worker inside compose for local dev.
   sitegen-worker:
     image: python:3.12-slim
     container_name: sitegen-worker

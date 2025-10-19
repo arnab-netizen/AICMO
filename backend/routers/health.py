@@ -16,9 +16,3 @@ def readiness(response: Response):
         return {"status": "ready"}
     response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     return {"status": "not_ready", "reason": "db_unreachable"}
-
-
-@router.head("/health/ready")
-def readiness_head():
-    # Fast path for HEAD probes: return 200 or 503 with no body
-    return Response(status_code=200 if ping_db() else status.HTTP_503_SERVICE_UNAVAILABLE)

@@ -9,10 +9,7 @@ from temporalio import activity
 @activity.defn
 async def sitearchitect_generate(site_id: str) -> Dict[str, Any]:
     activity.logger.info("SiteArchitect.generate for %s", site_id)
-    return {
-        "sections": ["HeroSplit", "FeaturesGrid", "CTA"],
-        "tokens": {"brand": "Default"},
-    }
+    return {"sections": ["HeroSplit", "FeaturesGrid", "CTA"], "tokens": {"brand": "Default"}}
 
 
 @activity.defn

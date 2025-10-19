@@ -52,10 +52,7 @@ async def get_site(site_id: int, session: AsyncSession = Depends(get_session)):
 # Update site
 @app.put("/sites/{site_id}")
 async def update_site(
-    site_id: int,
-    slug: str = None,
-    name: str = None,
-    session: AsyncSession = Depends(get_session),
+    site_id: int, slug: str = None, name: str = None, session: AsyncSession = Depends(get_session)
 ):
     site = await session.get(Site, site_id)
     if not site:
