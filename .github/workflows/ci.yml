@@ -102,7 +102,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       pg:
-        image: ankane/pgvector:0.7.3
+        image: ankane/pgvector:0.7.2
         ports: ['5432:5432']
         env:
           POSTGRES_USER: postgres
