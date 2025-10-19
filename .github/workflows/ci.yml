@@ -102,21 +102,18 @@ jobs:
     runs-on: ubuntu-latest
     services:
       pg:
-        image: ankane/pgvector:latest
+        image: ankane/pgvector:0.7.3
+        ports: ['5432:5432']
         env:
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
+          POSTGRES_DB: app
 
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       # pip cache (optional but recommended)
       - uses: actions/cache@v4
@@ -129,6 +126,8 @@ jobs:
         run: |
           python -m pip install -U pip
           pip install -r backend/requirements.txt
+          # Dev-only tools used by CI (mypy, ruff, black)
+          if [ -f backend/requirements-dev.txt ]; then pip install -r backend/requirements-dev.txt; fi
           pip install pytest pytest-asyncio httpx alembic prometheus-client
 
       - name: Install psql client
@@ -140,18 +139,32 @@ jobs:
             sudo apt-get install -y postgresql-client
           fi
 
+      - name: Set env
+        run: |
+          echo "DB_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/app" >> $GITHUB_ENV
+          # Keep both names to satisfy any step that checks one or the other
+          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app" >> $GITHUB_ENV
+
       - name: Wait for Postgres
         run: |
           for i in {1..30}; do
-            if psql "postgresql://postgres:postgres@127.0.0.1:5432/postgres" -c "SELECT 1" >/dev/null 2>&1; then
+            if psql "$DATABASE_URL" -c "SELECT 1" >/dev/null 2>&1; then
               echo "Postgres is ready"; break
             fi
             echo "Waiting for Postgres... ($i)"; sleep 2
           done
 
+      - name: Ensure pgvector extension
+        run: |
+          psql "$DATABASE_URL" -U postgres -h localhost -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+      - name: Check pgvector is installed
+        run: |
+          psql "$DATABASE_URL" -U postgres -h localhost -c "SELECT extname, extversion FROM pg_extension WHERE extname='vector';"
+
       - name: Prepare DB (Alembic migrate + seed)
         env:
-          DB_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+          DB_URL: ${{ env.DB_URL }}
           ALEMBIC_CONFIG: backend/alembic.ini
         run: |
           alembic -c "$ALEMBIC_CONFIG" upgrade head
@@ -171,10 +184,7 @@ jobs:
           pytest -q backend/tests/test_taste_endpoints_integration.py
           pytest -q backend/tests/test_taste_metrics.py
           pytest -q backend/tests/test_taste_similarity_deterministic.py
-      - name: Ensure pgvector extension
-        if: ${{ env.DATABASE_URL != '' }}
-        run: |
-          psql "$DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS vector;" || true
+      # (already ensured before migrations)
 
       - name: Pre-import coverage fanout
         run: python -c "import backend.cov_unit_targets"

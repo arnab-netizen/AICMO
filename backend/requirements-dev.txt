@@ -1,0 +1,10 @@
+# Dev-only Python tooling
+mypy
+types-requests
+types-PyYAML
+types-setuptools
+
+# Formatting / linting used in CI (optional here)
+ruff
+black
+
