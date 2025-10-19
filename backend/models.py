@@ -25,6 +25,8 @@ class Asset(Base):
     __tablename__ = "assets"
 
     id = Column(Integer, primary_key=True, index=True)
+    # human-readable name
+    name = Column(Text, nullable=True)
 
     # Taste-awareness fields
     taste_score = Column(Numeric(3, 1), nullable=True)

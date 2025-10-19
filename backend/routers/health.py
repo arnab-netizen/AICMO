@@ -21,14 +21,18 @@ def readiness(response: Response):
 
 
 @router.get("/health/db")
-def db_health():
+def db_health(response: Response):
     try:
         eng = get_engine()
     except Exception:
+        # Could not obtain engine -> server error
+        response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return {"ok": False}
     try:
         with eng.begin() as cx:
             cx.execute(text("SELECT 1"))
         return {"ok": True}
     except Exception:
+        # DB operation failed; mark as service unavailable
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return {"ok": False}

@@ -171,3 +171,21 @@ jobs:
           pytest -q backend/tests/test_taste_endpoints_integration.py
           pytest -q backend/tests/test_taste_metrics.py
           pytest -q backend/tests/test_taste_similarity_deterministic.py
+      - name: Run unit subset w/ coverage gate (≥85%)
+        run: |
+          python -m pytest \
+            backend/tests/test_health_endpoints.py \
+            backend/tests/test_db_sqlite.py \
+            backend/tests/test_models_asset.py \
+            backend/tests/test_taste_service_unit.py \
+            --maxfail=1 -q \
+            --cov=backend --cov-report=term-missing --cov-fail-under=85
+      - name: Coverage (backend only)
+        run: |
+          pytest -q --maxfail=1 --disable-warnings --cov=backend --cov-report=term-missing --cov-fail-under=35
+      - name: Upload coverage HTML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: htmlcov/
