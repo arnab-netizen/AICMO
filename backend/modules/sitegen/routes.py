@@ -1,5 +1,5 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from capsule_core.run import RunRequest, RunResponse, StatusResponse
 from capsule_core.metrics import get_registry
 from capsule_core.logging import get_logger
@@ -18,12 +18,13 @@ def require_api_key(x_api_key: str | None = Header(default=None)):
 
 
 @router.post("/run", response_model=RunResponse, dependencies=[Depends(require_api_key)])
-async def run_job(req: RunRequest) -> RunResponse:
+async def run_job(req: RunRequest, response: Response) -> RunResponse:
     mreg.counter("requests_total", route="run").inc()
     tid = STORE.enqueue(req.payload)
     # simulate immediate start + a trivial “result”
     STORE.start(tid)
     STORE.complete(tid, result={"ok": True, "tier": settings.MODULE_TIER}, score=1.0)
+    response.headers["X-Tier"] = settings.MODULE_TIER
     log.info("sitegen_run_accepted", task_id=tid, project_id=req.project_id)
     return RunResponse(task_id=tid, accepted=True)
 
@@ -49,3 +50,8 @@ async def metrics():
     # For now, return a small JSON metrics view (Prometheus integration can follow).
     # Expose total request/feedback counters presence as a quick liveness check.
     return {"module": settings.MODULE_NAME, "tier": settings.MODULE_TIER}
+
+
+@router.get("/healthz")
+async def healthz():
+    return {"ok": True}

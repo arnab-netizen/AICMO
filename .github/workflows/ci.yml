@@ -50,8 +50,19 @@ jobs:
         run: make minimal-test
 
       - name: Run SiteGen tests
+        env:
+          SITEGEN_API_KEY: "" # default empty (no auth path)
         run: |
-          PYTHONPATH=. pytest -q backend/tests/test_sitegen_contract.py backend/tests/test_sitegen_auth.py
+          PYTHONPATH=. pytest -q \
+            backend/tests/test_sitegen_contract.py \
+            backend/tests/test_sitegen_auth.py \
+            backend/tests/test_sitegen_health.py
+
+      - name: Run SiteGen auth (key required)
+        env:
+          SITEGEN_API_KEY: "ci-secret"
+        run: |
+          PYTHONPATH=. pytest -q backend/tests/test_sitegen_auth.py::test_run_requires_api_key_when_set
 
   # unit-full:
   #   runs-on: ubuntu-latest
