@@ -171,6 +171,14 @@ jobs:
           pytest -q backend/tests/test_taste_endpoints_integration.py
           pytest -q backend/tests/test_taste_metrics.py
           pytest -q backend/tests/test_taste_similarity_deterministic.py
+      - name: Ensure pgvector extension
+        if: ${{ env.DATABASE_URL != '' }}
+        run: |
+          psql "$DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS vector;" || true
+
+      - name: Pre-import coverage fanout
+        run: python -c "import backend.cov_unit_targets"
+
       - name: Run unit subset w/ coverage gate (≥85%)
         run: |
           python -m pytest \
@@ -178,11 +186,11 @@ jobs:
             backend/tests/test_db_sqlite.py \
             backend/tests/test_models_asset.py \
             backend/tests/test_taste_service_unit.py \
+            backend/tests/test_db_exec_sql_helper.py \
+            backend/tests/test_health_db_errors.py \
+            backend/tests/test_taste_service_extra.py \
             --maxfail=1 -q \
-            --cov=backend.routers.health \
-            --cov=backend.db \
-            --cov=backend.models \
-            --cov=backend.modules.taste.service \
+            --cov=backend.cov_unit_targets \
             --cov-report=term-missing \
             --cov-fail-under=85
       - name: Coverage (backend only)
