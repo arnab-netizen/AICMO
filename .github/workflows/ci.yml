@@ -49,6 +49,10 @@ jobs:
       - name: Run minimal tests
         run: make minimal-test
 
+      - name: Run SiteGen tests
+        run: |
+          PYTHONPATH=. pytest -q backend/tests/test_sitegen_contract.py backend/tests/test_sitegen_auth.py
+
   # unit-full:
   #   runs-on: ubuntu-latest
   #   needs: unit-minimal

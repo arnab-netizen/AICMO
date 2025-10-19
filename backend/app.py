@@ -5,6 +5,7 @@ from backend.core.config import settings
 from backend.db import ping_db
 from backend.routers.health import router as health_router
 from backend.routers.test import router as test_router
+from backend.modules.sitegen.routes import router as sitegen_router
 
 log = logging.getLogger("uvicorn.error")
 
@@ -13,6 +14,7 @@ app = FastAPI(title=settings.APP_NAME)
 # Include routers
 app.include_router(health_router, tags=["health"])
 app.include_router(test_router, tags=["test"])
+app.include_router(sitegen_router, prefix="/sitegen", tags=["sitegen"])
 
 
 @app.on_event("startup")
