@@ -23,5 +23,9 @@ e2e-test: up-temporal
 test:
 	pytest -q
 
+.PHONY: core-dev core-test
+core-dev: ; pip install -e ./capsule-core
+core-test: ; pytest -q capsule-core/tests
+
 seed:
 	docker exec -i pg psql -U appuser -d appdb < backend/sql/seed_demo.sql

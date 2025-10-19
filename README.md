@@ -44,3 +44,13 @@ or explicitly:
 export PYTHONPATH=$PWD
 pytest -q backend/tests
 ```
+
+## Dev setup
+
+Quick steps for getting a local dev environment ready:
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt  # includes -e ./capsule-core
+pytest -q
+```
