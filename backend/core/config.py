@@ -9,7 +9,7 @@ class Settings:
     """
 
     APP_NAME: str = os.getenv("APP_NAME", "AICMO API")
-    DB_URL: str = os.getenv("DB_URL", "postgresql+psycopg://app:app@localhost:5432/appdb")
+    DB_URL: str = os.getenv("DB_URL") or os.getenv("DATABASE_URL") or "sqlite+pysqlite:///:memory:"
     DB_CONNECT_TIMEOUT: int = int(os.getenv("DB_CONNECT_TIMEOUT", "2"))
     DB_STARTUP_RETRY_SECS: int = int(os.getenv("DB_STARTUP_RETRY_SECS", "20"))
 

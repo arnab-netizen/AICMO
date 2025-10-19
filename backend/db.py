@@ -51,6 +51,15 @@ def ping_db() -> bool:
         return False
 
 
+def get_engine():
+    """Return the SQLAlchemy ENGINE if available, else raise a RuntimeError."""
+    if ENGINE is None:
+        raise RuntimeError(
+            "Engine not initialized; set DATABASE_URL and ensure DB driver is installed"
+        )
+    return ENGINE
+
+
 @contextmanager
 def get_session():
     if SessionLocal is None:
@@ -66,3 +75,16 @@ def get_session():
         raise
     finally:
         s.close()
+
+
+def get_db():
+    """FastAPI dependency: yields a DB session (SQLAlchemy Session) for request handlers."""
+    if SessionLocal is None:
+        raise RuntimeError(
+            "Database session unavailable: DB driver not installed or ENGINE not initialized"
+        )
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
