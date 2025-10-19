@@ -36,6 +36,12 @@ jobs:
           if [ -f workers/requirements.txt ]; then pip install -r workers/requirements.txt; fi
           pip install pytest
 
+      - name: Guard against legacy core imports
+        run: |
+          # Fail if any in-tree legacy `core.*` imports exist (allow edits to capsule-core)
+          ! grep -RInE "\b(from|import)\s+core\.(run|metrics|utils)\b" \
+            --exclude-dir=.venv --exclude-dir=node_modules --exclude-dir=capsule-core .
+
       - name: Run minimal tests
         run: make minimal-test
 
