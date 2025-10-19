@@ -1,13 +1,9 @@
-"""Back-compat shim for DB utilities.
+"""Legacy module preserved as db_mod.py after package migration.
 
-Prefer importing from the package submodules:
-
-    from backend.db.base import Base
-    from backend.db.session import get_session, engine
-
-This module re-exports those symbols so legacy imports continue to work
-while you migrate. It emits a DeprecationWarning to encourage moving to
-`backend.db.session` / `backend.db.base`.
+This file is a copy of the previous top-level `backend/db.py` shim. It's
+kept only for archival purposes and to make it explicit that the canonical
+API is now provided by the `backend.db` package. Do not import this file
+from application code; import from `backend.db` instead.
 """
 
 from __future__ import annotations

@@ -7,7 +7,10 @@ from backend.models import Base, Asset  # assumes Base is exported
 def test_asset_orm_roundtrip(tmp_path, monkeypatch):
     monkeypatch.setenv("DB_URL", f"sqlite+pysqlite:///{tmp_path/'t.db'}")
     eng = sa.create_engine(os.environ["DB_URL"])
-    Base.metadata.create_all(eng)
+    # Create only the Asset table to avoid collisions with other models' indexes
+    from backend.models import Asset as _Asset
+
+    Base.metadata.create_all(eng, tables=[_Asset.__table__])
 
     with Session(eng) as s:
         a = Asset(

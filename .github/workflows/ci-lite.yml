@@ -1,0 +1,29 @@
+name: ci-lite
+
+on: [push, pull_request]
+
+jobs:
+  fast-sqlite:
+    name: fast-sqlite (ci-lite) - quick sqlite + ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deps
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install --upgrade pip
+          if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+          pip install pytest
+      - name: Clear caches
+        run: find backend -name '__pycache__' -type d -exec rm -rf {} +
+      - name: Install mypy and ruff (typing/format guard)
+        run: . .venv/bin/activate && python -m pip install mypy ruff
+      - name: Run ruff/mypy quick checks
+        run: |
+          . .venv/bin/activate && ruff format --check backend && ruff check backend
+      - name: Run quick sqlite tests
+        run: . .venv/bin/activate && pytest -q backend/tests/test_db_sqlite.py backend/tests/test_db_utils.py -q

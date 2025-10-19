@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple, Dict, Any
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -36,7 +36,7 @@ def record_taste(session: Session, rec: TasteRecord) -> Asset:
         asset.brand_alignment = rec.brand_alignment
     if rec.embedding is not None:
         # pgvector accepts a Python list[float]
-        asset.embedding = list(rec.embedding)  # type: ignore[assignment]
+        asset.embedding = list(rec.embedding)
 
     session.add(asset)
     session.commit()
@@ -49,7 +49,7 @@ def similar_assets(
     query_embedding: Sequence[float],
     top_k: int = 10,
     min_taste: Optional[float] = None,
-) -> List[Tuple[Asset, float]]:
+) -> List[Tuple[Dict[str, Any], float]]:
     if not query_embedding:
         raise ValueError("query_embedding is empty")
 
@@ -87,7 +87,7 @@ def similar_assets(
         item = {
             "id": int(r["id"]),
             "name": r.get("name"),
-            "taste_score": float(r["taste_score"]) if r.get("taste_score") is not None else None,
+            "taste_score": (float(r["taste_score"]) if r.get("taste_score") is not None else None),
             "brand_alignment": (
                 float(r["brand_alignment"]) if r.get("brand_alignment") is not None else None
             ),
