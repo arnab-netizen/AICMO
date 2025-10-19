@@ -45,4 +45,3 @@ class InMemoryStore:
 
 
 STORE = InMemoryStore()
-STORE = InMemoryStore()
