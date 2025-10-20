@@ -206,6 +206,31 @@ jobs:
           done
           echo "Local PG not ready"; exit 1
 
+      - name: Print effective DB URL (before upgrade)
+        env:
+          DATABASE_URL: ${{ steps.pickdb.outputs.db_url }}
+        run: |
+          python - <<'PY'
+          import os, re
+          url = os.environ.get('DATABASE_URL') or os.environ.get('SQLALCHEMY_URL','')
+          redacted = re.sub(r':\/\/([^:@]+):[^@]+@', r'://\1:***@', url)
+          print('Effective DB URL:', redacted)
+          PY
+
+      - name: Ensure vector extension (best-effort)
+        env:
+          DATABASE_URL: ${{ steps.pickdb.outputs.db_url }}
+        run: |
+          # psql wants a libpq-style URL; strip any +driver suffix from the scheme
+          PSQL_URL=$(python - <<'PY'
+          import os, re
+          u = os.environ.get('DATABASE_URL','')
+          u = re.sub(r'^(postgresql)(?:\+[^:]+)?://', r'postgresql://', u)
+          print(u)
+          PY
+          )
+          echo "Trying to create vector extension on: ${PSQL_URL//:*@/:***@}"
+          psql "$PSQL_URL" -c 'CREATE EXTENSION IF NOT EXISTS vector;' || true
       - name: Upgrade to head on Postgres
         env:
           PYTHONPATH: ${{ github.workspace }}
@@ -213,6 +238,17 @@ jobs:
           DATABASE_URL: ${{ steps.pickdb.outputs.db_url }}
         run: |
           alembic -c "$ALEMBIC_CONFIG" upgrade head
+
+      - name: Print effective DB URL (before autogenerate)
+        env:
+          SQLALCHEMY_URL: ${{ steps.pickdb.outputs.db_url }}
+        run: |
+          python - <<'PY'
+          import os, re
+          url = os.environ.get('DATABASE_URL') or os.environ.get('SQLALCHEMY_URL','')
+          redacted = re.sub(r':\/\/([^:@]+):[^@]+@', r'://\1:***@', url)
+          print('Effective DB URL for autogenerate:', redacted)
+          PY
 
       - name: Autogenerate & detect drift (PG)
         env:
