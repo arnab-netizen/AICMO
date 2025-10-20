@@ -221,7 +221,7 @@ jobs:
           SQLALCHEMY_URL: ${{ steps.pickdb.outputs.db_url }}
         run: |
           python - <<'PY'
-          import pathlib, shutil, tempfile, sys
+          import pathlib, shutil, tempfile, sys, os
           from alembic.config import Config
           from alembic import command
 
@@ -229,7 +229,15 @@ jobs:
           tmp = pathlib.Path(tempfile.mkdtemp(prefix="alembic_drift_pg_"))
           outdir = pathlib.Path(".alembic_autogen/drift"); outdir.mkdir(parents=True, exist_ok=True)
           try:
+              # Copy existing alembic env (env.py and helpers) into the temp
+              # script_location so alembic can import env.py when autogenerating.
+              import shutil
+              shutil.copytree("backend/alembic", str(tmp), dirs_exist_ok=True)
+              (tmp / "versions").mkdir(parents=True, exist_ok=True)
+
               cfg.set_main_option("script_location", str(tmp))
+              # Ensure alembic env picks up the DB URL override when env.py runs
+              cfg.set_main_option("sqlalchemy.url", os.environ.get('SQLALCHEMY_URL',''))
               command.revision(cfg, message="DRIFT_PROBE", autogenerate=True)
               vers = tmp / "versions"
               files = sorted(vers.glob("*.py")) if vers.exists() else []
