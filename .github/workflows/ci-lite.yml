@@ -128,6 +128,20 @@ jobs:
     # Label-gated: only run when PR has label 'run-drift-check-pg'
     if: >
       contains(join(fromJson(toJson(github.event.pull_request.labels)).*.name, ','), 'run-drift-check-pg')
+    services:
+      postgres:
+        # fall back to an image with pgvector preinstalled when the secret DB
+        # is not provided or is unreachable. This image is only pulled for
+        # label-gated runs (keeps most PRs lightweight).
+        image: ankane/pgvector:latest
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 2s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -146,50 +160,81 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
           ALEMBIC_CONFIG: backend/alembic.ini
+          # Use secret DATABASE_URL when provided; otherwise point at the
+          # job's postgres service. We normalize asyncpg+ URLs to a
+          # psycopg2-compatible DSN when needed in other steps.
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          # no-op (avoid attempting to dot-source a binary which fails on the runner)
-          true
-          # run alembic online against the provided Postgres DATABASE_URL
+          # choose fallback if secret not provided
+          if [ -z "$DATABASE_URL" ]; then
+            echo "No secrets.DATABASE_URL provided — using local postgres service"
+            export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres"
+          else
+            echo "Using provided DATABASE_URL secret"
+          fi
+
+          # wait for DB readiness (local service or remote) before alembic
+          python - <<'PY'
+          import os, time, sqlalchemy as sa
+          url=os.environ.get('DATABASE_URL','').replace('+asyncpg','+psycopg2')
+          for i in range(30):
+              try:
+                  sa.create_engine(url).connect().close()
+                  print('DB ready')
+                  break
+              except Exception as e:
+                  print('waiting for DB...', e)
+                  time.sleep(2)
+          else:
+              raise SystemExit('DB not ready')
+          PY
+
+          # run alembic online against the chosen DATABASE_URL
           ALEMBIC_CONFIG=backend/alembic.ini PYTHONPATH="${{ github.workspace }}" DATABASE_URL="$DATABASE_URL" alembic -c "$ALEMBIC_CONFIG" upgrade head
 
       - name: Autogenerate & detect drift
-        env:
-          ALEMBIC_CONFIG: backend/alembic.ini
-          SQLALCHEMY_URL: ${{ secrets.DATABASE_URL }}
-          PYTHONPATH: ${{ github.workspace }}
+    env:
+      ALEMBIC_CONFIG: backend/alembic.ini
+      SQLALCHEMY_URL: ${{ secrets.DATABASE_URL }}
+      PYTHONPATH: ${{ github.workspace }}
         run: |
-          python - <<'PY'
-          import pathlib, shutil, tempfile, sys, os
-          from alembic.config import Config
-          from alembic import command
+      python - <<'PY'
+      import pathlib, shutil, tempfile, sys, os
+      from alembic.config import Config
+      from alembic import command
 
-          cfg = Config("backend/alembic.ini")
-          tmp = pathlib.Path(tempfile.mkdtemp(prefix="alembic_drift_pg_"))
-          try:
-              cfg.set_main_option("script_location", str(tmp))
-              # Ensure alembic uses the TEST Postgres DB via SQLALCHEMY_URL override in env
-              rev = command.revision(cfg, message="DRIFT_PROBE_PG", autogenerate=True)
-              vers = tmp / "versions"
-              files = sorted(vers.glob("*.py")) if vers.exists() else []
-              if not files:
-                  print("No revision file created → no drift.")
-                  sys.exit(0)
-              code = files[0].read_text().lower()
-              tokens = (
-                  "op.create_table","op.alter_column","op.drop_table",
-                  "op.add_column","op.drop_column","op.create_index","op.drop_index"
-              )
-              outdir = pathlib.Path(".alembic_autogen/drift"); outdir.mkdir(parents=True, exist_ok=True)
-              out = outdir / files[0].name
-              out.write_text(code)
-              if any(t in code for t in tokens):
-                  print(f"Schema drift detected → see {out}")
-                  sys.exit(1)
-              print("Autogenerate produced a trivial/no-op file → no drift.")
-          finally:
-              shutil.rmtree(tmp, ignore_errors=True)
-          PY
+      # Choose SQLALCHEMY_URL from env or local service
+      url = os.environ.get('SQLALCHEMY_URL')
+      if not url:
+        url = os.environ.get('DATABASE_URL') or 'postgresql://postgres:postgres@localhost:5432/postgres'
+      os.environ['SQLALCHEMY_URL'] = url
+
+      cfg = Config("backend/alembic.ini")
+      tmp = pathlib.Path(tempfile.mkdtemp(prefix="alembic_drift_pg_"))
+      try:
+        cfg.set_main_option("script_location", str(tmp))
+        # Ensure alembic uses the TEST Postgres DB via SQLALCHEMY_URL override in env
+        rev = command.revision(cfg, message="DRIFT_PROBE_PG", autogenerate=True)
+        vers = tmp / "versions"
+        files = sorted(vers.glob("*.py")) if vers.exists() else []
+        if not files:
+          print("No revision file created → no drift.")
+          sys.exit(0)
+        code = files[0].read_text().lower()
+        tokens = (
+          "op.create_table","op.alter_column","op.drop_table",
+          "op.add_column","op.drop_column","op.create_index","op.drop_index"
+        )
+        outdir = pathlib.Path(".alembic_autogen/drift"); outdir.mkdir(parents=True, exist_ok=True)
+        out = outdir / files[0].name
+        out.write_text(code)
+        if any(t in code for t in tokens):
+          print(f"Schema drift detected → see {out}")
+          sys.exit(1)
+        print("Autogenerate produced a trivial/no-op file → no drift.")
+      finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+      PY
 
       - name: Upload drift artifact (PG)
         if: always()
