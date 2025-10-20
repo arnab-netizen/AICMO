@@ -78,10 +78,17 @@ def run_migrations_online():
     if context.get_x_argument(as_dictionary=True).get("offline") == "1":
         return run_migrations_offline()
 
-    # In online mode we require a Postgres URL (swap async to psycopg2 if needed)
+    # In online mode we normally require a Postgres URL (swap async to psycopg2 if needed)
+    # but for CI drift probing we also allow a sqlite temporary DB when explicitly
+    # provided via SQLALCHEMY_URL or DATABASE_URL.
     chosen_url = _sync_url() or os.getenv("DB_URL") or os.getenv("DATABASE_URL")
-    if not chosen_url or not chosen_url.startswith("postgresql"):
+    if not chosen_url:
+        raise RuntimeError("Alembic requires a DATABASE_URL for online migrations.")
+
+    # Allow sqlite for CI drift probe (e.g. sqlite:///.../.alembic_tmp/drift.sqlite)
+    if not (chosen_url.startswith("postgresql") or chosen_url.startswith("sqlite")):
         raise RuntimeError("Alembic requires a Postgres DATABASE_URL for online migrations.")
+
     config.set_main_option("sqlalchemy.url", chosen_url)
 
     connectable = engine_from_config(
