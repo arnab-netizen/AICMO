@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 import sqlalchemy as sa
+from contextlib import contextmanager
 
 
 # Small compatibility Session subclass: accept raw SQL strings in .execute()
@@ -62,6 +63,21 @@ def get_db() -> Generator[Session, None, None]:
         session.close()
 
 
+@contextmanager
+def get_session():
+    """Synchronous contextmanager returning a DB Session usable with `with`.
+
+    Many tests and legacy call-sites expect a `get_session()` that can be used
+    as a context manager (e.g. `with get_session() as s:`). This helper wraps
+    the sessionmaker and ensures the session is closed on exit.
+    """
+    session = _get_session_maker()()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
 # --- Optional async session shim for compatibility --------------------------------
 try:
     from sqlalchemy.ext.asyncio import (
@@ -96,7 +112,7 @@ if create_async_engine is not None and _db_url is not None:
             _ASYNC_SESSION_MAKER = None
 
 
-async def get_session():
+async def get_async_session():
     """Async dependency generator used by FastAPI endpoints that expect AsyncSession.
 
     This is a best-effort shim: it will be available when async SQLAlchemy support
