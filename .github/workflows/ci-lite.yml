@@ -156,87 +156,98 @@ jobs:
           pip install -r backend/requirements.txt
           pip install -e ./capsule-core
 
+      - name: Pick effective DATABASE_URL (reachable-or-local)
+        id: pickdb
+        env:
+          SECRET_DB_URL: ${{ secrets.DATABASE_URL }}
+          LOCAL_URL: postgresql+psycopg://postgres:postgres@localhost:5432/postgres
+        run: |
+          set -e
+          python - <<'PY'
+          import os, sys
+          out = open(os.environ["GITHUB_OUTPUT"], "a")
+          secret = os.environ.get("SECRET_DB_URL","").strip()
+          eff = os.environ.get("LOCAL_URL")
+          def write(url, reason):
+              print(f"Effective DATABASE_URL = {url} ({reason})")
+              out.write(f"db_url={url}\n")
+              out.close()
+              sys.exit(0)
+
+          if not secret:
+              write(eff, "no secret provided")
+
+          url = secret.replace("+asyncpg", "+psycopg").replace("+psycopg2", "+psycopg")
+          if "supabase.co" in url and "sslmode=" not in url:
+              sep = "&" if "?" in url else "?"
+              url = f"{url}{sep}sslmode=require"
+
+          print("Probing secret DATABASE_URL reachability...")
+          try:
+              import psycopg
+              with psycopg.connect(url, connect_timeout=4) as conn:
+                  with conn.cursor() as cur:
+                      cur.execute("SELECT 1")
+              write(url, "secret reachable")
+          except Exception as e:
+              print(f"Secret DB unreachable: {e!r}")
+              write(eff, "fallback to local service")
+          PY
+
+      - name: Wait for local Postgres
+        if: contains(steps.pickdb.outputs.db_url, 'localhost')
+        run: |
+          for i in $(seq 1 60); do
+            if pg_isready -h localhost -p 5432 -U postgres; then
+              echo "Local PG ready"; exit 0
+            fi
+            echo "Waiting for local PG..."
+            sleep 2
+          done
+          echo "Local PG not ready"; exit 1
+
       - name: Upgrade to head on Postgres
         env:
           PYTHONPATH: ${{ github.workspace }}
           ALEMBIC_CONFIG: backend/alembic.ini
-          # Use secret DATABASE_URL when provided; otherwise point at the
-          # job's postgres service. We normalize asyncpg+ URLs to a
-          # psycopg2-compatible DSN when needed in other steps.
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ steps.pickdb.outputs.db_url }}
         run: |
-          # choose fallback if secret not provided
-          if [ -z "$DATABASE_URL" ]; then
-            echo "No secrets.DATABASE_URL provided — using local postgres service"
-            export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres"
-          else
-            echo "Using provided DATABASE_URL secret"
-          fi
+          alembic -c "$ALEMBIC_CONFIG" upgrade head
 
-          # wait for DB readiness (local service or remote) before alembic
-          python - <<'PY'
-          import os, time, sqlalchemy as sa
-          url=os.environ.get('DATABASE_URL','').replace('+asyncpg','+psycopg2')
-          for i in range(30):
-              try:
-                  sa.create_engine(url).connect().close()
-                  print('DB ready')
-                  break
-              except Exception as e:
-                  print('waiting for DB...', e)
-                  time.sleep(2)
-          else:
-              raise SystemExit('DB not ready')
-          PY
-
-          # run alembic online against the chosen DATABASE_URL
-          ALEMBIC_CONFIG=backend/alembic.ini PYTHONPATH="${{ github.workspace }}" DATABASE_URL="$DATABASE_URL" alembic -c "$ALEMBIC_CONFIG" upgrade head
-
-      - name: Autogenerate & detect drift
+      - name: Autogenerate & detect drift (PG)
         env:
-          ALEMBIC_CONFIG: backend/alembic.ini
-          SQLALCHEMY_URL: ${{ secrets.DATABASE_URL }}
           PYTHONPATH: ${{ github.workspace }}
+          ALEMBIC_CONFIG: backend/alembic.ini
+          SQLALCHEMY_URL: ${{ steps.pickdb.outputs.db_url }}
         run: |
           python - <<'PY'
-          import pathlib, shutil, tempfile, sys, os
+          import pathlib, shutil, tempfile, sys
           from alembic.config import Config
           from alembic import command
 
-          # Choose SQLALCHEMY_URL from env or local service
-          url = os.environ.get('SQLALCHEMY_URL')
-          if not url:
-              url = os.environ.get('DATABASE_URL') or 'postgresql://postgres:postgres@localhost:5432/postgres'
-          os.environ['SQLALCHEMY_URL'] = url
-
           cfg = Config("backend/alembic.ini")
           tmp = pathlib.Path(tempfile.mkdtemp(prefix="alembic_drift_pg_"))
+          outdir = pathlib.Path(".alembic_autogen/drift"); outdir.mkdir(parents=True, exist_ok=True)
           try:
               cfg.set_main_option("script_location", str(tmp))
-              # Ensure alembic uses the TEST Postgres DB via SQLALCHEMY_URL override in env
-              rev = command.revision(cfg, message="DRIFT_PROBE_PG", autogenerate=True)
+              command.revision(cfg, message="DRIFT_PROBE", autogenerate=True)
               vers = tmp / "versions"
               files = sorted(vers.glob("*.py")) if vers.exists() else []
               if not files:
-                  print("No revision file created → no drift.")
-                  sys.exit(0)
-              code = files[0].read_text().lower()
-              tokens = (
-                  "op.create_table","op.alter_column","op.drop_table",
-                  "op.add_column","op.drop_column","op.create_index","op.drop_index"
-              )
-              outdir = pathlib.Path(".alembic_autogen/drift"); outdir.mkdir(parents=True, exist_ok=True)
-              out = outdir / files[0].name
-              out.write_text(code)
-              if any(t in code for t in tokens):
-                  print(f"Schema drift detected → see {out}")
-                  sys.exit(1)
+                  print("No revision file created → no drift."); sys.exit(0)
+              code = files[0].read_text()
+              out = outdir / files[0].name; out.write_text(code)
+              low = code.lower()
+              tokens = ("op.create_table","op.alter_column","op.drop_table",
+                        "op.add_column","op.drop_column","op.create_index","op.drop_index")
+              if any(t in low for t in tokens):
+                  print(f"Schema drift detected → see {out}"); sys.exit(1)
               print("Autogenerate produced a trivial/no-op file → no drift.")
           finally:
               shutil.rmtree(tmp, ignore_errors=True)
           PY
 
-      - name: Upload drift artifact (PG)
+      - name: Upload PG drift artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
