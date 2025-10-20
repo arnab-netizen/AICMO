@@ -1,8 +1,9 @@
 import os
 from logging.config import fileConfig
-
 from sqlalchemy import engine_from_config, pool
 from alembic import context
+
+from backend.db.base import Base  # your metadata
 
 config = context.config
 try:
@@ -11,12 +12,6 @@ try:
     fileConfig(config.config_file_name)
 except Exception:
     pass
-
-# Read DB URL from DB_URL or DATABASE_URL env vars (fallback to sqlite memory)
-# We do not set the sqlalchemy.url here immediately — instead we prefer to
-# derive a sync URL (if the app uses an async driver) and set the final value
-# after _sync_url() is able to inspect environment/config.
-db_url = os.getenv("DB_URL") or os.getenv("DATABASE_URL") or "sqlite+pysqlite:///:memory:"
 
 
 def _sync_url() -> str | None:
@@ -29,21 +24,13 @@ def _sync_url() -> str | None:
     url = os.getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
     if not url:
         return None
-    # Swap asyncpg to a sync driver suitable for Alembic migrations. We choose
-    # psycopg2-binary here; if you prefer psycopg v3, replace with '+psycopg'.
     if "+asyncpg" in url:
         return url.replace("+asyncpg", "+psycopg2")
     return url
 
 
-# Note: we intentionally defer setting config.sqlalchemy.url until runtime.
-# Online and offline migration paths have different requirements: online
-# migrations need a live Postgres URL (we guard that), while offline
-# (--sql) rendering should be allowed without a live DB.
-
-
-# If you have target metadata (models) you can set it here. We don't rely on it for raw SQL migrations.
-target_metadata = None
+# Use model metadata so autogenerate can compare types/defaults
+target_metadata = Base.metadata
 
 
 def run_migrations_offline():
@@ -53,16 +40,27 @@ def run_migrations_offline():
     url = _sync_url() or config.get_main_option("sqlalchemy.url") or ""
     context.configure(
         url=url or "postgresql+psycopg2://",
+        target_metadata=target_metadata,
         literal_binds=True,
         compare_type=True,
+        compare_server_default=True,
+        include_schemas=True,
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
 def run_migrations_online():
+    # NEW: force offline if env asks for it
+    if os.getenv("ALEMBIC_OFFLINE") == "1":
+        return run_migrations_offline()
+
+    # Respect -x offline=1 to force offline path (keeps compatibility)
+    if context.get_x_argument(as_dictionary=True).get("offline") == "1":
+        return run_migrations_offline()
+
     # In online mode we require a Postgres URL (swap async to psycopg2 if needed)
-    chosen_url = _sync_url() or db_url
+    chosen_url = _sync_url() or os.getenv("DB_URL") or os.getenv("DATABASE_URL")
     if not chosen_url or not chosen_url.startswith("postgresql"):
         raise RuntimeError("Alembic requires a Postgres DATABASE_URL for online migrations.")
     config.set_main_option("sqlalchemy.url", chosen_url)
@@ -73,12 +71,18 @@ def run_migrations_online():
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            compare_server_default=True,
+            include_schemas=True,
+        )
         with context.begin_transaction():
             context.run_migrations()
 
 
-if context.is_offline_mode():
+if context.is_offline_mode() or os.getenv("ALEMBIC_OFFLINE") == "1":
     run_migrations_offline()
 else:
     run_migrations_online()

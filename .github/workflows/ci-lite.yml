@@ -1,6 +1,19 @@
 name: ci-lite
 
-on: [push, pull_request]
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-lite-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  schedule:
+    - cron: '15 3 * * 1' # Mondays 03:15 UTC
+  workflow_dispatch:
 
 jobs:
   fast-sqlite:
@@ -11,13 +24,50 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install deps
+      - name: Install backend deps + local capsule-core (editable)
         run: |
           python -m venv .venv
           . .venv/bin/activate
-          pip install --upgrade pip
-          if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          if [ ! -d "./capsule-core" ]; then
+            echo "::error ::capsule-core folder missing in repo; cannot import capsule_core"
+            exit 1
+          fi
+          pip install -e ./capsule-core
           pip install pytest
+
+      - name: Verify capsule_core import
+        run: |
+          . .venv/bin/activate
+          python - <<'PY'
+import importlib, importlib.util
+spec = importlib.util.find_spec('capsule_core')
+assert spec is not None, 'capsule_core not importable after install'
+print('capsule_core import OK ->', spec.origin)
+PY
+
+      - name: Verify capsule-core version
+        run: |
+          . .venv/bin/activate
+          python - <<'PY'
+from importlib import metadata
+try:
+    ver = metadata.version('capsule-core')
+except metadata.PackageNotFoundError:
+    from capsule_core import __version__ as ver
+print('capsule-core version:', ver)
+req = (0, 1, 1)
+tup = tuple(int(x) for x in ver.split('.', 2)[:3])
+assert tup >= req, f"capsule-core >= {'.'.join(map(str,req))} required; got {ver}"
+PY
+
+      - name: Smoke versions
+        env:
+          SITEGEN_ENABLED: "0"
+        run: |
+          . .venv/bin/activate
+          python -m backend.tools.smoke_versions
       - name: Cache pip
         uses: actions/cache@v4
         with:
@@ -102,29 +152,17 @@ jobs:
           ALEMBIC_CONFIG: backend/alembic.ini
         run: |
           . .venv/bin/activate
-          python -m pip install -r backend/requirements.txt
-          python - <<'PY'
-            import io, sys, os
-            from contextlib import redirect_stdout
-            from alembic.config import Config
-            from alembic import command
-
-            buf = io.StringIO()
-            cfg = Config(os.environ.get('ALEMBIC_CONFIG','backend/alembic.ini'))
-            with redirect_stdout(buf):
-                try:
-                    command.revision(cfg, message='drift-check', autogenerate=True, sql=True)
-                except SystemExit:
-                    pass
-
-            sql = buf.getvalue()
-            danger = ('CREATE TABLE','ALTER TABLE','DROP TABLE','ADD CONSTRAINT','DROP CONSTRAINT')
-            if any(tok in sql for tok in danger):
-                print('Detected potential drift in autogenerate output:\n')
-                print('\n'.join(sql.splitlines()[:120]))
-                sys.exit(1)
-            print('No drift detected.')
-          PY
+          ALEMBIC_CONFIG=backend/alembic.ini ALEMBIC_OFFLINE=1 alembic -c "$ALEMBIC_CONFIG" revision --autogenerate --message drift-check --sql > /tmp/_alembic_drift.sql || true
+          sql=$(cat /tmp/_alembic_drift.sql || true)
+          danger_tokens=("CREATE TABLE" "ALTER TABLE" "DROP TABLE" "ADD CONSTRAINT" "DROP CONSTRAINT" "ADD COLUMN" "DROP COLUMN")
+          for t in "${danger_tokens[@]}"; do
+            if echo "$sql" | grep -q "$t"; then
+              echo "Detected potential drift token: $t"
+              head -n 200 /tmp/_alembic_drift.sql
+              exit 1
+            fi
+          done
+          echo "No drift detected."
 
       - name: Run Alembic migrations (online)
         if: ${{ github.ref == 'refs/heads/main' && contains(env.DATABASE_URL, 'postgresql') }}
@@ -155,33 +193,63 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
 
-      - name: Install deps
+      - name: Install backend deps + local capsule-core (editable)
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
+          if [ ! -d "./capsule-core" ]; then
+            echo "::error ::capsule-core folder missing in repo; cannot import capsule_core"
+            exit 1
+          fi
+          pip install -e ./capsule-core
+
+      - name: Verify capsule_core import
+        run: |
+          python - <<'PY'
+import importlib, importlib.util
+spec = importlib.util.find_spec('capsule_core')
+assert spec is not None, 'capsule_core not importable after install'
+print('capsule_core import OK ->', spec.origin)
+PY
+
+      - name: Verify capsule-core version
+        run: |
+          python - <<'PY'
+from importlib import metadata
+try:
+    ver = metadata.version('capsule-core')
+except metadata.PackageNotFoundError:
+    from capsule_core import __version__ as ver
+print('capsule-core version:', ver)
+req = (0, 1, 1)
+tup = tuple(int(x) for x in ver.split('.', 2)[:3])
+assert tup >= req, f"capsule-core >= {'.'.join(map(str,req))} required; got {ver}"
+PY
 
       - name: Dry-run autogenerate to detect drift
         env:
           ALEMBIC_CONFIG: backend/alembic.ini
         shell: bash
         run: |
+          mkdir -p .alembic_sql/drift
+          ts="$(date -u +'%Y%m%dT%H%M%SZ')"
+          out=".alembic_sql/drift/autogen_${ts}.sql"
+          alembic -c "$ALEMBIC_CONFIG" revision --autogenerate --sql -x offline=1 > "$out" || true
           python - <<'PY'
-            import io, sys
-            from contextlib import redirect_stdout
-            from alembic.config import Config
-            from alembic import command
+import sys, pathlib
+p = sorted(pathlib.Path('.alembic_sql/drift').glob('autogen_*.sql'))[-1]
+sql = p.read_text().upper()
+TOKENS = ("CREATE TABLE","ALTER TABLE","DROP TABLE","ADD COLUMN","DROP COLUMN","CREATE INDEX","DROP INDEX")
+if any(t in sql for t in TOKENS):
+    print(f"Schema drift detected. See {p}")
+    sys.exit(1)
+print('No drift detected.')
+PY
 
-            buf = io.StringIO()
-            cfg = Config('backend/alembic.ini')
-            with redirect_stdout(buf):
-                command.revision(cfg, autogenerate=True, message='DRIFT_PROBE', sql=True)
-            sql = buf.getvalue()
-
-            tokens = ('CREATE TABLE', 'ALTER TABLE', 'DROP TABLE', 'ADD COLUMN', 'DROP COLUMN', 'CREATE INDEX', 'DROP INDEX')
-            drift = any(t in sql.upper() for t in tokens)
-            if drift:
-                print('Schema drift detected:\n---\n', sql[:4000], '\n---\n(failing to prevent silent drift)')
-                sys.exit(1)
-            else:
-                print('No drift detected.')
-          PY
+      - name: Upload drift SQL artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alembic-drift-sql
+          path: .alembic_sql/drift/
+          retention-days: 7

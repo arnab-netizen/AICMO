@@ -5,3 +5,19 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.6.9
     hooks: [{id: ruff, args: ["--fix"]}]
+
+  - repo: local
+    hooks:
+      - id: inventory-check
+        name: Regenerate external inventory
+        entry: bash -c "python scripts/inventory_external_connections.py && git diff --exit-code docs/external-connections.md .env.example"
+        language: system
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: aicmo-smoke
+        name: AICMO smoke (SITEGEN off)
+        entry: bash -lc 'SITEGEN_ENABLED=0 python -m backend.tools.smoke_versions'
+        language: system
+        pass_filenames: false

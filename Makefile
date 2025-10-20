@@ -3,6 +3,7 @@ PORT?=8000
 DB?=$(DATABASE_URL)
 
 .PHONY: setup migrate run smoke test metrics
+.PHONY: dev-install smoke smoke-dev test test-full migrate migrate-online alembic-sql50 alembic-sql-ts drift-sql alembic-heads
 .PHONY: fmt lint type unit-subset dev-install
 
 setup:
@@ -29,7 +30,10 @@ smoke:
 	curl -s http://localhost:$(PORT)/api/visualgen/run -H 'content-type: application/json' -d '{"project_id":"22222222-2222-2222-2222-222222222222","goal":"3 creatives","constraints":{"brand":"Acme","size":"1200x628","count":3}}' | jq .
 
 test:
-	PYTHONPATH=. pytest -q backend/modules/copyhook/tests backend/modules/visualgen/tests backend/tools/tests
+	pytest -q
+
+test-full:
+	pytest --maxfail=1 -q
 
 metrics:
 	curl -s http://localhost:$(PORT)/metrics | grep -E "capsule_runs_total|capsule_runtime_seconds" -n || true
@@ -78,6 +82,15 @@ ui:
 core-dev: ; pip install -e ./capsule-core
 core-test: ; pytest -q capsule-core/tests
 
+.PHONY: dev-install-smoke smoke-dev
+dev-install-smoke:
+	python -m pip install --upgrade pip
+	pip install -r backend/requirements.txt
+	pip install -e ./capsule-core
+
+smoke-dev:
+	SITEGEN_ENABLED=0 python -m backend.tools.smoke_versions
+
 seed:
 	docker exec -i pg psql -U appuser -d appdb < backend/sql/seed_demo.sql
 
@@ -115,19 +128,18 @@ test-taste:
 
 # Use ALEMBIC_CONFIG if set, else default to backend/alembic.ini
 migrate:
-	@[ -n "$$DB_URL" ] || (echo "Set DB_URL before running migrations"; exit 1)
-	@echo "Ensuring pgvector extension..."
-	@psql "$$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS vector;" >/dev/null 2>&1 || true
-	@echo "Running Alembic upgrade..."
-	@alembic -c "$${ALEMBIC_CONFIG:-backend/alembic.ini}" upgrade head
-	@echo "Migrations complete."
+	@mkdir -p .alembic_sql
+	@ALEMBIC_CONFIG=backend/alembic.ini ALEMBIC_OFFLINE=1 alembic upgrade head --sql > .alembic_sql/preview.sql ; echo "Preview at .alembic_sql/preview.sql"
+
+migrate-online:
+	ALEMBIC_CONFIG=backend/alembic.ini alembic upgrade head
 
 migrate-down:
 	@[ -n "$$DB_URL" ] || (echo "Set DB_URL before running migrations"; exit 1)
 	@alembic -c "$${ALEMBIC_CONFIG:-backend/alembic.ini}" downgrade -1
 
 # Convenience targets for Alembic offline/online
-.PHONY: alembic-sql alembic-up
+.PHONY: alembic-sql alembic-up drift-sql
 alembic-sql:
 	ALEMBIC_CONFIG=backend/alembic.ini alembic -c backend/alembic.ini upgrade head --sql | head -n 50
 
@@ -138,9 +150,50 @@ alembic-up:
 alembic-sql50:
 	ALEMBIC_CONFIG=backend/alembic.ini alembic -c backend/alembic.ini upgrade head --sql | head -n 50
 
+alembic-heads:
+	ALEMBIC_CONFIG=backend/alembic.ini alembic heads
+
 alembic-sql-ts:
 	@mkdir -p .alembic_sql
 	@ts="$$(date -u +'%Y%m%dT%H%M%SZ')"; \
 	out=".alembic_sql/upgrade_head_$${ts}.sql"; \
 	ALEMBIC_CONFIG=backend/alembic.ini alembic -c backend/alembic.ini upgrade head --sql > "$$out"; \
 	echo "Rendered $$out"
+
+
+.PHONY: drift-sql
+drift-sql:
+	@mkdir -p .alembic_sql/drift
+	@ts="$$(date -u +'%Y%m%dT%H%M%SZ')"; \
+	out=".alembic_sql/drift/autogen_$${ts}.sql"; \
+	ALEMBIC_CONFIG=backend/alembic.ini ALEMBIC_OFFLINE=1 alembic revision --autogenerate --sql > "$$out"; \
+	echo "Wrote $$out"
+
+
+# Inventory helpers
+
+
+ifeq ($(origin SEEN_EXT_TARGETS), undefined)
+SEEN_EXT_TARGETS=1
+
+.PHONY: inventory ext-scan env-example smoke
+
+inventory:
+	python scripts/inventory_external_connections.py
+
+ext-scan:
+	@if command -v rg >/dev/null; then \
+	  rg -n --no-heading -S -e 'asyncpg|psycopg|sqlalchemy|pgvector|boto3|minio|aiobotocore|redis|rq|celery|pika|kafka|confluent|temporalio|openai|anthropic|vertexai|groq|together|cohere|httpx|requests|stripe|razorpay|paypal|sendgrid|smtp|smtplib|twilio|segment|posthog|mixpanel|sentry|opentelemetry' backend frontend **/*.y?(a)ml || true; \
+	  rg -n --no-heading -S -e 'os\\.environ\\[|os\\.getenv\\(|process\\.env\\.' backend frontend || true; \
+	else \
+	  echo 'ripgrep not found, using git grep fallback'; \
+	  git grep -n -E "asyncpg|psycopg|sqlalchemy|pgvector|boto3|minio|aiobotocore|redis|rq|celery|pika|kafka|confluent|temporalio|openai|anthropic|vertexai|groq|together|cohere|httpx|requests|stripe|razorpay|paypal|sendgrid|smtp|smtplib|twilio|segment|posthog|mixpanel|sentry|opentelemetry" -- backend frontend ':/**/*.yml' ':/**/*.yaml' || true; \
+	  git grep -n -E "os\\.environ\\[|os\\.getenv\\(|process\\.env\\." -- backend frontend || true; \
+	fi
+
+env-example: inventory
+	@echo ".env.example regenerated."
+
+smoke:
+	./scripts/smoke_local_services.sh
+endif
