@@ -148,7 +148,8 @@ jobs:
           ALEMBIC_CONFIG: backend/alembic.ini
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          . /usr/bin/true
+          # no-op (avoid attempting to dot-source a binary which fails on the runner)
+          true
           # run alembic online against the provided Postgres DATABASE_URL
           ALEMBIC_CONFIG=backend/alembic.ini PYTHONPATH="${{ github.workspace }}" DATABASE_URL="$DATABASE_URL" alembic -c "$ALEMBIC_CONFIG" upgrade head
 
