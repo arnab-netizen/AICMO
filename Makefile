@@ -125,3 +125,22 @@ migrate:
 migrate-down:
 	@[ -n "$$DB_URL" ] || (echo "Set DB_URL before running migrations"; exit 1)
 	@alembic -c "$${ALEMBIC_CONFIG:-backend/alembic.ini}" downgrade -1
+
+# Convenience targets for Alembic offline/online
+.PHONY: alembic-sql alembic-up
+alembic-sql:
+	ALEMBIC_CONFIG=backend/alembic.ini alembic -c backend/alembic.ini upgrade head --sql | head -n 50
+
+alembic-up:
+	python -m pip install -r backend/requirements.txt
+	ALEMBIC_CONFIG=backend/alembic.ini alembic -c backend/alembic.ini upgrade head
+
+alembic-sql50:
+	ALEMBIC_CONFIG=backend/alembic.ini alembic -c backend/alembic.ini upgrade head --sql | head -n 50
+
+alembic-sql-ts:
+	@mkdir -p .alembic_sql
+	@ts="$$(date -u +'%Y%m%dT%H%M%SZ')"; \
+	out=".alembic_sql/upgrade_head_$${ts}.sql"; \
+	ALEMBIC_CONFIG=backend/alembic.ini alembic -c backend/alembic.ini upgrade head --sql > "$$out"; \
+	echo "Rendered $$out"
