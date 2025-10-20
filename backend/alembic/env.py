@@ -1,9 +1,21 @@
 import os
-from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
-from alembic import context
+from pathlib import Path
+import sys
 
-from backend.db.base import Base  # your metadata
+# --- sys.path bootstrap so `import backend` works when Alembic runs from backend/alembic
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+# ---
+
+from logging.config import fileConfig  # noqa: E402
+from sqlalchemy import engine_from_config, pool  # noqa: E402
+from alembic import context  # noqa: E402
+
+# Import metadata and model modules at top so linters are happy and autogenerate
+from backend.db.base import Base  # your metadata  # noqa: E402
+import backend  # noqa: F401,E402
+import backend.models  # noqa: F401,E402
 
 config = context.config
 try:

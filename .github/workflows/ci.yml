@@ -100,10 +100,14 @@ jobs:
 
   taste-pgvector:
     runs-on: ubuntu-latest
+    if: >
+      github.ref == 'refs/heads/main' ||
+      contains(join(fromJson(toJson(github.event.pull_request.labels)).*.name, ','), 'needs-pg')
     services:
       pg:
-        # use 'latest' to avoid referencing a missing specific tag in the runner
-        image: ankane/pgvector:latest
+        # Default to vanilla Postgres to avoid pulling the pgvector image on most runs.
+        # If a run truly needs pgvector, add the 'needs-pg' label and adjust the job or add a separate job.
+        image: postgres:16
         ports: ['5432:5432']
         env:
           POSTGRES_USER: postgres

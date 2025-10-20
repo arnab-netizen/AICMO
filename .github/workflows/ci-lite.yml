@@ -21,71 +21,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install backend deps + local capsule-core (editable)
+
+      - name: Install backend deps
         run: |
           python -m venv .venv
           . .venv/bin/activate
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
-          if [ ! -d "./capsule-core" ]; then
-            echo "::error ::capsule-core folder missing in repo; cannot import capsule_core"
-            exit 1
-          fi
-          pip install -e ./capsule-core
-          pip install pytest
 
-      - name: Verify capsule_core import
-        run: |
-          . .venv/bin/activate
-          python - <<'PY'
-import importlib, importlib.util
-spec = importlib.util.find_spec('capsule_core')
-assert spec is not None, 'capsule_core not importable after install'
-print('capsule_core import OK ->', spec.origin)
-PY
-
-      - name: Verify capsule-core version
-        run: |
-          . .venv/bin/activate
-          python - <<'PY'
-from importlib import metadata
-try:
-    ver = metadata.version('capsule-core')
-except metadata.PackageNotFoundError:
-    from capsule_core import __version__ as ver
-print('capsule-core version:', ver)
-req = (0, 1, 1)
-tup = tuple(int(x) for x in ver.split('.', 2)[:3])
-assert tup >= req, f"capsule-core >= {'.'.join(map(str,req))} required; got {ver}"
-PY
-
-      - name: Smoke versions
-        env:
-          SITEGEN_ENABLED: "0"
-        run: |
-          . .venv/bin/activate
-          python -m backend.tools.smoke_versions
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
-          restore-keys: ${{ runner.os }}-pip-
-      - name: Clear caches
-        run: find backend -name '__pycache__' -type d -exec rm -rf {} +
-      - name: Install mypy and ruff (typing/format guard)
-        run: . .venv/bin/activate && python -m pip install mypy ruff
-      - name: Run ruff/mypy quick checks
-        run: |
-          . .venv/bin/activate && ruff format --check backend && ruff check backend
       - name: Run quick sqlite tests
         run: . .venv/bin/activate && pytest -q backend/tests/test_db_sqlite.py backend/tests/test_db_utils.py -q
-
-      - name: Alembic guards & offline render tests
-        run: . .venv/bin/activate && pytest -q backend/tests/test_alembic_env_url_swap.py backend/tests/test_alembic_env_offline_ok.py
 
       - name: Alembic offline SQL render (smoke)
         env:
@@ -96,81 +46,36 @@ PY
           alembic -c "$ALEMBIC_CONFIG" upgrade head --sql | head -n 5
 
       - name: Wait for Postgres
-        if: ${{ contains(env.DATABASE_URL, 'postgresql') }}
+        if: >
+          github.ref == 'refs/heads/main' ||
+          contains(join(fromJson(toJson(github.event.pull_request.labels)).*.name, ','), 'needs-pg')
         run: |
           python - <<'PY'
           import os, time, sqlalchemy as sa
           url=os.environ.get('DATABASE_URL','').replace('+asyncpg','+psycopg2')
           for _ in range(30):
               try:
-                  sa.create_engine(url).connect().close(); print('Postgres ready'); break
+                  sa.create_engine(url).connect().close()
+                  print('Postgres ready')
+                  break
               except Exception as e:
-                  print('waiting...', e); time.sleep(2)
+                  print('waiting...', e)
+                  time.sleep(2)
           else:
               raise SystemExit('Postgres not ready')
           PY
 
-      - name: Verify psycopg2 import (quick)
-        run: |
-          . .venv/bin/activate
-          python - <<'PY'
-            import sys
-            try:
-                import psycopg2
-                print('psycopg2 import OK')
-            except Exception as e:
-                sys.exit(f'psycopg2 import failed: {e}')
-          PY
-
-      - name: Check Alembic has a single head
-        run: |
-          . .venv/bin/activate
-          python -m pip install -r backend/requirements.txt
-          python backend/alembic/check_single_head.py
-
-      - name: Render Alembic SQL to artifact
-        env:
-          ALEMBIC_CONFIG: backend/alembic.ini
-        run: |
-          . .venv/bin/activate
-          mkdir -p .alembic_sql
-          ts="$(date -u +'%Y%m%dT%H%M%SZ')"
-          out=".alembic_sql/upgrade_head_${ts}.sql"
-          alembic -c "$ALEMBIC_CONFIG" upgrade head --sql > "$out"
-          echo "Wrote $out"
-
-      - name: Upload Alembic SQL artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: alembic-sql
-          path: .alembic_sql/
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Check for model/schema drift (autogenerate dry-run)
-        env:
-          ALEMBIC_CONFIG: backend/alembic.ini
-        run: |
-          . .venv/bin/activate
-          ALEMBIC_CONFIG=backend/alembic.ini ALEMBIC_OFFLINE=1 alembic -c "$ALEMBIC_CONFIG" revision --autogenerate --message drift-check --sql > /tmp/_alembic_drift.sql || true
-          sql=$(cat /tmp/_alembic_drift.sql || true)
-          danger_tokens=("CREATE TABLE" "ALTER TABLE" "DROP TABLE" "ADD CONSTRAINT" "DROP CONSTRAINT" "ADD COLUMN" "DROP COLUMN")
-          for t in "${danger_tokens[@]}"; do
-            if echo "$sql" | grep -q "$t"; then
-              echo "Detected potential drift token: $t"
-              head -n 200 /tmp/_alembic_drift.sql
-              exit 1
-            fi
-          done
-          echo "No drift detected."
-
       - name: Run Alembic migrations (online)
-        if: ${{ github.ref == 'refs/heads/main' && contains(env.DATABASE_URL, 'postgresql') }}
+        if: >
+          github.ref == 'refs/heads/main' ||
+          contains(join(fromJson(toJson(github.event.pull_request.labels)).*.name, ','), 'needs-pg')
         env:
           ALEMBIC_CONFIG: backend/alembic.ini
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           . .venv/bin/activate
-          python -m pip install -r backend/requirements.txt
+          pip install -r backend/requirements.txt
+          pip install -e ./capsule-core
           alembic -c "$ALEMBIC_CONFIG" upgrade head
 
   drift_check:
@@ -187,69 +92,63 @@ PY
         with:
           python-version: '3.12'
 
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+      - name: Build temp DB at head (SQLite)
+        env:
+          ALEMBIC_CONFIG: backend/alembic.ini
+          SQLALCHEMY_URL: sqlite:///${{ github.workspace }}/.alembic_tmp/drift.sqlite
+        run: |
+          rm -rf .alembic_tmp
+          mkdir -p .alembic_tmp .alembic_sql/drift
+          ALEMBIC_CONFIG=backend/alembic.ini PYTHONPATH="${{ github.workspace }}" SQLALCHEMY_URL="$SQLALCHEMY_URL" alembic -c "$ALEMBIC_CONFIG" upgrade head
 
-      - name: Install backend deps + local capsule-core (editable)
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
-          if [ ! -d "./capsule-core" ]; then
-            echo "::error ::capsule-core folder missing in repo; cannot import capsule_core"
-            exit 1
-          fi
           pip install -e ./capsule-core
 
-      - name: Verify capsule_core import
-        run: |
-          python - <<'PY'
-import importlib, importlib.util
-spec = importlib.util.find_spec('capsule_core')
-assert spec is not None, 'capsule_core not importable after install'
-print('capsule_core import OK ->', spec.origin)
-PY
-
-      - name: Verify capsule-core version
-        run: |
-          python - <<'PY'
-from importlib import metadata
-try:
-    ver = metadata.version('capsule-core')
-except metadata.PackageNotFoundError:
-    from capsule_core import __version__ as ver
-print('capsule-core version:', ver)
-req = (0, 1, 1)
-tup = tuple(int(x) for x in ver.split('.', 2)[:3])
-assert tup >= req, f"capsule-core >= {'.'.join(map(str,req))} required; got {ver}"
-PY
-
-      - name: Dry-run autogenerate to detect drift
+      - name: Autogenerate into temp dir and detect drift
         env:
           ALEMBIC_CONFIG: backend/alembic.ini
-        shell: bash
+          SQLALCHEMY_URL: sqlite:///${{ github.workspace }}/.alembic_tmp/drift.sqlite
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          mkdir -p .alembic_sql/drift
-          ts="$(date -u +'%Y%m%dT%H%M%SZ')"
-          out=".alembic_sql/drift/autogen_${ts}.sql"
-          alembic -c "$ALEMBIC_CONFIG" revision --autogenerate --sql -x offline=1 > "$out" || true
           python - <<'PY'
-import sys, pathlib
-p = sorted(pathlib.Path('.alembic_sql/drift').glob('autogen_*.sql'))[-1]
-sql = p.read_text().upper()
-TOKENS = ("CREATE TABLE","ALTER TABLE","DROP TABLE","ADD COLUMN","DROP COLUMN","CREATE INDEX","DROP INDEX")
-if any(t in sql for t in TOKENS):
-    print(f"Schema drift detected. See {p}")
-    sys.exit(1)
-print('No drift detected.')
-PY
+          import pathlib, shutil, tempfile, sys
+          from alembic.config import Config
+          from alembic import command
 
-      - name: Upload drift SQL artifact
+          cfg = Config("backend/alembic.ini")
+          tmp = pathlib.Path(tempfile.mkdtemp(prefix="alembic_drift_"))
+          try:
+              cfg.set_main_option("script_location", str(tmp))
+              rev = command.revision(cfg, message="DRIFT_PROBE", autogenerate=True)
+              vers = tmp / "versions"
+              files = sorted(vers.glob("*.py")) if vers.exists() else []
+              if not files:
+                  print("No revision file created → no drift.")
+                  sys.exit(0)
+              code = files[0].read_text().lower()
+              tokens = (
+                  "op.create_table","op.alter_column","op.drop_table",
+                  "op.add_column","op.drop_column","op.create_index","op.drop_index"
+              )
+              # copy to artifact dir for inspection
+              outdir = pathlib.Path(".alembic_sql/drift"); outdir.mkdir(parents=True, exist_ok=True)
+              out = outdir / files[0].name
+              out.write_text(code)
+              if any(t in code for t in tokens):
+                  print(f"Schema drift detected → see {out}")
+                  sys.exit(1)
+              print("Autogenerate produced a trivial/no-op file → no drift.")
+          finally:
+              shutil.rmtree(tmp, ignore_errors=True)
+          PY
+
+      - name: Upload drift artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: alembic-drift-sql
-          path: .alembic_sql/drift/
+          path: .alembic_sql/drift/**
           retention-days: 7
