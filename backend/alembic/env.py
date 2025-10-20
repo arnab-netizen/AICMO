@@ -26,6 +26,13 @@ except Exception:
     pass
 
 
+# Allow CI to override the alembic URL explicitly (used by the drift probe)
+# Example: SQLALCHEMY_URL=sqlite:////github/workspace/.alembic_tmp/drift.sqlite
+_override_url = os.getenv("SQLALCHEMY_URL")
+if _override_url:
+    config.set_main_option("sqlalchemy.url", _override_url)
+
+
 def _sync_url() -> str | None:
     """Return a sync SQLAlchemy URL for Alembic when the app uses an async driver.
 
