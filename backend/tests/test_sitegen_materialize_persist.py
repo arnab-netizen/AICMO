@@ -1,10 +1,4 @@
-from fastapi.testclient import TestClient
-from backend.app import app
-
-client = TestClient(app)
-
-
-def test_materialize_persists_in_memory():
+def test_materialize_persists_in_memory(client):
     spec = {
         "site": {"name": "Founder OS"},
         "pages": [{"slug": "home"}, {"slug": "about"}],

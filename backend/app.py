@@ -12,6 +12,10 @@ from backend.routers.health import router as health_router
 from backend.routers.test import router as test_router
 from backend.modules.sitegen.routes import router as sitegen_router
 from backend.routers.sites import router as sites_router
+from backend.routers.sites_compat import router as sites_compat_router
+from backend.routers.deployments import router as deployments_router
+from backend.routers.workflows import router as workflows_router
+from backend.routers.sitegen_draft import router as sitegen_draft_router
 
 # NEW imports for the modules we added
 from backend.modules.copyhook.api.router import router as copyhook_router
@@ -47,8 +51,19 @@ app.include_router(health_router, tags=["health"])
 app.include_router(test_router, tags=["test"])
 app.include_router(sitegen_router, prefix="/sitegen", tags=["sitegen"])
 
+# include the lightweight draft/materialize endpoints used by tests
+# sitegen_draft router already declares prefix="/sitegen", include without
+# adding another prefix to avoid registering paths like /sitegen/sitegen/...
+app.include_router(sitegen_draft_router, tags=["sitegen"])
+
 # Sites router (provides /sites/{slug}/spec used in tests)
 app.include_router(sites_router, tags=["sites"])
+# Compatibility CRUD endpoints expected by some tests (POST /sites, GET /sites, GET /sites/{id})
+app.include_router(sites_compat_router)
+
+# Include deployments and workflows routers
+app.include_router(deployments_router, tags=["deployments"])
+app.include_router(workflows_router, tags=["workflows"])
 
 # Mount the new module routers
 app.include_router(copyhook_router, prefix="/api/copyhook", tags=["copyhook"])
@@ -69,4 +84,17 @@ def runtime_error_handler(request: Request, exc: RuntimeError):
 
 @app.get("/health")
 def health():
+    return {"ok": True}
+
+
+# Backwards-compatible aliases used by tests
+@app.get("/health/live")
+def health_live():
+    return {"ok": True}
+
+
+@app.get("/health/ready")
+def health_ready():
+    # For readiness we call the same health endpoint; in production this
+    # might include DB checks — tests expect a 200/200 semantics here.
     return {"ok": True}

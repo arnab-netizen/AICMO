@@ -1,10 +1,7 @@
 from fastapi.testclient import TestClient
-from backend.app import app
-
-client = TestClient(app)
 
 
-def test_draft_minimal():
+def test_draft_minimal(client: TestClient):
     r = client.post("/sitegen/draft", json={"name": "founder-os"})
     assert r.status_code == 200
     data = r.json()

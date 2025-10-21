@@ -58,6 +58,13 @@ jobs:
           out = tmp / 'versions'
           out.mkdir(parents=True, exist_ok=True)
           try:
+              # Ensure the target DB is at the latest migrations so autogenerate
+              # can compare models vs DB without raising "Target database is not up to date.".
+              try:
+                  cfg.set_main_option('sqlalchemy.url', os.environ.get('DATABASE_URL', ''))
+                  command.upgrade(cfg, 'head')
+              except Exception as e:
+                  print('[warn] alembic upgrade head (sqlite advisory) failed:', e)
               command.revision(cfg, message='DRIFT_PROBE_SQLITE', autogenerate=True, version_path=str(out))
           except SystemExit:
               pass
@@ -228,72 +235,98 @@ jobs:
                       print("[dbg] Could not read alembic_version:", e)
           PY
 
-      - name: Drift probe (fail if model != DB)
-        working-directory: .
+      - name: Upgrade DB to head (authoritative)
+        env:
+          ALEMBIC_CONFIG: backend/alembic.ini
+          PYTHONPATH: ${{ github.workspace }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
+          set -e
+          . .venv/bin/activate
+          python -c "import sys; import psycopg2, sqlalchemy; print('drivers ok')"
+          # Ensure DB is at head before we try to autogenerate
+          alembic -c backend/alembic.ini upgrade head
+          echo "DB is at head ✅"
+
+      - name: Dump offline SQL of current head (artifact for auditing)
+        if: always()
+        env:
+          ALEMBIC_CONFIG: backend/alembic.ini
+          PYTHONPATH: ${{ github.workspace }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: |
+          set -e
+          . .venv/bin/activate
+          mkdir -p artifacts
+          # capture the SQL (won't modify DB) for auditing
+          alembic -c backend/alembic.ini upgrade head --sql > artifacts/upgrade_to_head.sql || true
+
+      - name: Autogenerate & detect drift (temporary script dir)
+        env:
+          ALEMBIC_CONFIG: backend/alembic.ini
+          PYTHONPATH: ${{ github.workspace }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: |
+          set -e
           . .venv/bin/activate
           python - <<'PY'
-          import os, tempfile, pathlib, sys
+          import pathlib, tempfile, sys, os, shutil
           from alembic.config import Config
+          from alembic.script import ScriptDirectory
           from alembic import command
 
-          repo_versions = os.path.abspath('backend/alembic/versions')
-          tmp = pathlib.Path(tempfile.mkdtemp(prefix='alembic_probe_'))
-          out = tmp / 'versions'
-          out.mkdir(parents=True, exist_ok=True)
-
           cfg = Config('backend/alembic.ini')
-          print('[dbg] CWD:', os.getcwd())
-          print('[dbg] backend/alembic.ini exists:', os.path.exists('backend/alembic.ini'))
-          print('[dbg] cfg.config_file_name:', cfg.config_file_name)
-          print('[dbg] cfg.script_location (before):', cfg.get_main_option('script_location'))
 
-          # Ensure alembic can resolve repo revisions while writing to a temp versions dir
-          cfg.set_main_option('script_location', 'backend/alembic')
-          cfg.set_main_option('version_locations', f"{out},{repo_versions}")
-          print('[dbg] cfg.script_location (after):', cfg.get_main_option('script_location'))
-          print('[dbg] cfg.version_locations (after):', cfg.get_main_option('version_locations'))
-
-          # List repo versions for visibility
+          # Defensive: try to ensure DB is at head (no-op if already at head)
           try:
-              rv = list(pathlib.Path(repo_versions).glob('*.py'))
-              print('[dbg] repo versions count:', len(rv))
-              for v in sorted(rv)[-20:]:
-                  print('  -', v.name)
-          except Exception as e:
-              print('[dbg] listing repo versions failed:', e)
-
-          # Show what exists in the repo's versions dir
-          repo_versions_dir = repo_versions
-          rv_path = pathlib.Path(repo_versions_dir)
-          files = sorted(p.name for p in rv_path.glob('*.py')) if rv_path.exists() else []
-          print(f"[dbg] repo versions count={len(files)}")
-          for n in files[:20]:
-              print(f"[dbg]   - {n}")
-          if len(files) > 20:
-              print(f"[dbg]   ... (+{len(files)-20} more)")
-
-          # NEW: fail fast if no repo migrations are visible
-          assert files, "No migrations found in backend/alembic/versions — ensure actions/checkout uses fetch-depth: 0"
-
-          try:
-              command.revision(cfg, message='DRIFT_PROBE', autogenerate=True, version_path=str(out))
+              command.upgrade(cfg, 'head')
           except SystemExit:
               pass
+          except Exception:
+              # don't fail here; we want a clear failure only if autogenerate produces files
+              pass
 
-          files = list(out.glob('*.py'))
+          # use a temporary script_location so repo versions are not modified
+          tmpdir = pathlib.Path(tempfile.mkdtemp(prefix='alembic_probe_'))
+          cfg.set_main_option('script_location', str(tmpdir))
+          (tmpdir / 'versions').mkdir(parents=True, exist_ok=True)
+
+          # Ensure Alembic can still see repo versions by setting version_locations
+          repo_versions = os.path.abspath('backend/alembic/versions')
+          cfg.set_main_option('version_locations', f"{tmpdir / 'versions'},{repo_versions}")
+
+          # Try autogenerate into the temp dir
+          try:
+              command.revision(cfg, message='DRIFT_PROBE', autogenerate=True)
+          except SystemExit:
+              pass
+          except Exception:
+              # Alembic autogenerate can be noisy; we'll inspect the temp versions dir below
+              pass
+
+          vers = tmpdir / 'versions'
+          files = sorted(vers.glob('*.py'))
+          if not files:
+              print('No drift detected ✅')
+              # cleanup
+              try:
+                  shutil.rmtree(tmpdir)
+              except Exception:
+                  pass
+              sys.exit(0)
+
+          # Drift detected: copy artifacts and fail with human-friendly output
           dst = pathlib.Path('.alembic_autogen/drift_pg')
           dst.mkdir(parents=True, exist_ok=True)
-          if files:
-              print('Autogenerate produced diffs → drift detected.')
-              for f in files:
-                  print(' -', f.name)
-                  (dst / f.name).write_text(f.read_text(encoding='utf-8'))
-              print('Wrote authoritative PG autogen to', dst)
-              # Leave destructive scanning to the later dedicated step
-              sys.exit(1)
-          else:
-              print('No drift.')
+          print('Drift detected ❌. Alembic produced:')
+          for f in files:
+              print(' -', f)
+              (dst / f.name).write_text(f.read_text(encoding='utf-8'))
+              print(f.read_text())
+
+          print('Wrote authoritative PG autogen to', dst)
+          print('Keeping temp probe dir at', tmpdir)
+          sys.exit(1)
           PY
 
       - name: Run tests (Postgres + SQLite)

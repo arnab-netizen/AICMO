@@ -1,17 +1,14 @@
 from fastapi.testclient import TestClient
-from backend.app import app
-
-client = TestClient(app)
 
 
-def test_health_endpoints():
+def test_health_endpoints(client: TestClient):
     r = client.get("/health/live")
     assert r.status_code == 200
     r = client.get("/health/ready")
     assert r.status_code == 200
 
 
-def test_sites_create_and_get():
+def test_sites_create_and_get(client: TestClient):
     # create
     r = client.post("/sites", json={"name": "Smoke Test"})
     assert r.status_code in (200, 201)

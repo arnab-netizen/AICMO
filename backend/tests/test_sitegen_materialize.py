@@ -1,10 +1,7 @@
 from fastapi.testclient import TestClient
-from backend.app import app
-
-client = TestClient(app)
 
 
-def test_materialize_minimal():
+def test_materialize_minimal(client: TestClient):
     spec = {"pages": [{"slug": "home"}, {"slug": "about"}]}
     r = client.post("/sitegen/materialize", json=spec)
     assert r.status_code == 200

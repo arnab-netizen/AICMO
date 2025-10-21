@@ -30,7 +30,7 @@ from backend.db.base import Base  # noqa
 # Without this, Alembic will think the tables should be dropped.
 import backend.models  # noqa
 import backend.modules.sitegen.db_models  # noqa
-import app.models  # noqa <-- This now works because of __init__.py
+import app.models  # noqa
 
 # --- END DEFINITIVE FIX ---
 
