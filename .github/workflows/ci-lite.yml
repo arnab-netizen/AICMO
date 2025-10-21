@@ -112,10 +112,8 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
-    env:
-      # Use the service container hostname so steps that run before the
-      # DB-client step can still reach Postgres inside the Actions network.
-      DATABASE_URL: postgresql+psycopg2://aicmo:pass@postgres:5432/aicmo
+    # Do not set DATABASE_URL at the job level to avoid premature DNS lookups.
+    # The Prep DB step will resolve and persist a working URL into $GITHUB_ENV.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -210,10 +208,10 @@ jobs:
           # Convert to postgresql+psycopg2://user:pass@host:port/db
           SQLALCHEMY_URL=$(echo "$TRY_PSQL" | sed -E 's#^postgresql://#postgresql+psycopg2://#')
           if [ -n "$SQLALCHEMY_URL" ]; then
-            echo "[dbg] Exporting SQLALCHEMY_URL so Alembic/env.py uses the resolved host"
-            export SQLALCHEMY_URL="$SQLALCHEMY_URL"
-            # Also set DATABASE_URL to the sync URL to help other tools
-            export DATABASE_URL="$SQLALCHEMY_URL"
+            echo "[dbg] Persisting SQLALCHEMY_URL so later steps (alembic/sqlalchemy) use the resolved host"
+            # Persist into GITHUB_ENV so subsequent steps see the resolved URL
+            echo "SQLALCHEMY_URL=$SQLALCHEMY_URL" >> $GITHUB_ENV
+            echo "DATABASE_URL=$SQLALCHEMY_URL" >> $GITHUB_ENV
             echo "[dbg] SQLALCHEMY_URL set to: $SQLALCHEMY_URL"
           fi
 
