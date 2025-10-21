@@ -128,6 +128,22 @@ smoke-versions:
 smoke-telemetry:
 	python -m backend.tools.smoke_telemetry
 
+.PHONY: ci
+ci:
+	@$(MAKE) db-reset
+	@alembic -c backend/alembic.ini heads | awk 'END{ if (NR!=1) { print "Multiple Alembic heads!"; exit 1 } }'
+	@python - <<'PY'
+	import os,re,subprocess
+	u=os.environ.get("DATABASE_URL","")
+	if not u:
+		print('Set DATABASE_URL before running make ci'); exit(1)
+	p=re.sub(r'^(postgresql)(?:\+[^:]+)?://','postgresql://',u)
+	subprocess.check_call(["psql", p, "-Atc", "SELECT 1 FROM pg_indexes WHERE tablename='site' AND indexname='ux_site_slug';"])
+	subprocess.check_call(["psql", p, "-Atc", "SELECT indexdef FROM pg_indexes WHERE tablename='page' AND indexdef LIKE '%UNIQUE% (site_id, path)%';"])
+	subprocess.check_call(["psql", p, "-Atc", "SELECT table_name FROM information_schema.views WHERE table_schema='public' AND table_name='site_spec';"])
+	PY
+	@pytest -q
+
 test-versions:
 	pytest -q backend/tests/test_version_endpoints.py
 

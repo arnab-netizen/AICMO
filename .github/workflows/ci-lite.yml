@@ -244,7 +244,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: fast-sqlite
     services:
-      postgres:
+      pg:
         image: ankane/pgvector:latest
         ports: ["5435:5432"]
         env:
@@ -253,11 +253,9 @@ jobs:
           POSTGRES_DB: aicmo
         options: >-
           --health-cmd="pg_isready -U aicmo -d aicmo"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+          --health-interval=5s --health-timeout=5s --health-retries=20
     env:
-      DATABASE_URL: postgresql+psycopg2://aicmo:pass@localhost:5435/aicmo
+      DATABASE_URL: postgresql+psycopg2://aicmo:pass@pg:5432/aicmo
     steps:
       - uses: actions/checkout@v4
 
@@ -265,6 +263,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
       - name: Install deps
         run: |
@@ -275,22 +281,25 @@ jobs:
           pip install -r backend/requirements-test.txt || true
 
       - name: Prep DB + migrate
-        env:
-          DATABASE_URL: postgresql+psycopg2://aicmo:pass@localhost:5435/aicmo
         run: |
           . .venv/bin/activate
-          # Normalize for psql
           PSQL_URL=$(python - <<'PY'
-          import os, re
-          u=os.environ['DATABASE_URL']
-          print(re.sub(r'^(postgresql)(?:\+[^:]+)?://', r'postgresql://', u))
+          import os,re; u=os.environ['DATABASE_URL']; print(re.sub(r'^(postgresql)(?:\+[^:]+)?://','postgresql://',u))
           PY
           )
+          # Clean schema each run
           psql "$PSQL_URL" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"
+
           # Single-head guard
           alembic -c backend/alembic.ini heads | awk 'END{ if (NR!=1) { print "Multiple Alembic heads!"; exit 1 } }'
+
           # Apply migrations
           alembic -c backend/alembic.ini upgrade head
+
+          # === Schema asserts (fail fast) ===
+          psql "$PSQL_URL" -Atc "SELECT 1 FROM pg_indexes WHERE tablename='site' AND indexname='ux_site_slug';" | grep 1
+          psql "$PSQL_URL" -Atc "SELECT indexdef FROM pg_indexes WHERE tablename='page' AND indexdef LIKE '%UNIQUE% (site_id, path)%';" | grep UNIQUE
+          psql "$PSQL_URL" -Atc "SELECT table_name FROM information_schema.views WHERE table_schema='public' AND table_name='site_spec';" | grep site_spec
 
       - name: Drift probe (fail if model != DB)
         env:
