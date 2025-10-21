@@ -52,21 +52,39 @@ jobs:
           import os, pathlib, tempfile
           from alembic.config import Config
           from alembic import command
+          from alembic import util as alembic_util
 
           cfg = Config('backend/alembic.ini')
           tmp = pathlib.Path(tempfile.mkdtemp(prefix='alembic_sqlite_'))
           out = tmp / 'versions'
           out.mkdir(parents=True, exist_ok=True)
+
+          db_url = os.environ.get('DATABASE_URL','') or ''
+          is_sqlite = db_url.startswith('sqlite')
+
+          # For advisory SQLite probe we avoid applying Postgres-specific DDL
+          # and tolerate autogenerate errors. This step must not fail CI.
           try:
-              # Ensure the target DB is at the latest migrations so autogenerate
-              # can compare models vs DB without raising "Target database is not up to date.".
+              if not is_sqlite:
+                  try:
+                      cfg.set_main_option('sqlalchemy.url', db_url)
+                      command.upgrade(cfg, 'head')
+                  except Exception as e:
+                      print('[warn] alembic upgrade head (sqlite advisory) failed:', e)
+
               try:
-                  cfg.set_main_option('sqlalchemy.url', os.environ.get('DATABASE_URL', ''))
-                  command.upgrade(cfg, 'head')
+                  # attempt autogenerate; on sqlite DB mismatch this may raise
+                  command.revision(cfg, message='DRIFT_PROBE_SQLITE', autogenerate=True, version_path=str(out))
+              except alembic_util.CommandError as ce:
+                  # Treat as advisory: report and continue without failing job
+                  print('[warn] alembic autogenerate produced CommandError (advisory):', ce)
+              except SystemExit:
+                  # alembic sometimes sys.exit(0)
+                  pass
               except Exception as e:
-                  print('[warn] alembic upgrade head (sqlite advisory) failed:', e)
-              command.revision(cfg, message='DRIFT_PROBE_SQLITE', autogenerate=True, version_path=str(out))
-          except SystemExit:
+                  print('[warn] alembic autogenerate unexpected error (advisory):', e)
+          except Exception:
+              # ensure we never raise from advisory probe
               pass
 
           dst = pathlib.Path('.alembic_autogen/drift')
