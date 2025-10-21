@@ -28,6 +28,9 @@ jobs:
   fast-sqlite:
     name: fast-sqlite (advisory SQLite autogenerate)
     runs-on: ubuntu-latest
+    env:
+      # Provide a local SQLite URL so alembic's env.py can run online migrations
+      DATABASE_URL: sqlite:///./.ci_fast_sqlite.db
     steps:
       - uses: actions/checkout@v4
         with:
