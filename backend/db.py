@@ -19,10 +19,9 @@ try:
     # up in real runtime environments so callers see the real problem.
     from backend.db.base import Base  # noqa: F401
     from backend.db.session import (  # noqa: F401
-        engine,
-        async_engine,
-        async_session_factory,
         get_session,
+        get_engine as session_get_engine,
+        get_db as session_get_db,
     )
 except Exception:  # pragma: no cover - best-effort shim
     # If submodules are not importable (test bootstrap scenarios), provide
@@ -35,18 +34,20 @@ except Exception:  # pragma: no cover - best-effort shim
 
 
 def get_db():
-    """Back-compat: alias returning an async session generator via `get_session`.
+    """Back-compat: prefer delegating to the canonical session helpers.
 
-    Note: this returns an async generator (the project is using async sessions).
-    Keep this helper for legacy callsites expecting `get_db()` as a dependency.
+    This shim returns a session generator. Prefer `backend.db.session.get_db`
+    when available so runtime DB_URL changes are respected in tests.
     """
-    # If a legacy sync SessionLocal is available, yield from it as a sync
-    # dependency generator (this covers many tests and legacy callsites).
+    # Delegate to the session package implementation when possible.
+    if session_get_db is not None:
+        return session_get_db()
+
+    # Fallback: keep legacy behavior using the module-level SessionLocal.
     if SessionLocal is not None:
 
         def _gen():
             db = SessionLocal()
-            # Monkey-patch execute to accept raw SQL strings like legacy code
             orig_execute = getattr(db, "execute", None)
 
             def _execute(stmt, *a, **kw):
@@ -60,7 +61,6 @@ def get_db():
                 try:
                     setattr(db, "execute", _execute)
                 except Exception:
-                    # best-effort; continue even if monkeypatch fails
                     pass
 
             try:
@@ -73,7 +73,7 @@ def get_db():
 
         return _gen()
 
-    # Otherwise, fall back to the async session getter if present.
+    # If everything else fails, attempt to call the sync session getter
     if get_session is not None:
         return get_session()
 
@@ -108,6 +108,10 @@ except Exception:
 ENGINE = None
 SessionLocal = None
 
+# Do not treat the DB engine as immutable at import time. Some tests set
+# DB_URL/DATABASE_URL via monkeypatch after this module is imported. Keep
+# a best-effort eager initialization but allow `get_engine()` to recreate the
+# engine later if the environment changes.
 if create_engine is not None and DATABASE_URL:
     try:
         if DATABASE_URL.startswith("sqlite"):
@@ -132,6 +136,15 @@ def ping_db() -> bool:
 
 
 def get_engine():
+    """Return the sync Engine; prefer the canonical session.get_engine when available."""
+    # Prefer the session module's runtime-aware engine factory when present.
+    try:
+        if session_get_engine is not None:
+            return session_get_engine()
+    except Exception:
+        # Fall back to legacy behavior below
+        pass
+
     if ENGINE is None:
         raise RuntimeError(
             "Engine not initialized; set DATABASE_URL and ensure DB driver is installed"

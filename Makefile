@@ -102,6 +102,17 @@ db-up:
 db-down:
 	docker stop aicmo-pg || true
 
+.PHONY: db-reset test-pg
+db-reset:
+	@echo "Dropping and recreating public schema on DB"
+	@psql "$(DB)" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" || true
+
+test-pg:
+	@echo "Applying alembic migrations against $(DB) and running pytest"
+	@alembic -c backend/alembic.ini heads | awk 'END{if(NR!=1){print "Multiple Alembic heads!"; exit 1}}'
+	@alembic -c backend/alembic.ini upgrade head
+	@PYTHONPATH=. pytest -q
+
 db-migrate:
 	@if [ -z "$$DB_URL" ]; then echo "Set DB_URL first"; exit 1; fi; \
 	psql "$$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS vector;" && \

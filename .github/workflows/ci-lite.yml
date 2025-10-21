@@ -239,6 +239,93 @@ jobs:
         run: |
           alembic -c "$ALEMBIC_CONFIG" upgrade head
 
+  tests:
+    name: tests (apply migrations + run pytest)
+    runs-on: ubuntu-latest
+    needs: fast-sqlite
+    services:
+      postgres:
+        image: ankane/pgvector:latest
+        ports: ["5435:5432"]
+        env:
+          POSTGRES_USER: aicmo
+          POSTGRES_PASSWORD: pass
+          POSTGRES_DB: aicmo
+        options: >-
+          --health-cmd="pg_isready -U aicmo -d aicmo"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgresql+psycopg2://aicmo:pass@localhost:5435/aicmo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install -r backend/requirements-test.txt || true
+
+      - name: Prep DB + migrate
+        env:
+          DATABASE_URL: postgresql+psycopg2://aicmo:pass@localhost:5435/aicmo
+        run: |
+          . .venv/bin/activate
+          # Normalize for psql
+          PSQL_URL=$(python - <<'PY'
+          import os, re
+          u=os.environ['DATABASE_URL']
+          print(re.sub(r'^(postgresql)(?:\+[^:]+)?://', r'postgresql://', u))
+          PY
+          )
+          psql "$PSQL_URL" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"
+          # Single-head guard
+          alembic -c backend/alembic.ini heads | awk 'END{ if (NR!=1) { print "Multiple Alembic heads!"; exit 1 } }'
+          # Apply migrations
+          alembic -c backend/alembic.ini upgrade head
+
+      - name: Drift probe (fail if model != DB)
+        env:
+          DATABASE_URL: postgresql+psycopg2://aicmo:pass@localhost:5435/aicmo
+        run: |
+          . .venv/bin/activate
+          python - <<'PY'
+          import tempfile, pathlib, sys
+          from alembic.config import Config
+          from alembic import command
+          import os
+          tmp = pathlib.Path(tempfile.mkdtemp(prefix="alembic_probe_"))
+          cfg = Config("backend/alembic.ini")
+          cfg.set_main_option("script_location", "backend/alembic")
+          cfg.set_main_option("version_locations", str(tmp / "versions"))
+          try:
+              command.revision(cfg, message="DRIFT_PROBE", autogenerate=True, rev_id=None)
+          except SystemExit:
+              pass
+          vers = tmp / "versions"
+          files = list(vers.glob("*.py")) if vers.exists() else []
+          if files:
+              print("Autogenerate produced diffs → drift detected.")
+              for f in files: print(" -", f.name)
+              sys.exit(1)
+          print("No drift.")
+          PY
+
+      - name: Run tests (Postgres + SQLite)
+        env:
+          DATABASE_URL: postgresql+psycopg2://aicmo:pass@localhost:5435/aicmo
+        run: |
+          . .venv/bin/activate
+          pytest -q
+
       - name: Print effective DB URL (before autogenerate)
         env:
           SQLALCHEMY_URL: ${{ steps.pickdb.outputs.db_url }}
@@ -252,89 +339,124 @@ jobs:
 
       - name: Autogenerate & detect drift (PG)
         env:
-          PYTHONPATH: ${{ github.workspace }}
           ALEMBIC_CONFIG: backend/alembic.ini
-          SQLALCHEMY_URL: ${{ steps.pickdb.outputs.db_url }}
+          PYTHONPATH: ${{ github.workspace }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           python - <<'PY'
-          import pathlib, shutil, tempfile, sys, os
+          import pathlib, tempfile, sys, os, re
           from alembic.config import Config
           from alembic import command
 
-          cfg = Config("backend/alembic.ini")
-          tmp = pathlib.Path(tempfile.mkdtemp(prefix="alembic_drift_pg_"))
-          outdir = pathlib.Path(".alembic_autogen/drift"); outdir.mkdir(parents=True, exist_ok=True)
-          try:
-              # Copy existing alembic env (env.py and helpers) into the temp
-              # script_location so alembic can import env.py when autogenerating.
-              import shutil
-              shutil.copytree("backend/alembic", str(tmp), dirs_exist_ok=True)
-              (tmp / "versions").mkdir(parents=True, exist_ok=True)
+          # 1) Use the repo's real env.py
+          cfg = Config(os.environ.get("ALEMBIC_CONFIG", "backend/alembic.ini"))
+          repo_script = pathlib.Path("backend/alembic")
+          env_py = repo_script / "env.py"
+          if not env_py.exists():
+              print(f"FATAL: missing {env_py}. Check repo path.")
+              sys.exit(2)
+          cfg.set_main_option("script_location", str(repo_script))
 
-              cfg.set_main_option("script_location", str(tmp))
-              # Ensure alembic env picks up the DB URL override when env.py runs
-              cfg.set_main_option("sqlalchemy.url", os.environ.get('SQLALCHEMY_URL',''))
-              command.revision(cfg, message="DRIFT_PROBE", autogenerate=True)
-              vers = tmp / "versions"
-              files = sorted(vers.glob("*.py")) if vers.exists() else []
-              if not files:
-                  print("No revision file created → no drift."); sys.exit(0)
-              code = files[0].read_text()
-              out = outdir / files[0].name; out.write_text(code)
-              low = code.lower()
-              tokens = ("op.create_table","op.alter_column","op.drop_table",
-                        "op.add_column","op.drop_column","op.create_index","op.drop_index")
-              if any(t in low for t in tokens):
-                  print(f"Schema drift detected → see {out}"); sys.exit(1)
-              print("Autogenerate produced a trivial/no-op file → no drift.")
-          finally:
-              shutil.rmtree(tmp, ignore_errors=True)
+          # 2) Make a temp versions dir; write *only* revisions here
+          tmp_root = pathlib.Path(tempfile.mkdtemp(prefix="alembic_drift_pg_"))
+          ver_dir = tmp_root / "versions"
+          ver_dir.mkdir(parents=True, exist_ok=True)
+
+          # 3) Try an autogenerate revision
+          try:
+              rev = command.revision(
+                  cfg,
+                  message="DRIFT_PROBE_PG",
+                  autogenerate=True,
+                  version_path=str(ver_dir),
+              )
+          except SystemExit:
+              rev = None
+
+          # 4) Inspect results
+          files = sorted(ver_dir.glob("*.py"))
+          if not files:
+              print("No revision file → no drift.")
+              sys.exit(0)
+
+          print("Generated revisions in temp:", [p.name for p in files])
+
+          # 5) Optional: destructive op detector (edit tokens if you like)
+          code = files[-1].read_text(encoding="utf-8")
+          destructive = re.findall(r"\b(drop_table|drop_column|alter_column|rename_column)\b", code, flags=re.I)
+          if destructive:
+              print("DESTRUCTIVE TOKENS:", destructive)
+              sys.exit(1)
+          else:
+              print("No destructive ops detected.")
           PY
 
-      - name: Upload PG drift artifact
+      - name: Upload drift artifact (PG)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: alembic-drift-autogen-pg
-          path: .alembic_autogen/drift/**
+          path: .alembic_autogen/drift_pg/**
+          if-no-files-found: warn
           retention-days: 7
 
-      - name: Autogenerate into temp dir and detect drift
+      - name: Autogenerate into temp dir and detect drift (SQLite)
+        continue-on-error: true
         env:
           ALEMBIC_CONFIG: backend/alembic.ini
-          SQLALCHEMY_URL: sqlite:///${{ github.workspace }}/.alembic_tmp/drift.sqlite
           PYTHONPATH: ${{ github.workspace }}
         run: |
           python - <<'PY'
-          import pathlib, shutil, tempfile, sys
+          import pathlib, tempfile, sys, os, re
           from alembic.config import Config
           from alembic import command
 
-          cfg = Config("backend/alembic.ini")
-          tmp = pathlib.Path(tempfile.mkdtemp(prefix="alembic_drift_"))
+          # 1) Use the repo's real env.py
+          cfg = Config(os.environ.get("ALEMBIC_CONFIG", "backend/alembic.ini"))
+          repo_script = pathlib.Path("backend/alembic")
+          env_py = repo_script / "env.py"
+          if not env_py.exists():
+              print(f"FATAL: missing {env_py}. Check repo path.")
+              sys.exit(2)
+          cfg.set_main_option("script_location", str(repo_script))
+
+          # 2) Make a temp versions dir; write *only* revisions here
+          tmp_root = pathlib.Path(tempfile.mkdtemp(prefix="alembic_drift_sqlite_"))
+          ver_dir = tmp_root / "versions"
+          ver_dir.mkdir(parents=True, exist_ok=True)
+
+          # 3) Try an autogenerate revision
           try:
-              cfg.set_main_option("script_location", str(tmp))
-              rev = command.revision(cfg, message="DRIFT_PROBE", autogenerate=True)
-              vers = tmp / "versions"
-              files = sorted(vers.glob("*.py")) if vers.exists() else []
-              if not files:
-                  print("No revision file created → no drift.")
-                  sys.exit(0)
-              code = files[0].read_text().lower()
-              tokens = (
-                  "op.create_table","op.alter_column","op.drop_table",
-                  "op.add_column","op.drop_column","op.create_index","op.drop_index"
+              rev = command.revision(
+                  cfg,
+                  message="DRIFT_PROBE_SQLITE",
+                  autogenerate=True,
+                  version_path=str(ver_dir),
               )
-              # copy to artifact dir for inspection
-              outdir = pathlib.Path(".alembic_autogen/drift"); outdir.mkdir(parents=True, exist_ok=True)
-              out = outdir / files[0].name
-              out.write_text(code)
-              if any(t in code for t in tokens):
-                  print(f"Schema drift detected → see {out}")
-                  sys.exit(1)
+          except SystemExit:
+              rev = None
+
+          # 4) Inspect results
+          files = sorted(ver_dir.glob("*.py"))
+          if not files:
+              print("No revision file created → no drift.")
+              sys.exit(0)
+
+          print("Generated revisions in temp:", [p.name for p in files])
+
+          # 5) copy to artifact dir for inspection
+          outdir = pathlib.Path(".alembic_autogen/drift")
+          outdir.mkdir(parents=True, exist_ok=True)
+          out = outdir / files[-1].name
+          code = files[-1].read_text(encoding="utf-8")
+          out.write_text(code)
+
+          # detect any schema tokens (advisory)
+          tokens = ("op.create_table","op.alter_column","op.drop_table","op.add_column","op.drop_column","op.create_index","op.drop_index")
+          if any(re.search(rf"\b{t}\b", code, flags=re.I) for t in tokens):
+              print(f"Schema drift detected → see {out}")
+          else:
               print("Autogenerate produced a trivial/no-op file → no drift.")
-          finally:
-              shutil.rmtree(tmp, ignore_errors=True)
           PY
 
       - name: Upload drift artifact

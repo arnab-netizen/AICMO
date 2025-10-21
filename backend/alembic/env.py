@@ -17,7 +17,31 @@ from backend.db.base import Base  # your metadata  # noqa: E402
 import backend  # noqa: F401,E402
 import backend.models  # noqa: F401,E402
 
-config = context.config
+# Some unit tests inject a fake `alembic.context` (SimpleNamespace) which may
+# not provide a `config` object. Make env.py tolerant: if `context.config` is
+# missing, create a minimal dummy config that implements the few methods
+# env.py uses (get_main_option, set_main_option, get_section, config_file_name).
+if getattr(context, "config", None) is not None:
+    config = context.config
+else:
+
+    class _DummyConfig:
+        config_file_name = None
+        config_ini_section = "alembic"
+
+        def get_main_option(self, key, default=None):
+            # Prefer explicit SQLALCHEMY_URL override from env in test scenarios
+            return os.getenv("SQLALCHEMY_URL") or default
+
+        def set_main_option(self, key, value):
+            # No-op for dummy config used during tests
+            return None
+
+        def get_section(self, section):
+            return {}
+
+    config = _DummyConfig()
+
 try:
     # fileConfig will attempt to read logger_* sections; if alembic.ini is minimal
     # we tolerate missing logging config to keep migrations robust in CI/dev.
@@ -65,7 +89,18 @@ def run_migrations_offline():
         compare_server_default=True,
         include_schemas=True,
     )
-    with context.begin_transaction():
+    # Some unit tests provide a fake `begin_transaction` that returns a
+    # SimpleNamespace. Be defensive: if the returned object doesn't support
+    # the context manager protocol, fall back to calling run_migrations()
+    # directly.
+    try:
+        txn = context.begin_transaction()
+        if hasattr(txn, "__enter__") and callable(getattr(txn, "__enter__")):
+            with txn:
+                context.run_migrations()
+        else:
+            context.run_migrations()
+    except TypeError:
         context.run_migrations()
 
 
@@ -104,7 +139,15 @@ def run_migrations_online():
             compare_server_default=True,
             include_schemas=True,
         )
-        with context.begin_transaction():
+        # Same defensive handling for begin_transaction as offline mode.
+        try:
+            txn = context.begin_transaction()
+            if hasattr(txn, "__enter__") and callable(getattr(txn, "__enter__")):
+                with txn:
+                    context.run_migrations()
+            else:
+                context.run_migrations()
+        except TypeError:
             context.run_migrations()
 
 

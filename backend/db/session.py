@@ -25,8 +25,10 @@ _SESSION_MAKER: Optional[sessionmaker] = None
 
 
 def _resolve_db_url() -> str:
-    # Tests delete both; default to in-memory sqlite
-    return os.getenv("DATABASE_URL") or os.getenv("DB_URL") or "sqlite+pysqlite:///:memory:"
+    # Prefer explicit DB_URL over DATABASE_URL so tests that set DB_URL via
+    # monkeypatch take precedence even when a global DATABASE_URL is present.
+    # Default to an in-memory sqlite database when neither is provided.
+    return os.getenv("DB_URL") or os.getenv("DATABASE_URL") or "sqlite+pysqlite:///:memory:"
 
 
 def get_engine() -> Engine:

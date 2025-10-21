@@ -46,3 +46,4 @@ Thumbs.db
 *.local.yml
 **/docker-data/
 _gh_artifacts
+.alembic_autogen/

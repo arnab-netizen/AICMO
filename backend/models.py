@@ -33,6 +33,9 @@ class Site(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    # human-facing title (optional) — some code/tests insert `title` instead
+    # of `name`, keep it nullable to remain compatible with existing data.
+    title: Mapped[str | None] = mapped_column(String, nullable=True)
     slug: Mapped[str] = mapped_column(String, nullable=True)
     created_at: Mapped[str] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
 

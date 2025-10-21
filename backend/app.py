@@ -11,6 +11,7 @@ from backend.db import ping_db
 from backend.routers.health import router as health_router
 from backend.routers.test import router as test_router
 from backend.modules.sitegen.routes import router as sitegen_router
+from backend.routers.sites import router as sites_router
 
 # NEW imports for the modules we added
 from backend.modules.copyhook.api.router import router as copyhook_router
@@ -45,6 +46,9 @@ app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
 app.include_router(health_router, tags=["health"])
 app.include_router(test_router, tags=["test"])
 app.include_router(sitegen_router, prefix="/sitegen", tags=["sitegen"])
+
+# Sites router (provides /sites/{slug}/spec used in tests)
+app.include_router(sites_router, tags=["sites"])
 
 # Mount the new module routers
 app.include_router(copyhook_router, prefix="/api/copyhook", tags=["copyhook"])

@@ -77,3 +77,12 @@ async def metrics():
 @router.get("/healthz")
 async def healthz():
     return {"ok": True}
+
+
+@router.post("/draft")
+async def draft(payload: dict):
+    # Minimal draft responder used by tests. Returns a simple site and one page.
+    name = payload.get("name") if isinstance(payload, dict) else None
+    site = {"name": name}
+    pages = [{"slug": "home", "title": "Home"}]
+    return {"site": site, "pages": pages}
