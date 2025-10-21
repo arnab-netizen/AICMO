@@ -113,7 +113,9 @@ jobs:
           --health-timeout=5s
           --health-retries=10
     env:
-      DATABASE_URL: postgresql+psycopg2://aicmo:pass@localhost:5435/aicmo
+      # Use the service container hostname so steps that run before the
+      # DB-client step can still reach Postgres inside the Actions network.
+      DATABASE_URL: postgresql+psycopg2://aicmo:pass@postgres:5432/aicmo
     steps:
       - uses: actions/checkout@v4
         with:
