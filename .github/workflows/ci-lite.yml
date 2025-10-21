@@ -137,7 +137,10 @@ jobs:
           set -euo pipefail
           echo "[preflight] verify required files and env"
           if [ ! -f backend/requirements.txt ]; then echo "Missing backend/requirements.txt" >&2; exit 1; fi
-          if [ ! -f backend/requirements-test.txt ]; then echo "Missing backend/requirements-test.txt" >&2; exit 1; fi
+          # Accept either requirements-test.txt or requirements-dev.txt for test deps
+          if [ ! -f backend/requirements-test.txt ] && [ ! -f backend/requirements-dev.txt ]; then
+            echo "Missing backend/requirements-test.txt AND backend/requirements-dev.txt" >&2; exit 1;
+          fi
           if [ -z "${DATABASE_URL:-}" ]; then echo "DATABASE_URL not set" >&2; exit 1; fi
           case "$DATABASE_URL" in
             postgresql*|postgresql+* ) echo "[preflight] DATABASE_URL looks like Postgres" ;; 
@@ -150,9 +153,16 @@ jobs:
           . .venv/bin/activate
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
-          # --- FIX ---
-          # Removed '|| true' to ensure test dependency failures stop the build
-          pip install -r backend/requirements-test.txt
+          # Install test/dev requirements if available. Prefer requirements-test.txt
+          if [ -f backend/requirements-test.txt ]; then
+            echo "Using backend/requirements-test.txt"
+            pip install -r backend/requirements-test.txt
+          elif [ -f backend/requirements-dev.txt ]; then
+            echo "Using backend/requirements-dev.txt"
+            pip install -r backend/requirements-dev.txt
+          else
+            echo "No test requirements file found; continuing without extra test deps"
+          fi
 
       - name: Prep DB + migrate
         run: |
