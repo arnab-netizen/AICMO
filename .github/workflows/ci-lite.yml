@@ -44,7 +44,7 @@ jobs:
       - name: Install minimal deps for autogenerate
         run: |
           python -m pip install --upgrade pip
-          pip install alembic
+          pip install alembic sqlalchemy
 
       - name: Advisory SQLite autogenerate (write to .alembic_autogen/drift)
         run: |
@@ -112,8 +112,10 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
-    # Do not set DATABASE_URL at the job level to avoid premature DNS lookups
-    # (we will persist a resolved URL into $GITHUB_ENV from the Prep DB step)
+    env:
+      # Use the service container hostname so steps that run before the
+      # DB-client step can still reach Postgres inside the Actions network.
+      DATABASE_URL: postgresql+psycopg2://aicmo:pass@postgres:5432/aicmo
     steps:
       - uses: actions/checkout@v4
         with:
@@ -141,14 +143,11 @@ jobs:
           if [ ! -f backend/requirements-test.txt ] && [ ! -f backend/requirements-dev.txt ]; then
             echo "Missing backend/requirements-test.txt AND backend/requirements-dev.txt" >&2; exit 1;
           fi
-          if [ -z "${DATABASE_URL:-}" ]; then
-            echo "[warn] DATABASE_URL not set yet; Prep DB step will determine and persist the resolved URL"
-          else
-            case "$DATABASE_URL" in
-              postgresql*|postgresql+* ) echo "[preflight] DATABASE_URL looks like Postgres" ;; 
-              *) echo "[warn] DATABASE_URL present but does not look like Postgres: $DATABASE_URL" ;;
-            esac
-          fi
+          if [ -z "${DATABASE_URL:-}" ]; then echo "DATABASE_URL not set" >&2; exit 1; fi
+          case "$DATABASE_URL" in
+            postgresql*|postgresql+* ) echo "[preflight] DATABASE_URL looks like Postgres" ;; 
+            *) echo "DATABASE_URL does not look like Postgres: $DATABASE_URL" >&2; exit 1 ;;
+          esac
 
       - name: Install deps
         run: |
@@ -211,38 +210,19 @@ jobs:
           # Convert to postgresql+psycopg2://user:pass@host:port/db
           SQLALCHEMY_URL=$(echo "$TRY_PSQL" | sed -E 's#^postgresql://#postgresql+psycopg2://#')
           if [ -n "$SQLALCHEMY_URL" ]; then
-            echo "[dbg] Persisting SQLALCHEMY_URL so later steps (alembic/sqlalchemy) use the resolved host"
-            # Persist into GITHUB_ENV so subsequent steps see the resolved URL
-            echo "SQLALCHEMY_URL=$SQLALCHEMY_URL" >> $GITHUB_ENV
-            echo "DATABASE_URL=$SQLALCHEMY_URL" >> $GITHUB_ENV
+            echo "[dbg] Exporting SQLALCHEMY_URL so Alembic/env.py uses the resolved host"
+            export SQLALCHEMY_URL="$SQLALCHEMY_URL"
+            # Also set DATABASE_URL to the sync URL to help other tools
+            export DATABASE_URL="$SQLALCHEMY_URL"
             echo "[dbg] SQLALCHEMY_URL set to: $SQLALCHEMY_URL"
           fi
 
           # Clean schema each run
           psql "$TRY_PSQL" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"
-      # end of Prep DB + migrate run
 
-      - name: Single-head guard & apply migrations
+      - name: Single-head guard
         run: |
           . .venv/bin/activate
-          # Recompute a psql-friendly URL from the persisted env
-          PSQL_URL=$(python - <<'PY'
-          import os,re
-          u = os.environ.get('DATABASE_URL') or os.environ.get('SQLALCHEMY_URL') or ''
-          print(re.sub(r'^(postgresql)(?:\+[^:]+)?://','postgresql://', u))
-          PY
-          )
-
-          # Wait for Postgres to become ready (try up to ~30s)
-          for i in {1..30}; do
-            if pg_isready -q -d "$PSQL_URL"; then
-              echo "[dbg] Postgres ready for migrations"
-              break
-            fi
-            sleep 1
-          done
-
-          # Single-head guard (use ScriptDirectory to avoid running env.py / DB connections)
           python - <<'PY'
           from alembic.config import Config
           from alembic.script import ScriptDirectory
@@ -250,63 +230,64 @@ jobs:
           sd = ScriptDirectory.from_config(cfg)
           heads = list(sd.get_heads())
           if len(heads) != 1:
-              print('Multiple Alembic heads!', heads)
-              raise SystemExit(1)
+            print('Multiple Alembic heads!', heads)
+            raise SystemExit(1)
           print('[dbg] Alembic single head OK:', heads)
           PY
 
-          echo "[dbg] About to run alembic via python; PSQL_URL=$PSQL_URL"
+      - name: Apply migrations to head (Python)
+        run: |
+          . .venv/bin/activate
+          echo "[dbg] About to run alembic via python"
+          echo "[dbg] SQLALCHEMY_URL='$SQLALCHEMY_URL'"
+          echo "[dbg] DATABASE_URL='$DATABASE_URL'"
           python - <<'PY'
           import os, traceback
           from alembic.config import Config
           from alembic import command
 
+          # Optional import for connectivity probing; if unavailable we'll skip the probe
           try:
               from sqlalchemy import create_engine, text
-              have_sa = True
           except Exception:
-              have_sa = False
+              create_engine = None
 
           cfg = Config('backend/alembic.ini')
+          # Prefer SQLALCHEMY_URL set by the step (sync psycopg2 URL pointing to resolved host)
           url = os.environ.get('SQLALCHEMY_URL') or os.environ.get('DATABASE_URL')
           print('[dbg] python alembic will use URL:', url)
+          print('[dbg] env SQLALCHEMY_URL:', os.environ.get('SQLALCHEMY_URL'))
+          print('[dbg] env DATABASE_URL:', os.environ.get('DATABASE_URL'))
           if url:
               cfg.set_main_option('sqlalchemy.url', url)
 
-          if have_sa and url:
+          # Quick connectivity test from the same Python process that will call Alembic
+          if create_engine and url:
               try:
                   eng = create_engine(url)
                   with eng.connect() as conn:
                       conn.execute(text('SELECT 1'))
                   print('[dbg] python process DB connectivity OK')
-              except Exception:
+              except Exception as conn_e:
                   print('[err] python process DB connectivity test failed:')
                   traceback.print_exc()
 
           try:
               command.upgrade(cfg, 'head')
           except SystemExit:
+              # Alembic sometimes calls sys.exit(0) — treat as success
               pass
           except Exception:
               print('[err] alembic upgrade failed: full traceback follows')
               traceback.print_exc()
+              # Re-raise so the job fails and the artifact steps run (we want failure visibility)
               raise
           PY
 
-      - name: Schema asserts (fail fast)
-        run: |
-          . .venv/bin/activate || true
-          # Recompute PSQL_URL from persisted env (DATABASE_URL or SQLALCHEMY_URL)
-          PSQL_URL=$(python - <<'PY'
-          import os,re
-          u = os.environ.get('DATABASE_URL') or os.environ.get('SQLALCHEMY_URL') or ''
-          print(re.sub(r'^(postgresql)(?:\+[^:]+)?://','postgresql://', u))
-          PY
-          )
-
-          psql "$PSQL_URL" -Atc "SELECT 1 FROM pg_indexes WHERE tablename='site' AND indexname='ux_site_slug';" | grep 1
-          psql "$PSQL_URL" -Atc "SELECT indexdef FROM pg_indexes WHERE tablename='page' AND indexdef LIKE '%UNIQUE% (site_id, path)%';" | grep UNIQUE
-          psql "$PSQL_URL" -Atc "SELECT table_name FROM information_schema.views WHERE table_schema='public' AND table_name='site_spec';" | grep site_spec
+          # === Schema asserts (fail fast) ===
+          psql "$TRY_PSQL" -Atc "SELECT 1 FROM pg_indexes WHERE tablename='site' AND indexname='ux_site_slug';" | grep 1
+          psql "$TRY_PSQL" -Atc "SELECT indexdef FROM pg_indexes WHERE tablename='page' AND indexdef LIKE '%UNIQUE% (site_id, path)%';" | grep UNIQUE
+          psql "$TRY_PSQL" -Atc "SELECT table_name FROM information_schema.views WHERE table_schema='public' AND table_name='site_spec';" | grep site_spec
 
       - name: Alembic visibility check
         working-directory: .
@@ -340,11 +321,23 @@ jobs:
           print("bases:", list(script.get_bases()))
           PY
 
-      # NOTE: we persist the resolved SQLALCHEMY_URL into $GITHUB_ENV in the
-      # Prep DB step above. Avoid performing an early DB connectivity check here
-      # because that may attempt to resolve the service hostname 'postgres'
-      # before the Actions runner can resolve it. Subsequent steps should use
-      # the persisted $SQLALCHEMY_URL / $DATABASE_URL from the environment.
+      - name: Ensure DB client + driver and set DATABASE_URL
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install psycopg2-binary sqlalchemy
+          # Use the service hostname "postgres" inside the job network
+          echo "DATABASE_URL=postgresql+psycopg2://aicmo:pass@postgres:5432/aicmo" >> $GITHUB_ENV
+          # Sanity check the connection
+          python - <<'PY'
+          import os, sys
+          from sqlalchemy import create_engine, text
+          url = os.environ.get("DATABASE_URL")
+          assert url, "DATABASE_URL not set"
+          eng = create_engine(url, pool_pre_ping=True)
+          with eng.connect() as c:
+              c.execute(text("SELECT 1"))
+          print("[dbg] DB connectivity OK:", url)
+          PY
 
       - name: Alembic heads/current (no DB) — prove versions are visible
         working-directory: .
@@ -511,8 +504,9 @@ jobs:
           ROOT=".alembic_autogen/drift_pg"
           [ -d "$ROOT" ] || exit 0
           echo "[guard] keeping files that match '*drift_probe*.py' only"
-          find "$ROOT" -type f -name "*.py" ! -name "*drift_probe*.py" -print -delete || true
-          echo "[guard] remaining files:"; find "$ROOT" -type f -maxdepth 2 -print || true
+          # Ensure find options are ordered portably
+          find "$ROOT" -maxdepth 2 -type f ! -name "*drift_probe*.py" -print -delete || true
+          echo "[guard] remaining files:"; find "$ROOT" -maxdepth 2 -type f -print || true
 
       - name: Scan drift artifacts for destructive changes
         if: always()
