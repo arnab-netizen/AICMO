@@ -357,3 +357,26 @@ jobs:
         run: |
           . .venv/bin/activate
           pytest -q
+
+      - name: Alembic visibility check (list heads from real script_location)
+        working-directory: .
+        run: |
+          python - <<'PY'
+          import os
+          from alembic.config import Config
+          from alembic.script import ScriptDirectory
+
+          cfg = Config("backend/alembic.ini")
+          script_location = cfg.get_main_option("script_location")
+          print(f"[dbg] real script_location={script_location}")
+
+          sd = ScriptDirectory.from_config(cfg)
+          heads = list(sd.get_heads())
+          print(f"[dbg] alembic heads count={len(heads)} -> {heads}")
+          assert len(heads) >= 1, "No heads found — Alembic cannot see versions"
+          PY
+
+      - name: Scan drift artifacts for destructive changes
+        if: always()
+        run: |
+          python tools/scan_autogen_for_drops.py .alembic_autogen/drift_pg || (echo "Destructive tokens detected" && exit 1)
