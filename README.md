@@ -54,3 +54,40 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt  # includes -e ./capsule-core
 pytest -q
 ```
+
+## AICMO Dashboard (Streamlit)
+
+**Prereqs:** Postgres up on `localhost:5435`, Python 3.12+
+
+### Run backend
+```bash
+export DATABASE_URL="postgresql+psycopg2://aicmo:pass@localhost:5435/aicmo"
+make db-reset
+uvicorn backend.app:app --port 8000 --reload
+```
+
+### Run dashboard
+```bash
+python -m venv .venv && . .venv/bin/activate
+pip install streamlit httpx
+export API_BASE="http://localhost:8000"
+streamlit run streamlit_app.py
+```
+
+### Quick Make targets
+Add these helpers to run the UI and API quickly:
+
+```makefile
+.PHONY: ui api dev
+ui:
+	. .venv/bin/activate >/dev/null 2>&1 || python -m venv .venv && . .venv/bin/activate && pip install streamlit httpx
+	API_BASE?=http://localhost:8000 streamlit run streamlit_app.py
+
+api:
+	uvicorn backend.app:app --port 8000 --reload
+
+dev:   ## run DB reset + API + a hint for UI
+	@echo "Resetting DB and starting API..."
+	$(MAKE) db-reset
+	uvicorn backend.app:app --port 8000 --reload
+```

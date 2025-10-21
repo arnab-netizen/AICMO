@@ -78,6 +78,19 @@ ui:
 	pip install -r requirements-streamlit.txt && \
 	streamlit run app.py
 
+.PHONY: ui api dev
+ui:
+	. .venv/bin/activate >/dev/null 2>&1 || python -m venv .venv && . .venv/bin/activate && pip install streamlit httpx
+	API_BASE?=http://localhost:8000 streamlit run streamlit_app.py
+
+api:
+	uvicorn backend.app:app --port 8000 --reload
+
+dev:   ## run DB reset + API + a hint for UI
+	@echo "Resetting DB and starting API…"
+	$(MAKE) db-reset
+	uvicorn backend.app:app --port 8000 --reload
+
 .PHONY: core-dev core-test
 core-dev: ; pip install -e ./capsule-core
 core-test: ; pytest -q capsule-core/tests
