@@ -255,7 +255,7 @@ jobs:
           --health-cmd="pg_isready -U aicmo -d aicmo"
           --health-interval=5s --health-timeout=5s --health-retries=20
     env:
-      DATABASE_URL: postgresql+psycopg2://aicmo:pass@pg:5432/aicmo
+      DATABASE_URL: postgresql+psycopg2://aicmo:pass@localhost:5435/aicmo
     steps:
       - uses: actions/checkout@v4
 
