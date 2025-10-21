@@ -17,6 +17,18 @@ from backend.db.base import Base  # your metadata  # noqa: E402
 import backend  # noqa: F401,E402
 import backend.models  # noqa: F401,E402
 
+# --- FINAL FIX ---
+# The 'find' command revealed that many models (Site, Page, SitegenRun, etc.)
+# are defined in `backend/modules/sitegen/db_models.py`.
+# We MUST import this module here so that Alembic's autogenerate feature
+# can see the models and correctly compare them to the database schema.
+# Placed after sys.path bootstrap above; linter expects imports at top so
+# suppress E402 here.
+import backend.modules.sitegen.db_models  # noqa: F401,E402
+
+# --- END FINAL FIX ---
+
+
 # Some unit tests inject a fake `alembic.context` (SimpleNamespace) which may
 # not provide a `config` object. Make env.py tolerant: if `context.config` is
 # missing, create a minimal dummy config that implements the few methods
