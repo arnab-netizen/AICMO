@@ -132,6 +132,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
+      - name: Preflight checks
+        run: |
+          set -euo pipefail
+          echo "[preflight] verify required files and env"
+          if [ ! -f backend/requirements.txt ]; then echo "Missing backend/requirements.txt" >&2; exit 1; fi
+          if [ ! -f backend/requirements-test.txt ]; then echo "Missing backend/requirements-test.txt" >&2; exit 1; fi
+          if [ -z "${DATABASE_URL:-}" ]; then echo "DATABASE_URL not set" >&2; exit 1; fi
+          case "$DATABASE_URL" in
+            postgresql*|postgresql+* ) echo "[preflight] DATABASE_URL looks like Postgres" ;; 
+            *) echo "DATABASE_URL does not look like Postgres: $DATABASE_URL" >&2; exit 1 ;;
+          esac
+
       - name: Install deps
         run: |
           python -m venv .venv
@@ -386,3 +398,13 @@ jobs:
         if: always()
         run: |
           python tools/scan_autogen_for_drops.py .alembic_autogen/drift_pg || (echo "Destructive tokens detected" && exit 1)
+
+      - name: Upload debug artifacts (failure only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-debug-artifacts
+          path: |
+            artifacts/**
+            .alembic_autogen/**
+            **/alembic_probe_*/*
