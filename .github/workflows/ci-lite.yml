@@ -31,6 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -105,6 +107,8 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -245,6 +249,11 @@ jobs:
               print("No destructive ops detected.")
           PY
 
+      - name: Scan PG autogen for destructive changes
+        if: always()
+        run: |
+          python tools/scan_autogen_for_drops.py .alembic_autogen/drift_pg || (echo "Destructive tokens detected" && exit 1)
+
       - name: Upload drift artifact (PG)
         if: always()
         uses: actions/upload-artifact@v4
@@ -273,6 +282,8 @@ jobs:
       DATABASE_URL: postgresql+psycopg2://aicmo:pass@localhost:5435/aicmo
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -319,6 +330,38 @@ jobs:
           psql "$PSQL_URL" -Atc "SELECT indexdef FROM pg_indexes WHERE tablename='page' AND indexdef LIKE '%UNIQUE% (site_id, path)%';" | grep UNIQUE
           psql "$PSQL_URL" -Atc "SELECT table_name FROM information_schema.views WHERE table_schema='public' AND table_name='site_spec';" | grep site_spec
 
+      - name: Alembic visibility check
+        working-directory: .
+        run: |
+          set -e
+          . .venv/bin/activate
+          echo "CWD: $(pwd)"
+          echo "Repo root listing:"
+          ls -la
+          echo "Alembic files:"
+          ls -la backend/alembic || true
+          ls -la backend/alembic/versions || true
+
+          python - <<'PY'
+          import os, glob
+          from alembic.config import Config
+          from alembic.script import ScriptDirectory
+
+          cfg = Config("backend/alembic.ini")
+          print("alembic.ini found:", os.path.exists("backend/alembic.ini"))
+          print("cfg.config_file_name:", cfg.config_file_name)
+          print("script_location cfg:", cfg.get_main_option("script_location"))
+
+          versions = glob.glob("backend/alembic/versions/*.py")
+          print("versions count:", len(versions))
+          for v in sorted(versions)[-5:]:
+              print("  -", os.path.basename(v))
+
+          script = ScriptDirectory.from_config(cfg)
+          print("heads:", list(script.get_heads()))
+          print("bases:", list(script.get_bases()))
+          PY
+
       - name: Drift probe (fail if model != DB)
         run: |
           . .venv/bin/activate
@@ -333,21 +376,21 @@ jobs:
 
           cfg = Config("backend/alembic.ini")
           try:
-              command.revision(
-                  cfg,
-                  message="DRIFT_PROBE",
-                  autogenerate=True,
-                  version_path=str(out),  # <-- directs output only
-              )
+            command.revision(
+              cfg,
+              message="DRIFT_PROBE",
+              autogenerate=True,
+              version_path=str(out),  # <-- directs output only
+            )
           except SystemExit:
-              pass # Ignore alembic's sys.exit(0)
+            pass # Ignore alembic's sys.exit(0)
 
           files = list(out.glob("*.py"))
           if files:
-              print("Autogenerate produced diffs → drift detected.")
-              for f in files:
-                  print(" -", f.name)
-              sys.exit(1) # <-- This is the critical failure
+            print("Autogenerate produced diffs → drift detected.")
+            for f in files:
+              print(" -", f.name)
+            sys.exit(1) # <-- This is the critical failure
           print("No drift.")
           PY
 
