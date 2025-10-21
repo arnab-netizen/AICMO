@@ -38,6 +38,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install minimal deps for autogenerate
+        run: |
+          python -m pip install --upgrade pip
+          pip install alembic
+
       - name: Advisory SQLite autogenerate (write to .alembic_autogen/drift)
         run: |
           python - <<'PY'
@@ -291,6 +296,16 @@ jobs:
           print(f"[dbg] alembic heads count={len(heads)} -> {heads}")
           assert len(heads) >= 1, "No heads found — Alembic cannot see versions"
           PY
+
+      - name: Prune non-probe files from PG drift artifact
+        if: always()
+        run: |
+          set -euo pipefail
+          ROOT=".alembic_autogen/drift_pg"
+          [ -d "$ROOT" ] || exit 0
+          echo "[guard] keeping files that match '*drift_probe*.py' only"
+          find "$ROOT" -type f -name "*.py" ! -name "*drift_probe*.py" -print -delete || true
+          echo "[guard] remaining files:"; find "$ROOT" -type f -maxdepth 2 -print || true
 
       - name: Scan drift artifacts for destructive changes
         if: always()
