@@ -200,35 +200,71 @@ jobs:
           PY
 
       - name: Drift probe (fail if model != DB)
+        working-directory: .
         run: |
           . .venv/bin/activate
           python - <<'PY'
-          import tempfile, pathlib, sys
+          import os, tempfile, pathlib, sys
           from alembic.config import Config
           from alembic import command
 
-          tmp = pathlib.Path(tempfile.mkdtemp(prefix="alembic_probe_"))
-          out = tmp / "versions"
+          repo_versions = os.path.abspath('backend/alembic/versions')
+          tmp = pathlib.Path(tempfile.mkdtemp(prefix='alembic_probe_'))
+          out = tmp / 'versions'
           out.mkdir(parents=True, exist_ok=True)
 
-          cfg = Config("backend/alembic.ini")
-          try:
-            command.revision(
-              cfg,
-              message="DRIFT_PROBE",
-              autogenerate=True,
-              version_path=str(out),  # <-- directs output only
-            )
-          except SystemExit:
-            pass # Ignore alembic's sys.exit(0)
+          cfg = Config('backend/alembic.ini')
+          print('[dbg] CWD:', os.getcwd())
+          print('[dbg] backend/alembic.ini exists:', os.path.exists('backend/alembic.ini'))
+          print('[dbg] cfg.config_file_name:', cfg.config_file_name)
+          print('[dbg] cfg.script_location (before):', cfg.get_main_option('script_location'))
 
-          files = list(out.glob("*.py"))
+          # Ensure alembic can resolve repo revisions while writing to a temp versions dir
+          cfg.set_main_option('script_location', 'backend/alembic')
+          cfg.set_main_option('version_locations', f"{out},{repo_versions}")
+          print('[dbg] cfg.script_location (after):', cfg.get_main_option('script_location'))
+          print('[dbg] cfg.version_locations (after):', cfg.get_main_option('version_locations'))
+
+          # List repo versions for visibility
+          try:
+              rv = list(pathlib.Path(repo_versions).glob('*.py'))
+              print('[dbg] repo versions count:', len(rv))
+              for v in sorted(rv)[-20:]:
+                  print('  -', v.name)
+          except Exception as e:
+              print('[dbg] listing repo versions failed:', e)
+
+          # Show what exists in the repo's versions dir
+          repo_versions_dir = repo_versions
+          rv_path = pathlib.Path(repo_versions_dir)
+          files = sorted(p.name for p in rv_path.glob('*.py')) if rv_path.exists() else []
+          print(f"[dbg] repo versions count={len(files)}")
+          for n in files[:20]:
+              print(f"[dbg]   - {n}")
+          if len(files) > 20:
+              print(f"[dbg]   ... (+{len(files)-20} more)")
+
+          # NEW: fail fast if no repo migrations are visible
+          assert files, "No migrations found in backend/alembic/versions — ensure actions/checkout uses fetch-depth: 0"
+
+          try:
+              command.revision(cfg, message='DRIFT_PROBE', autogenerate=True, version_path=str(out))
+          except SystemExit:
+              pass
+
+          files = list(out.glob('*.py'))
+          dst = pathlib.Path('.alembic_autogen/drift_pg')
+          dst.mkdir(parents=True, exist_ok=True)
           if files:
-            print("Autogenerate produced diffs → drift detected.")
-            for f in files:
-              print(" -", f.name)
-            sys.exit(1) # <-- This is the critical failure
-          print("No drift.")
+              print('Autogenerate produced diffs → drift detected.')
+              for f in files:
+                  print(' -', f.name)
+                  (dst / f.name).write_text(f.read_text(encoding='utf-8'))
+              print('Wrote authoritative PG autogen to', dst)
+              # Leave destructive scanning to the later dedicated step
+              sys.exit(1)
+          else:
+              print('No drift.')
           PY
 
       - name: Run tests (Postgres + SQLite)
