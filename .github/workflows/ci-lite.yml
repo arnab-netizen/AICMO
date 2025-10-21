@@ -169,12 +169,43 @@ jobs:
       - name: Prep DB + migrate
         run: |
           . .venv/bin/activate
+          # Normalize DATABASE_URL to a psql-friendly form (remove +driver)
           PSQL_URL=$(python - <<'PY'
-          import os,re; u=os.environ['DATABASE_URL']; print(re.sub(r'^(postgresql)(?:\+[^:]+)?://','postgresql://',u))
+          import os, re
+          u = os.environ['DATABASE_URL']
+          print(re.sub(r'^(postgresql)(?:\+[^:]+)?://','postgresql://', u))
           PY
           )
+
+          # If the service hostname isn't resolvable yet, try localhost (service port is mapped)
+          DB_HOST=$(python - <<'PY'
+          import os
+          from urllib.parse import urlparse
+          u = os.environ['DATABASE_URL']
+          p = urlparse(u)
+          print(p.hostname or '')
+          PY
+          )
+
+          if getent hosts "$DB_HOST" >/dev/null 2>&1; then
+            echo "[dbg] DB host '$DB_HOST' resolves"
+            TRY_PSQL="$PSQL_URL"
+          else
+            echo "[warn] DB host '$DB_HOST' not resolvable yet; falling back to localhost"
+            TRY_PSQL=$(echo "$PSQL_URL" | sed -E 's/@[^:]+:/@localhost:/')
+          fi
+
+          # Wait for Postgres to become ready (try up to ~30s)
+          for i in {1..30}; do
+            if pg_isready -q -d "$TRY_PSQL"; then
+              echo "[dbg] Postgres ready"
+              break
+            fi
+            sleep 1
+          done
+
           # Clean schema each run
-          psql "$PSQL_URL" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"
+          psql "$TRY_PSQL" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"
 
           # Single-head guard
           alembic -c backend/alembic.ini heads | awk 'END{ if (NR!=1) { print "Multiple Alembic heads!"; exit 1 } }'
@@ -184,9 +215,9 @@ jobs:
 
           # === Schema asserts (fail fast) ===
           # (These are optional but good asserts, kept from your example)
-          psql "$PSQL_URL" -Atc "SELECT 1 FROM pg_indexes WHERE tablename='site' AND indexname='ux_site_slug';" | grep 1
-          psql "$PSQL_URL" -Atc "SELECT indexdef FROM pg_indexes WHERE tablename='page' AND indexdef LIKE '%UNIQUE% (site_id, path)%';" | grep UNIQUE
-          psql "$PSQL_URL" -Atc "SELECT table_name FROM information_schema.views WHERE table_schema='public' AND table_name='site_spec';" | grep site_spec
+          psql "$TRY_PSQL" -Atc "SELECT 1 FROM pg_indexes WHERE tablename='site' AND indexname='ux_site_slug';" | grep 1
+          psql "$TRY_PSQL" -Atc "SELECT indexdef FROM pg_indexes WHERE tablename='page' AND indexdef LIKE '%UNIQUE% (site_id, path)%';" | grep UNIQUE
+          psql "$TRY_PSQL" -Atc "SELECT table_name FROM information_schema.views WHERE table_schema='public' AND table_name='site_spec';" | grep site_spec
 
       - name: Alembic visibility check
         working-directory: .
@@ -373,7 +404,7 @@ jobs:
 
       - name: Run tests (Postgres + SQLite)
         env:
-          DATABASE_URL: postgresql+psycopg2://aicmo:pass@localhost:5435/aicmo
+          DATABASE_URL: postgresql+psycopg2://aicmo:pass@postgres:5432/aicmo
         run: |
           . .venv/bin/activate
           pytest -q
