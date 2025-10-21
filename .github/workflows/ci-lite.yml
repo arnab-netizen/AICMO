@@ -204,14 +204,48 @@ jobs:
             sleep 1
           done
 
+          # Ensure subprocesses (alembic/sqlalchemy) use the same host/port
+          # Derive a sync SQLAlchemy URL (postgresql+psycopg2) from TRY_PSQL and export it
+          # TRY_PSQL may be like: postgresql://user:pass@host:port/db
+          # Convert to postgresql+psycopg2://user:pass@host:port/db
+          SQLALCHEMY_URL=$(echo "$TRY_PSQL" | sed -E 's#^postgresql://#postgresql+psycopg2://#')
+          if [ -n "$SQLALCHEMY_URL" ]; then
+            echo "[dbg] Exporting SQLALCHEMY_URL so Alembic/env.py uses the resolved host"
+            export SQLALCHEMY_URL="$SQLALCHEMY_URL"
+            # Also set DATABASE_URL to the sync URL to help other tools
+            export DATABASE_URL="$SQLALCHEMY_URL"
+            echo "[dbg] SQLALCHEMY_URL set to: $SQLALCHEMY_URL"
+          fi
+
           # Clean schema each run
           psql "$TRY_PSQL" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"
 
           # Single-head guard
           alembic -c backend/alembic.ini heads | awk 'END{ if (NR!=1) { print "Multiple Alembic heads!"; exit 1 } }'
 
-          # Apply migrations
-          alembic -c backend/alembic.ini upgrade head
+          # Apply migrations (ensure alembic uses the resolved URL)
+          echo "[dbg] About to run alembic via python; TRY_PSQL=$TRY_PSQL"
+          echo "[dbg] SQLALCHEMY_URL='$SQLALCHEMY_URL'"
+          echo "[dbg] DATABASE_URL='$DATABASE_URL'"
+          python - <<'PY'
+          import os
+          from alembic.config import Config
+          from alembic import command
+
+          cfg = Config('backend/alembic.ini')
+          # Prefer SQLALCHEMY_URL set by the step (sync psycopg2 URL pointing to resolved host)
+          url = os.environ.get('SQLALCHEMY_URL') or os.environ.get('DATABASE_URL')
+          print('[dbg] python alembic will use URL:', url)
+          if url:
+              cfg.set_main_option('sqlalchemy.url', url)
+          try:
+              command.upgrade(cfg, 'head')
+          except SystemExit:
+              pass
+          except Exception as e:
+              print('[err] alembic upgrade failed:', e)
+              raise
+          PY
 
           # === Schema asserts (fail fast) ===
           # (These are optional but good asserts, kept from your example)
