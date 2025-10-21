@@ -1,0 +1,662 @@
+﻿2025-10-21T05:25:32.4586830Z Current runner version: '2.329.0'
+2025-10-21T05:25:32.4641635Z ##[group]Runner Image Provisioner
+2025-10-21T05:25:32.4642972Z Hosted Compute Agent
+2025-10-21T05:25:32.4643860Z Version: 20250912.392
+2025-10-21T05:25:32.4644787Z Commit: d921fda672a98b64f4f82364647e2f10b2267d0b
+2025-10-21T05:25:32.4646122Z Build Date: 2025-09-12T15:23:14Z
+2025-10-21T05:25:32.4667465Z ##[endgroup]
+2025-10-21T05:25:32.4668447Z ##[group]Operating System
+2025-10-21T05:25:32.4669385Z Ubuntu
+2025-10-21T05:25:32.4670226Z 24.04.3
+2025-10-21T05:25:32.4670979Z LTS
+2025-10-21T05:25:32.4671989Z ##[endgroup]
+2025-10-21T05:25:32.4672821Z ##[group]Runner Image
+2025-10-21T05:25:32.4673682Z Image: ubuntu-24.04
+2025-10-21T05:25:32.4674667Z Version: 20250929.60.1
+2025-10-21T05:25:32.4676370Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250929.60/images/ubuntu/Ubuntu2404-Readme.md
+2025-10-21T05:25:32.4679601Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250929.60
+2025-10-21T05:25:32.4681356Z ##[endgroup]
+2025-10-21T05:25:32.4683197Z ##[group]GITHUB_TOKEN Permissions
+2025-10-21T05:25:32.4685799Z Contents: read
+2025-10-21T05:25:32.4706989Z Metadata: read
+2025-10-21T05:25:32.4708081Z ##[endgroup]
+2025-10-21T05:25:32.4711058Z Secret source: Actions
+2025-10-21T05:25:32.4712561Z Prepare workflow directory
+2025-10-21T05:25:32.5795762Z Prepare all required actions
+2025-10-21T05:25:32.5903333Z Getting action download info
+2025-10-21T05:25:33.0350768Z Download action repository 'actions/checkout@v4' (SHA:08eba0b27e820071cde6df949e0beb9ba4906955)
+2025-10-21T05:25:33.1152787Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2025-10-21T05:25:33.2082609Z Download action repository 'actions/cache@v4' (SHA:0057852bfaa89a56745cba8c7296529d2fc39830)
+2025-10-21T05:25:33.3132418Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2025-10-21T05:25:33.6092302Z Complete job name: tests (apply migrations + run pytest)
+2025-10-21T05:25:33.6622735Z ##[group]Checking docker version
+2025-10-21T05:25:33.6635739Z ##[command]/usr/bin/docker version --format '{{.Server.APIVersion}}'
+2025-10-21T05:25:35.9842921Z '1.48'
+2025-10-21T05:25:35.9857958Z Docker daemon API version: '1.48'
+2025-10-21T05:25:35.9858430Z ##[command]/usr/bin/docker version --format '{{.Client.APIVersion}}'
+2025-10-21T05:25:36.0020753Z '1.48'
+2025-10-21T05:25:36.0034452Z Docker client API version: '1.48'
+2025-10-21T05:25:36.0040096Z ##[endgroup]
+2025-10-21T05:25:36.0042642Z ##[group]Clean up resources from previous jobs
+2025-10-21T05:25:36.0048203Z ##[command]/usr/bin/docker ps --all --quiet --no-trunc --filter "label=665b89"
+2025-10-21T05:25:36.0242690Z ##[command]/usr/bin/docker network prune --force --filter "label=665b89"
+2025-10-21T05:25:36.0374886Z ##[endgroup]
+2025-10-21T05:25:36.0375182Z ##[group]Create local container network
+2025-10-21T05:25:36.0384291Z ##[command]/usr/bin/docker network create --label 665b89 github_network_97504644f2f145ee9ad94dc6b551c644
+2025-10-21T05:25:36.1084721Z 8b43381a8db290e5fc5e4c32734d5ab376285aa0d458057a0901e43af0fb39c4
+2025-10-21T05:25:36.1101792Z ##[endgroup]
+2025-10-21T05:25:36.1125271Z ##[group]Starting pg service container
+2025-10-21T05:25:36.1145150Z ##[command]/usr/bin/docker pull ankane/pgvector:latest
+2025-10-21T05:25:36.3534302Z latest: Pulling from ankane/pgvector
+2025-10-21T05:25:36.4275785Z a803e7c4b030: Pulling fs layer
+2025-10-21T05:25:36.4278787Z 12dd3b657e91: Pulling fs layer
+2025-10-21T05:25:36.4281459Z 147adba297eb: Pulling fs layer
+2025-10-21T05:25:36.4283307Z 56ee7c0dd616: Pulling fs layer
+2025-10-21T05:25:36.4283722Z f9aacf30f429: Pulling fs layer
+2025-10-21T05:25:36.4284095Z 7ad57b8030eb: Pulling fs layer
+2025-10-21T05:25:36.4284452Z 786562b3be85: Pulling fs layer
+2025-10-21T05:25:36.4284734Z 04efcdd3a2a4: Pulling fs layer
+2025-10-21T05:25:36.4284962Z 2c35234636c9: Pulling fs layer
+2025-10-21T05:25:36.4285183Z 6e662fa63f18: Pulling fs layer
+2025-10-21T05:25:36.4285409Z f1a157d7d7b0: Pulling fs layer
+2025-10-21T05:25:36.4285908Z bb153abf3802: Pulling fs layer
+2025-10-21T05:25:36.4286114Z 7077e54346e0: Pulling fs layer
+2025-10-21T05:25:36.4286321Z 2e3723549f11: Pulling fs layer
+2025-10-21T05:25:36.4286838Z c5f09b500022: Pulling fs layer
+2025-10-21T05:25:36.4287099Z 56ee7c0dd616: Waiting
+2025-10-21T05:25:36.4287288Z f9aacf30f429: Waiting
+2025-10-21T05:25:36.4287467Z 7ad57b8030eb: Waiting
+2025-10-21T05:25:36.4287645Z 786562b3be85: Waiting
+2025-10-21T05:25:36.4287820Z 04efcdd3a2a4: Waiting
+2025-10-21T05:25:36.4287989Z 2c35234636c9: Waiting
+2025-10-21T05:25:36.4288157Z 6e662fa63f18: Waiting
+2025-10-21T05:25:36.4288321Z f1a157d7d7b0: Waiting
+2025-10-21T05:25:36.4288624Z bb153abf3802: Waiting
+2025-10-21T05:25:36.4288820Z 7077e54346e0: Waiting
+2025-10-21T05:25:36.4288989Z 2e3723549f11: Waiting
+2025-10-21T05:25:36.4289148Z c5f09b500022: Waiting
+2025-10-21T05:25:36.5143187Z 12dd3b657e91: Verifying Checksum
+2025-10-21T05:25:36.5146196Z 12dd3b657e91: Download complete
+2025-10-21T05:25:36.5685850Z 147adba297eb: Verifying Checksum
+2025-10-21T05:25:36.5695761Z 147adba297eb: Download complete
+2025-10-21T05:25:36.6225392Z 56ee7c0dd616: Verifying Checksum
+2025-10-21T05:25:36.6225839Z 56ee7c0dd616: Download complete
+2025-10-21T05:25:36.6774019Z a803e7c4b030: Verifying Checksum
+2025-10-21T05:25:36.6774562Z a803e7c4b030: Download complete
+2025-10-21T05:25:36.7151230Z f9aacf30f429: Verifying Checksum
+2025-10-21T05:25:36.7155237Z f9aacf30f429: Download complete
+2025-10-21T05:25:36.7516256Z 7ad57b8030eb: Verifying Checksum
+2025-10-21T05:25:36.7519438Z 7ad57b8030eb: Download complete
+2025-10-21T05:25:36.7646850Z 786562b3be85: Verifying Checksum
+2025-10-21T05:25:36.7647283Z 786562b3be85: Download complete
+2025-10-21T05:25:36.7984234Z 04efcdd3a2a4: Verifying Checksum
+2025-10-21T05:25:36.7988207Z 04efcdd3a2a4: Download complete
+2025-10-21T05:25:36.8640471Z 6e662fa63f18: Verifying Checksum
+2025-10-21T05:25:36.8649934Z 6e662fa63f18: Download complete
+2025-10-21T05:25:36.8759142Z f1a157d7d7b0: Verifying Checksum
+2025-10-21T05:25:36.8761176Z f1a157d7d7b0: Download complete
+2025-10-21T05:25:36.9413409Z bb153abf3802: Verifying Checksum
+2025-10-21T05:25:36.9420666Z bb153abf3802: Download complete
+2025-10-21T05:25:36.9563193Z 7077e54346e0: Verifying Checksum
+2025-10-21T05:25:36.9569894Z 7077e54346e0: Download complete
+2025-10-21T05:25:37.0504819Z 2e3723549f11: Verifying Checksum
+2025-10-21T05:25:37.0508315Z 2e3723549f11: Download complete
+2025-10-21T05:25:37.1360693Z c5f09b500022: Verifying Checksum
+2025-10-21T05:25:37.1362126Z c5f09b500022: Download complete
+2025-10-21T05:25:37.5434800Z 2c35234636c9: Verifying Checksum
+2025-10-21T05:25:37.5438345Z 2c35234636c9: Download complete
+2025-10-21T05:25:38.1438150Z a803e7c4b030: Pull complete
+2025-10-21T05:25:40.2650873Z 12dd3b657e91: Pull complete
+2025-10-21T05:25:40.4223844Z 147adba297eb: Pull complete
+2025-10-21T05:25:40.4898417Z 56ee7c0dd616: Pull complete
+2025-10-21T05:25:40.8132757Z f9aacf30f429: Pull complete
+2025-10-21T05:25:40.9380511Z 7ad57b8030eb: Pull complete
+2025-10-21T05:25:40.9568748Z 786562b3be85: Pull complete
+2025-10-21T05:25:40.9745942Z 04efcdd3a2a4: Pull complete
+2025-10-21T05:25:44.7553007Z 2c35234636c9: Pull complete
+2025-10-21T05:25:44.7801646Z 6e662fa63f18: Pull complete
+2025-10-21T05:25:44.7974042Z f1a157d7d7b0: Pull complete
+2025-10-21T05:25:44.8153671Z bb153abf3802: Pull complete
+2025-10-21T05:25:44.8318019Z 7077e54346e0: Pull complete
+2025-10-21T05:25:44.8748138Z 2e3723549f11: Pull complete
+2025-10-21T05:25:45.2958956Z c5f09b500022: Pull complete
+2025-10-21T05:25:45.3028650Z Digest: sha256:956744bd14e9cbdf639c61c2a2a7c7c2c48a9c8cdd42f7de4ac034f4e96b90f8
+2025-10-21T05:25:45.3050325Z Status: Downloaded newer image for ankane/pgvector:latest
+2025-10-21T05:25:45.3064780Z docker.io/ankane/pgvector:latest
+2025-10-21T05:25:45.3155234Z ##[command]/usr/bin/docker create --name 2fc9cd828f5c4e12b3d15db616294a92_ankanepgvectorlatest_f01db8 --label 665b89 --network github_network_97504644f2f145ee9ad94dc6b551c644 --network-alias pg -p 5435:5432 --health-cmd="pg_isready -U aicmo -d aicmo" --health-interval=5s --health-timeout=5s --health-retries=20 -e "POSTGRES_USER=aicmo" -e "POSTGRES_PASSWORD=pass" -e "POSTGRES_DB=aicmo" -e GITHUB_ACTIONS=true -e CI=true ankane/pgvector:latest
+2025-10-21T05:25:45.3449791Z 83a17341024fbc0449ecfbb55cc71e088fc3f8dd2f1b534abbfb708d2082f6e5
+2025-10-21T05:25:45.3473247Z ##[command]/usr/bin/docker start 83a17341024fbc0449ecfbb55cc71e088fc3f8dd2f1b534abbfb708d2082f6e5
+2025-10-21T05:25:46.1852817Z 83a17341024fbc0449ecfbb55cc71e088fc3f8dd2f1b534abbfb708d2082f6e5
+2025-10-21T05:25:46.1883958Z ##[command]/usr/bin/docker ps --all --filter id=83a17341024fbc0449ecfbb55cc71e088fc3f8dd2f1b534abbfb708d2082f6e5 --filter status=running --no-trunc --format "{{.ID}} {{.Status}}"
+2025-10-21T05:25:46.2052259Z 83a17341024fbc0449ecfbb55cc71e088fc3f8dd2f1b534abbfb708d2082f6e5 Up Less than a second (health: starting)
+2025-10-21T05:25:46.2082374Z ##[command]/usr/bin/docker port 83a17341024fbc0449ecfbb55cc71e088fc3f8dd2f1b534abbfb708d2082f6e5
+2025-10-21T05:25:46.2297659Z 5432/tcp -> 0.0.0.0:5435
+2025-10-21T05:25:46.2298700Z 5432/tcp -> [::]:5435
+2025-10-21T05:25:46.2353526Z ##[endgroup]
+2025-10-21T05:25:46.2365994Z ##[group]Waiting for all services to be ready
+2025-10-21T05:25:46.2385417Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 83a17341024fbc0449ecfbb55cc71e088fc3f8dd2f1b534abbfb708d2082f6e5
+2025-10-21T05:25:46.2603387Z starting
+2025-10-21T05:25:46.2639226Z pg service is starting, waiting 2 seconds before checking again.
+2025-10-21T05:25:48.2638109Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 83a17341024fbc0449ecfbb55cc71e088fc3f8dd2f1b534abbfb708d2082f6e5
+2025-10-21T05:25:48.2768454Z starting
+2025-10-21T05:25:48.2780817Z pg service is starting, waiting 4 seconds before checking again.
+2025-10-21T05:25:52.5130899Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 83a17341024fbc0449ecfbb55cc71e088fc3f8dd2f1b534abbfb708d2082f6e5
+2025-10-21T05:25:52.5324485Z healthy
+2025-10-21T05:25:52.5341896Z pg service is healthy.
+2025-10-21T05:25:52.5342267Z ##[endgroup]
+2025-10-21T05:25:52.5590258Z ##[group]Run actions/checkout@v4
+2025-10-21T05:25:52.5590779Z with:
+2025-10-21T05:25:52.5590971Z   repository: arnab-netizen/AICMO
+2025-10-21T05:25:52.5591343Z   token: ***
+2025-10-21T05:25:52.5591517Z   ssh-strict: true
+2025-10-21T05:25:52.5591697Z   ssh-user: git
+2025-10-21T05:25:52.5591881Z   persist-credentials: true
+2025-10-21T05:25:52.5592085Z   clean: true
+2025-10-21T05:25:52.5592266Z   sparse-checkout-cone-mode: true
+2025-10-21T05:25:52.5592479Z   fetch-depth: 1
+2025-10-21T05:25:52.5592645Z   fetch-tags: false
+2025-10-21T05:25:52.5592812Z   show-progress: true
+2025-10-21T05:25:52.5592993Z   lfs: false
+2025-10-21T05:25:52.5593148Z   submodules: false
+2025-10-21T05:25:52.5593324Z   set-safe-directory: true
+2025-10-21T05:25:52.5593687Z env:
+2025-10-21T05:25:52.5594109Z   DATABASE_URL: ***localhost:5435/aicmo
+2025-10-21T05:25:52.5594353Z ##[endgroup]
+2025-10-21T05:25:52.6753812Z Syncing repository: arnab-netizen/AICMO
+2025-10-21T05:25:52.6755741Z ##[group]Getting Git version info
+2025-10-21T05:25:52.6756336Z Working directory is '/home/runner/work/AICMO/AICMO'
+2025-10-21T05:25:52.6757469Z [command]/usr/bin/git version
+2025-10-21T05:25:52.6800121Z git version 2.51.0
+2025-10-21T05:25:52.6829695Z ##[endgroup]
+2025-10-21T05:25:52.6843821Z Temporarily overriding HOME='/home/runner/work/_temp/99769a84-029b-4571-abfe-8e176a2c8815' before making global git config changes
+2025-10-21T05:25:52.6847245Z Adding repository directory to the temporary git global config as a safe directory
+2025-10-21T05:25:52.6850661Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/AICMO/AICMO
+2025-10-21T05:25:52.6889090Z Deleting the contents of '/home/runner/work/AICMO/AICMO'
+2025-10-21T05:25:52.6893471Z ##[group]Initializing the repository
+2025-10-21T05:25:52.6898461Z [command]/usr/bin/git init /home/runner/work/AICMO/AICMO
+2025-10-21T05:25:52.6964309Z hint: Using 'master' as the name for the initial branch. This default branch name
+2025-10-21T05:25:52.6966993Z hint: is subject to change. To configure the initial branch name to use in all
+2025-10-21T05:25:52.6968074Z hint: of your new repositories, which will suppress this warning, call:
+2025-10-21T05:25:52.6968789Z hint:
+2025-10-21T05:25:52.6969291Z hint: 	git config --global init.defaultBranch <name>
+2025-10-21T05:25:52.6970644Z hint:
+2025-10-21T05:25:52.6971088Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2025-10-21T05:25:52.6971637Z hint: 'development'. The just-created branch can be renamed via this command:
+2025-10-21T05:25:52.6971977Z hint:
+2025-10-21T05:25:52.6972149Z hint: 	git branch -m <name>
+2025-10-21T05:25:52.6972350Z hint:
+2025-10-21T05:25:52.6972637Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2025-10-21T05:25:52.6982430Z Initialized empty Git repository in /home/runner/work/AICMO/AICMO/.git/
+2025-10-21T05:25:52.6995360Z [command]/usr/bin/git remote add origin https://github.com/arnab-netizen/AICMO
+2025-10-21T05:25:52.7032354Z ##[endgroup]
+2025-10-21T05:25:52.7032983Z ##[group]Disabling automatic garbage collection
+2025-10-21T05:25:52.7037243Z [command]/usr/bin/git config --local gc.auto 0
+2025-10-21T05:25:52.7068279Z ##[endgroup]
+2025-10-21T05:25:52.7069802Z ##[group]Setting up auth
+2025-10-21T05:25:52.7076035Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2025-10-21T05:25:52.7109455Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2025-10-21T05:25:52.7405506Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2025-10-21T05:25:52.7438772Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2025-10-21T05:25:52.7671187Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2025-10-21T05:25:52.7717590Z ##[endgroup]
+2025-10-21T05:25:52.7719158Z ##[group]Fetching the repository
+2025-10-21T05:25:52.7727828Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +65f9e8c9b739e5fa06d759eb2e3888a36213b006:refs/remotes/pull/9/merge
+2025-10-21T05:25:52.9822289Z From https://github.com/arnab-netizen/AICMO
+2025-10-21T05:25:52.9837469Z  * [new ref]         65f9e8c9b739e5fa06d759eb2e3888a36213b006 -> pull/9/merge
+2025-10-21T05:25:52.9869421Z ##[endgroup]
+2025-10-21T05:25:52.9871444Z ##[group]Determining the checkout info
+2025-10-21T05:25:52.9876693Z ##[endgroup]
+2025-10-21T05:25:52.9887422Z [command]/usr/bin/git sparse-checkout disable
+2025-10-21T05:25:52.9953101Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2025-10-21T05:25:53.0002459Z ##[group]Checking out the ref
+2025-10-21T05:25:53.0011460Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/9/merge
+2025-10-21T05:25:53.0267777Z Note: switching to 'refs/remotes/pull/9/merge'.
+2025-10-21T05:25:53.0268434Z 
+2025-10-21T05:25:53.0268900Z You are in 'detached HEAD' state. You can look around, make experimental
+2025-10-21T05:25:53.0269917Z changes and commit them, and you can discard any commits you make in this
+2025-10-21T05:25:53.0270896Z state without impacting any branches by switching back to a branch.
+2025-10-21T05:25:53.0271543Z 
+2025-10-21T05:25:53.0271971Z If you want to create a new branch to retain commits you create, you may
+2025-10-21T05:25:53.0272867Z do so (now or later) by using -c with the switch command. Example:
+2025-10-21T05:25:53.0273415Z 
+2025-10-21T05:25:53.0273701Z   git switch -c <new-branch-name>
+2025-10-21T05:25:53.0274124Z 
+2025-10-21T05:25:53.0274398Z Or undo this operation with:
+2025-10-21T05:25:53.0274797Z 
+2025-10-21T05:25:53.0275341Z   git switch -
+2025-10-21T05:25:53.0275660Z 
+2025-10-21T05:25:53.0276130Z Turn off this advice by setting config variable advice.detachedHead to false
+2025-10-21T05:25:53.0277259Z 
+2025-10-21T05:25:53.0278082Z HEAD is now at 65f9e8c Merge 5968effc6fa3b8a3b3c4b5bf57b825afdeac8c8a into 69920a32bad11c7e0b48f64f0893f09c806dc75f
+2025-10-21T05:25:53.0280875Z ##[endgroup]
+2025-10-21T05:25:53.0344549Z [command]/usr/bin/git log -1 --format=%H
+2025-10-21T05:25:53.0381242Z 65f9e8c9b739e5fa06d759eb2e3888a36213b006
+2025-10-21T05:25:53.0618480Z ##[group]Run actions/setup-python@v5
+2025-10-21T05:25:53.0618754Z with:
+2025-10-21T05:25:53.0618924Z   python-version: 3.12
+2025-10-21T05:25:53.0619130Z   check-latest: false
+2025-10-21T05:25:53.0619452Z   token: ***
+2025-10-21T05:25:53.0619642Z   update-environment: true
+2025-10-21T05:25:53.0619855Z   allow-prereleases: false
+2025-10-21T05:25:53.0620062Z   freethreaded: false
+2025-10-21T05:25:53.0620238Z env:
+2025-10-21T05:25:53.0620599Z   DATABASE_URL: ***localhost:5435/aicmo
+2025-10-21T05:25:53.0620842Z ##[endgroup]
+2025-10-21T05:25:53.2379659Z ##[group]Installed versions
+2025-10-21T05:25:53.2477487Z Successfully set up CPython (3.12.11)
+2025-10-21T05:25:53.2478592Z ##[endgroup]
+2025-10-21T05:25:53.3201030Z ##[group]Run actions/cache@v4
+2025-10-21T05:25:53.3201267Z with:
+2025-10-21T05:25:53.3201427Z   path: ~/.cache/pip
+2025-10-21T05:25:53.3201765Z   key: Linux-pip-1fde1f6e0f7c7d8e801f78895acca02c02e7ea7f7e7a584273f83702219c7978
+2025-10-21T05:25:53.3202157Z   restore-keys: Linux-pip-
+
+2025-10-21T05:25:53.3202375Z   enableCrossOsArchive: false
+2025-10-21T05:25:53.3202587Z   fail-on-cache-miss: false
+2025-10-21T05:25:53.3202785Z   lookup-only: false
+2025-10-21T05:25:53.3202962Z   save-always: false
+2025-10-21T05:25:53.3203122Z env:
+2025-10-21T05:25:53.3203586Z   DATABASE_URL: ***localhost:5435/aicmo
+2025-10-21T05:25:53.3203890Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:25:53.3204292Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.11/x64/lib/pkgconfig
+2025-10-21T05:25:53.3204684Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:25:53.3205019Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:25:53.3205394Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:25:53.3205725Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.11/x64/lib
+2025-10-21T05:25:53.3206005Z ##[endgroup]
+2025-10-21T05:25:53.6106256Z Cache hit for restore-key: Linux-pip-31d60383263ad0e0d3ff6492a95c396ce7033e2818bd27ad13af195231027a22
+2025-10-21T05:25:54.3012959Z Received 65869853 of 65869853 (100.0%), 140.2 MBs/sec
+2025-10-21T05:25:54.3015555Z Cache Size: ~63 MB (65869853 B)
+2025-10-21T05:25:54.3052606Z [command]/usr/bin/tar -xf /home/runner/work/_temp/8179db9f-af0e-4cb3-870c-a866bbfced22/cache.tzst -P -C /home/runner/work/AICMO/AICMO --use-compress-program unzstd
+2025-10-21T05:25:54.4632824Z Cache restored successfully
+2025-10-21T05:25:54.4852526Z Cache restored from key: Linux-pip-31d60383263ad0e0d3ff6492a95c396ce7033e2818bd27ad13af195231027a22
+2025-10-21T05:25:54.4974554Z ##[group]Run python -m venv .venv
+2025-10-21T05:25:54.4974893Z [36;1mpython -m venv .venv[0m
+2025-10-21T05:25:54.4975120Z [36;1m. .venv/bin/activate[0m
+2025-10-21T05:25:54.4975369Z [36;1mpython -m pip install --upgrade pip[0m
+2025-10-21T05:25:54.4975682Z [36;1mpip install -r backend/requirements.txt[0m
+2025-10-21T05:25:54.4976018Z [36;1mpip install -r backend/requirements-test.txt || true[0m
+2025-10-21T05:25:54.5057691Z shell: /usr/bin/bash -e {0}
+2025-10-21T05:25:54.5057931Z env:
+2025-10-21T05:25:54.5058404Z   DATABASE_URL: ***localhost:5435/aicmo
+2025-10-21T05:25:54.5058728Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:25:54.5059126Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.11/x64/lib/pkgconfig
+2025-10-21T05:25:54.5059505Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:25:54.5059848Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:25:54.5060433Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:25:54.5060789Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.11/x64/lib
+2025-10-21T05:25:54.5061073Z ##[endgroup]
+2025-10-21T05:25:58.6893866Z Requirement already satisfied: pip in ./.venv/lib/python3.12/site-packages (25.0.1)
+2025-10-21T05:25:58.7696260Z Collecting pip
+2025-10-21T05:25:58.8204236Z   Downloading pip-25.2-py3-none-any.whl.metadata (4.7 kB)
+2025-10-21T05:25:58.8328115Z Downloading pip-25.2-py3-none-any.whl (1.8 MB)
+2025-10-21T05:25:58.9408955Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 18.9 MB/s eta 0:00:00
+2025-10-21T05:25:58.9566973Z Installing collected packages: pip
+2025-10-21T05:25:58.9568553Z   Attempting uninstall: pip
+2025-10-21T05:25:58.9591334Z     Found existing installation: pip 25.0.1
+2025-10-21T05:25:58.9962731Z     Uninstalling pip-25.0.1:
+2025-10-21T05:25:59.0021514Z       Successfully uninstalled pip-25.0.1
+2025-10-21T05:25:59.8872573Z Successfully installed pip-25.2
+2025-10-21T05:26:00.5055900Z Collecting fastapi==0.115.0 (from -r backend/requirements.txt (line 1))
+2025-10-21T05:26:00.5071090Z   Using cached fastapi-0.115.0-py3-none-any.whl.metadata (27 kB)
+2025-10-21T05:26:00.5424179Z Collecting uvicorn==0.30.6 (from uvicorn[standard]==0.30.6->-r backend/requirements.txt (line 2))
+2025-10-21T05:26:00.5437146Z   Using cached uvicorn-0.30.6-py3-none-any.whl.metadata (6.6 kB)
+2025-10-21T05:26:00.8207931Z Collecting sqlalchemy==2.0.20 (from -r backend/requirements.txt (line 3))
+2025-10-21T05:26:00.8222780Z   Using cached SQLAlchemy-2.0.20-py3-none-any.whl.metadata (9.4 kB)
+2025-10-21T05:26:00.8722337Z Collecting asyncpg==0.29.0 (from -r backend/requirements.txt (line 4))
+2025-10-21T05:26:00.8735055Z   Using cached asyncpg-0.29.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.4 kB)
+2025-10-21T05:26:00.8950434Z Collecting psycopg==3.2.11 (from psycopg[binary]==3.2.11->-r backend/requirements.txt (line 5))
+2025-10-21T05:26:00.8962633Z   Using cached psycopg-3.2.11-py3-none-any.whl.metadata (4.5 kB)
+2025-10-21T05:26:00.9217096Z Collecting httpx==0.27.2 (from -r backend/requirements.txt (line 6))
+2025-10-21T05:26:00.9233201Z   Using cached httpx-0.27.2-py3-none-any.whl.metadata (7.1 kB)
+2025-10-21T05:26:01.0395137Z Collecting pydantic==2.9.2 (from -r backend/requirements.txt (line 7))
+2025-10-21T05:26:01.0411279Z   Using cached pydantic-2.9.2-py3-none-any.whl.metadata (149 kB)
+2025-10-21T05:26:01.0605067Z Collecting pgvector==0.3.5 (from -r backend/requirements.txt (line 10))
+2025-10-21T05:26:01.0618323Z   Using cached pgvector-0.3.5-py3-none-any.whl.metadata (13 kB)
+2025-10-21T05:26:01.0879065Z Collecting alembic==1.13.0 (from -r backend/requirements.txt (line 11))
+2025-10-21T05:26:01.0892248Z   Using cached alembic-1.13.0-py3-none-any.whl.metadata (7.4 kB)
+2025-10-21T05:26:01.1545127Z Collecting psycopg2-binary==2.9.9 (from -r backend/requirements.txt (line 12))
+2025-10-21T05:26:01.1569143Z   Using cached psycopg2_binary-2.9.9-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.4 kB)
+2025-10-21T05:26:01.1742147Z Collecting prometheus-client==0.20.0 (from -r backend/requirements.txt (line 15))
+2025-10-21T05:26:01.1755103Z   Using cached prometheus_client-0.20.0-py3-none-any.whl.metadata (1.8 kB)
+2025-10-21T05:26:01.2113680Z Collecting pytest==8.3.2 (from -r backend/requirements.txt (line 18))
+2025-10-21T05:26:01.2127885Z   Using cached pytest-8.3.2-py3-none-any.whl.metadata (7.5 kB)
+2025-10-21T05:26:01.2351792Z Collecting pytest-asyncio==0.23.8 (from -r backend/requirements.txt (line 19))
+2025-10-21T05:26:01.2363888Z   Using cached pytest_asyncio-0.23.8-py3-none-any.whl.metadata (3.9 kB)
+2025-10-21T05:26:01.4953510Z Collecting Pillow==10.1.0 (from -r backend/requirements.txt (line 20))
+2025-10-21T05:26:01.4966388Z   Using cached Pillow-10.1.0-cp312-cp312-manylinux_2_28_x86_64.whl.metadata (9.5 kB)
+2025-10-21T05:26:01.5477343Z Collecting starlette<0.39.0,>=0.37.2 (from fastapi==0.115.0->-r backend/requirements.txt (line 1))
+2025-10-21T05:26:01.5489749Z   Using cached starlette-0.38.6-py3-none-any.whl.metadata (6.0 kB)
+2025-10-21T05:26:01.5911536Z Collecting typing-extensions>=4.8.0 (from fastapi==0.115.0->-r backend/requirements.txt (line 1))
+2025-10-21T05:26:01.5923926Z   Using cached typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+2025-10-21T05:26:01.6055666Z Collecting annotated-types>=0.6.0 (from pydantic==2.9.2->-r backend/requirements.txt (line 7))
+2025-10-21T05:26:01.6067764Z   Using cached annotated_types-0.7.0-py3-none-any.whl.metadata (15 kB)
+2025-10-21T05:26:02.2943518Z Collecting pydantic-core==2.23.4 (from pydantic==2.9.2->-r backend/requirements.txt (line 7))
+2025-10-21T05:26:02.2955784Z   Using cached pydantic_core-2.23.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+2025-10-21T05:26:02.3218217Z Collecting click>=7.0 (from uvicorn==0.30.6->uvicorn[standard]==0.30.6->-r backend/requirements.txt (line 2))
+2025-10-21T05:26:02.3230325Z   Using cached click-8.3.0-py3-none-any.whl.metadata (2.6 kB)
+2025-10-21T05:26:02.3374490Z Collecting h11>=0.8 (from uvicorn==0.30.6->uvicorn[standard]==0.30.6->-r backend/requirements.txt (line 2))
+2025-10-21T05:26:02.3386459Z   Using cached h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+2025-10-21T05:26:02.4662117Z Collecting greenlet!=0.4.17 (from sqlalchemy==2.0.20->-r backend/requirements.txt (line 3))
+2025-10-21T05:26:02.4675676Z   Using cached greenlet-3.2.4-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (4.1 kB)
+2025-10-21T05:26:02.4991899Z Collecting anyio (from httpx==0.27.2->-r backend/requirements.txt (line 6))
+2025-10-21T05:26:02.5004173Z   Using cached anyio-4.11.0-py3-none-any.whl.metadata (4.1 kB)
+2025-10-21T05:26:02.5217546Z Collecting certifi (from httpx==0.27.2->-r backend/requirements.txt (line 6))
+2025-10-21T05:26:02.5229631Z   Using cached certifi-2025.10.5-py3-none-any.whl.metadata (2.5 kB)
+2025-10-21T05:26:02.5444934Z Collecting httpcore==1.* (from httpx==0.27.2->-r backend/requirements.txt (line 6))
+2025-10-21T05:26:02.5457062Z   Using cached httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+2025-10-21T05:26:02.5629121Z Collecting idna (from httpx==0.27.2->-r backend/requirements.txt (line 6))
+2025-10-21T05:26:02.5640924Z   Using cached idna-3.11-py3-none-any.whl.metadata (8.4 kB)
+2025-10-21T05:26:02.5764606Z Collecting sniffio (from httpx==0.27.2->-r backend/requirements.txt (line 6))
+2025-10-21T05:26:02.5775972Z   Using cached sniffio-1.3.1-py3-none-any.whl.metadata (3.9 kB)
+2025-10-21T05:26:02.7528212Z Collecting numpy (from pgvector==0.3.5->-r backend/requirements.txt (line 10))
+2025-10-21T05:26:02.7541646Z   Using cached numpy-2.3.4-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (62 kB)
+2025-10-21T05:26:02.7934529Z Collecting Mako (from alembic==1.13.0->-r backend/requirements.txt (line 11))
+2025-10-21T05:26:02.7946723Z   Using cached mako-1.3.10-py3-none-any.whl.metadata (2.9 kB)
+2025-10-21T05:26:02.8157649Z Collecting iniconfig (from pytest==8.3.2->-r backend/requirements.txt (line 18))
+2025-10-21T05:26:02.8169775Z   Using cached iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+2025-10-21T05:26:02.8359698Z Collecting packaging (from pytest==8.3.2->-r backend/requirements.txt (line 18))
+2025-10-21T05:26:02.8371615Z   Using cached packaging-25.0-py3-none-any.whl.metadata (3.3 kB)
+2025-10-21T05:26:02.8517480Z Collecting pluggy<2,>=1.5 (from pytest==8.3.2->-r backend/requirements.txt (line 18))
+2025-10-21T05:26:02.8529337Z   Using cached pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+2025-10-21T05:26:03.0141030Z Collecting psycopg-binary==3.2.11 (from psycopg[binary]==3.2.11->-r backend/requirements.txt (line 5))
+2025-10-21T05:26:03.0154537Z   Using cached psycopg_binary-3.2.11-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.9 kB)
+2025-10-21T05:26:03.0573345Z Collecting httptools>=0.5.0 (from uvicorn[standard]==0.30.6->-r backend/requirements.txt (line 2))
+2025-10-21T05:26:03.0586316Z   Using cached httptools-0.7.1-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (3.5 kB)
+2025-10-21T05:26:03.0776994Z Collecting python-dotenv>=0.13 (from uvicorn[standard]==0.30.6->-r backend/requirements.txt (line 2))
+2025-10-21T05:26:03.0788560Z   Using cached python_dotenv-1.1.1-py3-none-any.whl.metadata (24 kB)
+2025-10-21T05:26:03.1202706Z Collecting pyyaml>=5.1 (from uvicorn[standard]==0.30.6->-r backend/requirements.txt (line 2))
+2025-10-21T05:26:03.1215317Z   Using cached pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+2025-10-21T05:26:03.2148332Z Collecting uvloop!=0.15.0,!=0.15.1,>=0.14.0 (from uvicorn[standard]==0.30.6->-r backend/requirements.txt (line 2))
+2025-10-21T05:26:03.2162157Z   Using cached uvloop-0.22.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (4.9 kB)
+2025-10-21T05:26:03.2958069Z Collecting watchfiles>=0.13 (from uvicorn[standard]==0.30.6->-r backend/requirements.txt (line 2))
+2025-10-21T05:26:03.2971402Z   Using cached watchfiles-1.1.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.9 kB)
+2025-10-21T05:26:03.3867156Z Collecting websockets>=10.4 (from uvicorn[standard]==0.30.6->-r backend/requirements.txt (line 2))
+2025-10-21T05:26:03.3881526Z   Using cached websockets-15.0.1-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.8 kB)
+2025-10-21T05:26:03.4908053Z Collecting MarkupSafe>=0.9.2 (from Mako->alembic==1.13.0->-r backend/requirements.txt (line 11))
+2025-10-21T05:26:03.4922217Z   Using cached markupsafe-3.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.7 kB)
+2025-10-21T05:26:03.4988513Z Using cached fastapi-0.115.0-py3-none-any.whl (94 kB)
+2025-10-21T05:26:03.5000473Z Using cached pydantic-2.9.2-py3-none-any.whl (434 kB)
+2025-10-21T05:26:03.5014851Z Using cached uvicorn-0.30.6-py3-none-any.whl (62 kB)
+2025-10-21T05:26:03.5027225Z Using cached SQLAlchemy-2.0.20-py3-none-any.whl (1.8 MB)
+2025-10-21T05:26:03.5052071Z Using cached asyncpg-0.29.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.3 MB)
+2025-10-21T05:26:03.5086253Z Using cached psycopg-3.2.11-py3-none-any.whl (206 kB)
+2025-10-21T05:26:03.5099020Z Using cached httpx-0.27.2-py3-none-any.whl (76 kB)
+2025-10-21T05:26:03.5110879Z Using cached pgvector-0.3.5-py3-none-any.whl (24 kB)
+2025-10-21T05:26:03.5125752Z Using cached alembic-1.13.0-py3-none-any.whl (230 kB)
+2025-10-21T05:26:03.5139365Z Using cached psycopg2_binary-2.9.9-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.0 MB)
+2025-10-21T05:26:03.5173270Z Using cached prometheus_client-0.20.0-py3-none-any.whl (54 kB)
+2025-10-21T05:26:03.5185054Z Using cached pytest-8.3.2-py3-none-any.whl (341 kB)
+2025-10-21T05:26:03.5198961Z Using cached pytest_asyncio-0.23.8-py3-none-any.whl (17 kB)
+2025-10-21T05:26:03.5210973Z Using cached Pillow-10.1.0-cp312-cp312-manylinux_2_28_x86_64.whl (3.6 MB)
+2025-10-21T05:26:03.5248941Z Using cached psycopg_binary-3.2.11-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (4.4 MB)
+2025-10-21T05:26:03.5292136Z Using cached pydantic_core-2.23.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+2025-10-21T05:26:03.5318111Z Using cached httpcore-1.0.9-py3-none-any.whl (78 kB)
+2025-10-21T05:26:03.5329527Z Using cached pluggy-1.6.0-py3-none-any.whl (20 kB)
+2025-10-21T05:26:03.5340964Z Using cached starlette-0.38.6-py3-none-any.whl (71 kB)
+2025-10-21T05:26:03.5352583Z Using cached anyio-4.11.0-py3-none-any.whl (109 kB)
+2025-10-21T05:26:03.5364693Z Using cached annotated_types-0.7.0-py3-none-any.whl (13 kB)
+2025-10-21T05:26:03.5376426Z Using cached click-8.3.0-py3-none-any.whl (107 kB)
+2025-10-21T05:26:03.5389069Z Using cached greenlet-3.2.4-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (607 kB)
+2025-10-21T05:26:03.5404742Z Using cached h11-0.16.0-py3-none-any.whl (37 kB)
+2025-10-21T05:26:03.5416849Z Using cached httptools-0.7.1-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (517 kB)
+2025-10-21T05:26:03.5432302Z Using cached idna-3.11-py3-none-any.whl (71 kB)
+2025-10-21T05:26:03.5443835Z Using cached python_dotenv-1.1.1-py3-none-any.whl (20 kB)
+2025-10-21T05:26:03.5455646Z Using cached pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (807 kB)
+2025-10-21T05:26:03.5472862Z Using cached sniffio-1.3.1-py3-none-any.whl (10 kB)
+2025-10-21T05:26:03.5484182Z Using cached typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+2025-10-21T05:26:03.5496298Z Using cached uvloop-0.22.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (4.4 MB)
+2025-10-21T05:26:03.5539872Z Using cached watchfiles-1.1.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (456 kB)
+2025-10-21T05:26:03.5555166Z Using cached websockets-15.0.1-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (182 kB)
+2025-10-21T05:26:03.5567873Z Using cached certifi-2025.10.5-py3-none-any.whl (163 kB)
+2025-10-21T05:26:03.5580233Z Using cached iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+2025-10-21T05:26:03.5591391Z Using cached mako-1.3.10-py3-none-any.whl (78 kB)
+2025-10-21T05:26:03.5603645Z Using cached markupsafe-3.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (22 kB)
+2025-10-21T05:26:03.5615731Z Using cached numpy-2.3.4-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.6 MB)
+2025-10-21T05:26:03.5743103Z Using cached packaging-25.0-py3-none-any.whl (66 kB)
+2025-10-21T05:26:03.7228469Z Installing collected packages: websockets, uvloop, typing-extensions, sniffio, pyyaml, python-dotenv, psycopg2-binary, psycopg-binary, prometheus-client, pluggy, Pillow, packaging, numpy, MarkupSafe, iniconfig, idna, httptools, h11, greenlet, click, certifi, asyncpg, annotated-types, uvicorn, sqlalchemy, pytest, pydantic-core, psycopg, pgvector, Mako, httpcore, anyio, watchfiles, starlette, pytest-asyncio, pydantic, httpx, alembic, fastapi
+2025-10-21T05:26:09.3102667Z 
+2025-10-21T05:26:09.3147391Z Successfully installed Mako-1.3.10 MarkupSafe-3.0.3 Pillow-10.1.0 alembic-1.13.0 annotated-types-0.7.0 anyio-4.11.0 asyncpg-0.29.0 certifi-2025.10.5 click-8.3.0 fastapi-0.115.0 greenlet-3.2.4 h11-0.16.0 httpcore-1.0.9 httptools-0.7.1 httpx-0.27.2 idna-3.11 iniconfig-2.3.0 numpy-2.3.4 packaging-25.0 pgvector-0.3.5 pluggy-1.6.0 prometheus-client-0.20.0 psycopg-3.2.11 psycopg-binary-3.2.11 psycopg2-binary-2.9.9 pydantic-2.9.2 pydantic-core-2.23.4 pytest-8.3.2 pytest-asyncio-0.23.8 python-dotenv-1.1.1 pyyaml-6.0.3 sniffio-1.3.1 sqlalchemy-2.0.20 starlette-0.38.6 typing-extensions-4.15.0 uvicorn-0.30.6 uvloop-0.22.1 watchfiles-1.1.1 websockets-15.0.1
+2025-10-21T05:26:10.0269399Z ERROR: Could not open requirements file: [Errno 2] No such file or directory: 'backend/requirements-test.txt'
+2025-10-21T05:26:10.0625139Z ##[group]Run . .venv/bin/activate
+2025-10-21T05:26:10.0625457Z [36;1m. .venv/bin/activate[0m
+2025-10-21T05:26:10.0625687Z [36;1mPSQL_URL=$(python - <<'PY'[0m
+2025-10-21T05:26:10.0626149Z [36;1mimport os,re; u=os.environ['DATABASE_URL']; print(re.sub(r'^(postgresql)(?:\+[^:]+)?://','postgresql://',u))[0m
+2025-10-21T05:26:10.0626909Z [36;1mPY[0m
+2025-10-21T05:26:10.0627080Z [36;1m)[0m
+2025-10-21T05:26:10.0627247Z [36;1m# Clean schema each run[0m
+2025-10-21T05:26:10.0627610Z [36;1mpsql "$PSQL_URL" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"[0m
+2025-10-21T05:26:10.0627957Z [36;1m[0m
+2025-10-21T05:26:10.0628128Z [36;1m# Single-head guard[0m
+2025-10-21T05:26:10.0628541Z [36;1malembic -c backend/alembic.ini heads | awk 'END{ if (NR!=1) { print "Multiple Alembic heads!"; exit 1 } }'[0m
+2025-10-21T05:26:10.0628961Z [36;1m[0m
+2025-10-21T05:26:10.0629129Z [36;1m# Apply migrations[0m
+2025-10-21T05:26:10.0629420Z [36;1malembic -c backend/alembic.ini upgrade head[0m
+2025-10-21T05:26:10.0629671Z [36;1m[0m
+2025-10-21T05:26:10.0629852Z [36;1m# === Schema asserts (fail fast) ===[0m
+2025-10-21T05:26:10.0630318Z [36;1mpsql "$PSQL_URL" -Atc "SELECT 1 FROM pg_indexes WHERE tablename='site' AND indexname='ux_site_slug';" | grep 1[0m
+2025-10-21T05:26:10.0631244Z [36;1mpsql "$PSQL_URL" -Atc "SELECT indexdef FROM pg_indexes WHERE tablename='page' AND indexdef LIKE '%UNIQUE% (site_id, path)%';" | grep UNIQUE[0m
+2025-10-21T05:26:10.0632070Z [36;1mpsql "$PSQL_URL" -Atc "SELECT table_name FROM information_schema.views WHERE table_schema='public' AND table_name='site_spec';" | grep site_spec[0m
+2025-10-21T05:26:10.0665015Z shell: /usr/bin/bash -e {0}
+2025-10-21T05:26:10.0665236Z env:
+2025-10-21T05:26:10.0665714Z   DATABASE_URL: ***localhost:5435/aicmo
+2025-10-21T05:26:10.0666037Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:10.0666476Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.11/x64/lib/pkgconfig
+2025-10-21T05:26:10.0667096Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:10.0667450Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:10.0667797Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:10.0668141Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.11/x64/lib
+2025-10-21T05:26:10.0668428Z ##[endgroup]
+2025-10-21T05:26:10.3046297Z DROP SCHEMA
+2025-10-21T05:26:10.3047654Z CREATE SCHEMA
+2025-10-21T05:26:11.6818675Z 1
+2025-10-21T05:26:11.7235456Z CREATE UNIQUE INDEX page_site_path_idx ON public.page USING btree (site_id, path)
+2025-10-21T05:26:11.7644537Z site_spec
+2025-10-21T05:26:11.7680510Z ##[group]Run . .venv/bin/activate
+2025-10-21T05:26:11.7680819Z [36;1m. .venv/bin/activate[0m
+2025-10-21T05:26:11.7681039Z [36;1mpython - <<'PY'[0m
+2025-10-21T05:26:11.7681261Z [36;1mimport tempfile, pathlib, sys[0m
+2025-10-21T05:26:11.7681536Z [36;1mfrom alembic.config import Config[0m
+2025-10-21T05:26:11.7681789Z [36;1mfrom alembic import command[0m
+2025-10-21T05:26:11.7682018Z [36;1mimport os[0m
+2025-10-21T05:26:11.7682297Z [36;1mtmp = pathlib.Path(tempfile.mkdtemp(prefix="alembic_probe_"))[0m
+2025-10-21T05:26:11.7682653Z [36;1mcfg = Config("backend/alembic.ini")[0m
+2025-10-21T05:26:11.7682992Z [36;1mcfg.set_main_option("script_location", "backend/alembic")[0m
+2025-10-21T05:26:11.7683392Z [36;1mcfg.set_main_option("version_locations", str(tmp / "versions"))[0m
+2025-10-21T05:26:11.7683706Z [36;1mtry:[0m
+2025-10-21T05:26:11.7684009Z [36;1m    command.revision(cfg, message="DRIFT_PROBE", autogenerate=True, rev_id=None)[0m
+2025-10-21T05:26:11.7684426Z [36;1mexcept SystemExit:[0m
+2025-10-21T05:26:11.7684639Z [36;1m    pass[0m
+2025-10-21T05:26:11.7684831Z [36;1mvers = tmp / "versions"[0m
+2025-10-21T05:26:11.7685136Z [36;1mfiles = list(vers.glob("*.py")) if vers.exists() else [][0m
+2025-10-21T05:26:11.7685435Z [36;1mif files:[0m
+2025-10-21T05:26:11.7685691Z [36;1m    print("Autogenerate produced diffs → drift detected.")[0m
+2025-10-21T05:26:11.7686019Z [36;1m    for f in files: print(" -", f.name)[0m
+2025-10-21T05:26:11.7686269Z [36;1m    sys.exit(1)[0m
+2025-10-21T05:26:11.7686469Z [36;1mprint("No drift.")[0m
+2025-10-21T05:26:11.7687079Z [36;1mPY[0m
+2025-10-21T05:26:11.7719233Z shell: /usr/bin/bash -e {0}
+2025-10-21T05:26:11.7719460Z env:
+2025-10-21T05:26:11.7719925Z   DATABASE_URL: ***localhost:5435/aicmo
+2025-10-21T05:26:11.7720246Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:11.7720659Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.11/x64/lib/pkgconfig
+2025-10-21T05:26:11.7721056Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:11.7721392Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:11.7721737Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:11.7722079Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.11/x64/lib
+2025-10-21T05:26:11.7722366Z ##[endgroup]
+2025-10-21T05:26:12.2888036Z Traceback (most recent call last):
+2025-10-21T05:26:12.2900299Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/script/base.py", line 251, in _catch_revision_errors
+2025-10-21T05:26:12.2931249Z     yield
+2025-10-21T05:26:12.2932570Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/script/base.py", line 314, in get_revisions
+2025-10-21T05:26:12.2933385Z     self.revision_map.get_revisions(id_),
+2025-10-21T05:26:12.2933650Z     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-10-21T05:26:12.2934236Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/script/revision.py", line 530, in get_revisions
+2025-10-21T05:26:12.2934857Z     return sum([self.get_revisions(id_elem) for id_elem in id_], ())
+2025-10-21T05:26:12.2935165Z                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-10-21T05:26:12.2935729Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/script/revision.py", line 553, in get_revisions
+2025-10-21T05:26:12.2936246Z     return tuple(
+2025-10-21T05:26:12.2936412Z            ^^^^^^
+2025-10-21T05:26:12.2937333Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/script/revision.py", line 554, in <genexpr>
+2025-10-21T05:26:12.2937917Z     self._revision_for_ident(rev_id, branch_label)
+2025-10-21T05:26:12.2938540Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/script/revision.py", line 625, in _revision_for_ident
+2025-10-21T05:26:12.2939122Z     raise ResolutionError(
+2025-10-21T05:26:12.2939757Z alembic.script.revision.ResolutionError: No such revision or branch '20251022_add_ux_site_slug'
+2025-10-21T05:26:12.2940123Z 
+2025-10-21T05:26:12.2940295Z The above exception was the direct cause of the following exception:
+2025-10-21T05:26:12.2940540Z 
+2025-10-21T05:26:12.2940634Z Traceback (most recent call last):
+2025-10-21T05:26:12.2940917Z   File "<stdin>", line 10, in <module>
+2025-10-21T05:26:12.2941427Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/command.py", line 234, in revision
+2025-10-21T05:26:12.2941914Z     script_directory.run_env()
+2025-10-21T05:26:12.2942425Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/script/base.py", line 585, in run_env
+2025-10-21T05:26:12.2942948Z     util.load_python_file(self.dir, "env.py")
+2025-10-21T05:26:12.2943519Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/util/pyfiles.py", line 93, in load_python_file
+2025-10-21T05:26:12.2944066Z     module = load_module_py(module_id, path)
+2025-10-21T05:26:12.2944317Z              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-10-21T05:26:12.2944853Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/util/pyfiles.py", line 109, in load_module_py
+2025-10-21T05:26:12.2945400Z     spec.loader.exec_module(module)  # type: ignore
+2025-10-21T05:26:12.2945657Z     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-10-21T05:26:12.2945995Z   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+2025-10-21T05:26:12.2946455Z   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-10-21T05:26:12.2947257Z   File "/home/runner/work/AICMO/AICMO/backend/alembic/env.py", line 157, in <module>
+2025-10-21T05:26:12.2947646Z     run_migrations_online()
+2025-10-21T05:26:12.2948082Z   File "/home/runner/work/AICMO/AICMO/backend/alembic/env.py", line 147, in run_migrations_online
+2025-10-21T05:26:12.2948516Z     context.run_migrations()
+2025-10-21T05:26:12.2948781Z   File "<string>", line 8, in run_migrations
+2025-10-21T05:26:12.2949372Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/runtime/environment.py", line 939, in run_migrations
+2025-10-21T05:26:12.2949926Z     self.get_context().run_migrations(**kw)
+2025-10-21T05:26:12.2950492Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/runtime/migration.py", line 612, in run_migrations
+2025-10-21T05:26:12.2951058Z     for step in self._migrations_fn(heads, self):
+2025-10-21T05:26:12.2951320Z                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-10-21T05:26:12.2951852Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/command.py", line 210, in retrieve_migrations
+2025-10-21T05:26:12.2952572Z     revision_context.run_autogenerate(rev, context)
+2025-10-21T05:26:12.2953181Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/autogenerate/api.py", line 568, in run_autogenerate
+2025-10-21T05:26:12.2953763Z     self._run_environment(rev, migration_context, True)
+2025-10-21T05:26:12.2954366Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/autogenerate/api.py", line 586, in _run_environment
+2025-10-21T05:26:12.2954957Z     if set(self.script_directory.get_revisions(rev)) != set(
+2025-10-21T05:26:12.2955242Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-10-21T05:26:12.2955772Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/script/base.py", line 311, in get_revisions
+2025-10-21T05:26:12.2956287Z     with self._catch_revision_errors():
+2025-10-21T05:26:12.2956707Z          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-10-21T05:26:12.2957156Z   File "/opt/hostedtoolcache/Python/3.12.11/x64/lib/python3.12/contextlib.py", line 158, in __exit__
+2025-10-21T05:26:12.3188818Z     self.gen.throw(value)
+2025-10-21T05:26:12.3190606Z   File "/home/runner/work/AICMO/AICMO/.venv/lib/python3.12/site-packages/alembic/script/base.py", line 283, in _catch_revision_errors
+2025-10-21T05:26:12.3192258Z     raise util.CommandError(resolution) from re
+2025-10-21T05:26:12.3193725Z alembic.util.exc.CommandError: Can't locate revision identified by '20251022_add_ux_site_slug'
+2025-10-21T05:26:12.3860101Z ##[error]Process completed with exit code 1.
+2025-10-21T05:26:12.3929405Z ##[group]Run actions/upload-artifact@v4
+2025-10-21T05:26:12.3929673Z with:
+2025-10-21T05:26:12.3929857Z   name: alembic-drift-autogen-pg
+2025-10-21T05:26:12.3930096Z   path: .alembic_autogen/drift_pg/**
+2025-10-21T05:26:12.3930335Z   if-no-files-found: warn
+2025-10-21T05:26:12.3930532Z   retention-days: 7
+2025-10-21T05:26:12.3930715Z   compression-level: 6
+2025-10-21T05:26:12.3930927Z   overwrite: false
+2025-10-21T05:26:12.3931166Z   include-hidden-files: false
+2025-10-21T05:26:12.3931362Z env:
+2025-10-21T05:26:12.3931937Z   DATABASE_URL: ***localhost:5435/aicmo
+2025-10-21T05:26:12.3932263Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:12.3932644Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.11/x64/lib/pkgconfig
+2025-10-21T05:26:12.3933021Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:12.3933358Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:12.3933727Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:12.3934061Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.11/x64/lib
+2025-10-21T05:26:12.3934345Z ##[endgroup]
+2025-10-21T05:26:12.6246347Z ##[warning]No files were found with the provided path: .alembic_autogen/drift_pg/**. No artifacts will be uploaded.
+2025-10-21T05:26:12.6362593Z ##[group]Run actions/upload-artifact@v4
+2025-10-21T05:26:12.6362866Z with:
+2025-10-21T05:26:12.6363051Z   name: alembic-drift-autogen
+2025-10-21T05:26:12.6363293Z   path: .alembic_autogen/drift/**
+2025-10-21T05:26:12.6363519Z   retention-days: 7
+2025-10-21T05:26:12.6363706Z   if-no-files-found: warn
+2025-10-21T05:26:12.6363902Z   compression-level: 6
+2025-10-21T05:26:12.6364096Z   overwrite: false
+2025-10-21T05:26:12.6364281Z   include-hidden-files: false
+2025-10-21T05:26:12.6364477Z env:
+2025-10-21T05:26:12.6364912Z   DATABASE_URL: ***localhost:5435/aicmo
+2025-10-21T05:26:12.6365230Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:12.6365615Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.11/x64/lib/pkgconfig
+2025-10-21T05:26:12.6365994Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:12.6366336Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:12.6367325Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.11/x64
+2025-10-21T05:26:12.6367705Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.11/x64/lib
+2025-10-21T05:26:12.6368177Z ##[endgroup]
+2025-10-21T05:26:12.8535072Z ##[warning]No files were found with the provided path: .alembic_autogen/drift/**. No artifacts will be uploaded.
+2025-10-21T05:26:12.8681871Z Post job cleanup.
+2025-10-21T05:26:12.9899900Z [command]/usr/bin/git version
+2025-10-21T05:26:12.9975873Z git version 2.51.0
+2025-10-21T05:26:13.0051116Z Temporarily overriding HOME='/home/runner/work/_temp/bacea80d-df41-42ae-99c4-cf1472b6064a' before making global git config changes
+2025-10-21T05:26:13.0055863Z Adding repository directory to the temporary git global config as a safe directory
+2025-10-21T05:26:13.0077395Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/AICMO/AICMO
+2025-10-21T05:26:13.0133126Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2025-10-21T05:26:13.0187430Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2025-10-21T05:26:13.0563431Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2025-10-21T05:26:13.0605522Z http.https://github.com/.extraheader
+2025-10-21T05:26:13.0629955Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2025-10-21T05:26:13.0684974Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2025-10-21T05:26:13.1083774Z Print service container logs: 2fc9cd828f5c4e12b3d15db616294a92_ankanepgvectorlatest_f01db8
+2025-10-21T05:26:13.1089003Z ##[command]/usr/bin/docker logs --details 83a17341024fbc0449ecfbb55cc71e088fc3f8dd2f1b534abbfb708d2082f6e5
+2025-10-21T05:26:13.1226251Z  initdb: warning: enabling "trust" authentication for local connections
+2025-10-21T05:26:13.1227761Z  The files belonging to this database system will be owned by user "postgres".
+2025-10-21T05:26:13.1229001Z  initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+2025-10-21T05:26:13.1229922Z  This user must also own the server process.
+2025-10-21T05:26:13.1230342Z  
+2025-10-21T05:26:13.1230759Z  The database cluster will be initialized with locale "en_US.utf8".
+2025-10-21T05:26:13.1231455Z  The default database encoding has accordingly been set to "UTF8".
+2025-10-21T05:26:13.1232168Z  The default text search configuration will be set to "english".
+2025-10-21T05:26:13.1232669Z  
+2025-10-21T05:26:13.1232947Z  Data page checksums are disabled.
+2025-10-21T05:26:13.1233317Z  
+2025-10-21T05:26:13.1233762Z  fixing permissions on existing directory /var/lib/postgresql/data ... ok
+2025-10-21T05:26:13.1234362Z  creating subdirectories ... ok
+2025-10-21T05:26:13.1234847Z  selecting dynamic shared memory implementation ... posix
+2025-10-21T05:26:13.1235376Z  selecting default max_connections ... 100
+2025-10-21T05:26:13.1235836Z  selecting default shared_buffers ... 128MB
+2025-10-21T05:26:13.1236266Z  selecting default time zone ... Etc/UTC
+2025-10-21T05:26:13.1236962Z  creating configuration files ... ok
+2025-10-21T05:26:13.1237379Z  running bootstrap script ... ok
+2025-10-21T05:26:13.1237817Z  performing post-bootstrap initialization ... ok
+2025-10-21T05:26:13.1238260Z  syncing data to disk ... ok
+2025-10-21T05:26:13.1238588Z  
+2025-10-21T05:26:13.1238822Z  
+2025-10-21T05:26:13.1239622Z  2025-10-21 05:25:47.211 UTC [1] LOG:  starting PostgreSQL 15.4 (Debian 15.4-2.pgdg120+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit
+2025-10-21T05:26:13.1240668Z  2025-10-21 05:25:47.211 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2025-10-21T05:26:13.1241336Z  2025-10-21 05:25:47.211 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+2025-10-21T05:26:13.1242089Z  2025-10-21 05:25:47.212 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2025-10-21T05:26:13.1243253Z  2025-10-21 05:25:47.215 UTC [62] LOG:  database system was shut down at 2025-10-21 05:25:47 UTC
+2025-10-21T05:26:13.1243999Z  2025-10-21 05:25:47.219 UTC [1] LOG:  database system is ready to accept connections
+2025-10-21T05:26:13.1244637Z  Success. You can now start the database server using:
+2025-10-21T05:26:13.1245080Z  
+2025-10-21T05:26:13.1245407Z      pg_ctl -D /var/lib/postgresql/data -l logfile start
+2025-10-21T05:26:13.1246046Z  
+2025-10-21T05:26:13.1247405Z  waiting for server to start....2025-10-21 05:25:46.901 UTC [46] LOG:  starting PostgreSQL 15.4 (Debian 15.4-2.pgdg120+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit
+2025-10-21T05:26:13.1248686Z  2025-10-21 05:25:46.902 UTC [46] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2025-10-21T05:26:13.1249498Z  2025-10-21 05:25:46.905 UTC [49] LOG:  database system was shut down at 2025-10-21 05:25:46 UTC
+2025-10-21T05:26:13.1250240Z  2025-10-21 05:25:46.908 UTC [46] LOG:  database system is ready to accept connections
+2025-10-21T05:26:13.1250787Z   done
+2025-10-21T05:26:13.1251048Z  server started
+2025-10-21T05:26:13.1251338Z  CREATE DATABASE
+2025-10-21T05:26:13.1251620Z  
+2025-10-21T05:26:13.1251856Z  
+2025-10-21T05:26:13.1252340Z  /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+2025-10-21T05:26:13.1252937Z  
+2025-10-21T05:26:13.1253298Z  2025-10-21 05:25:47.090 UTC [46] LOG:  received fast shutdown request
+2025-10-21T05:26:13.1254319Z  waiting for server to shut down....2025-10-21 05:25:47.091 UTC [46] LOG:  aborting any active transactions
+2025-10-21T05:26:13.1254967Z  2025-10-21 05:25:47.094 UTC [46] LOG:  background worker "logical replication launcher" (PID 52) exited with exit code 1
+2025-10-21T05:26:13.1255432Z  2025-10-21 05:25:47.094 UTC [47] LOG:  shutting down
+2025-10-21T05:26:13.1255782Z  2025-10-21 05:25:47.095 UTC [47] LOG:  checkpoint starting: shutdown immediate
+2025-10-21T05:26:13.1256816Z  2025-10-21 05:25:47.112 UTC [47] LOG:  checkpoint complete: wrote 918 buffers (5.6%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.014 s, sync=0.002 s, total=0.018 s; sync files=301, longest=0.001 s, average=0.001 s; distance=4223 kB, estimate=4223 kB
+2025-10-21T05:26:13.1257639Z  2025-10-21 05:25:47.118 UTC [46] LOG:  database system is shut down
+2025-10-21T05:26:13.1257917Z   done
+2025-10-21T05:26:13.1258069Z  server stopped
+2025-10-21T05:26:13.1258239Z  
+2025-10-21T05:26:13.1258447Z  PostgreSQL init process complete; ready for start up.
+2025-10-21T05:26:13.1258711Z  
+2025-10-21T05:26:13.1263714Z Stop and remove container: 2fc9cd828f5c4e12b3d15db616294a92_ankanepgvectorlatest_f01db8
+2025-10-21T05:26:13.1268722Z ##[command]/usr/bin/docker rm --force 83a17341024fbc0449ecfbb55cc71e088fc3f8dd2f1b534abbfb708d2082f6e5
+2025-10-21T05:26:14.0079469Z 83a17341024fbc0449ecfbb55cc71e088fc3f8dd2f1b534abbfb708d2082f6e5
+2025-10-21T05:26:14.0108457Z Remove container network: github_network_97504644f2f145ee9ad94dc6b551c644
+2025-10-21T05:26:14.0112887Z ##[command]/usr/bin/docker network rm github_network_97504644f2f145ee9ad94dc6b551c644
+2025-10-21T05:26:14.0902431Z github_network_97504644f2f145ee9ad94dc6b551c644
+2025-10-21T05:26:14.0964527Z Cleaning up orphan processes
