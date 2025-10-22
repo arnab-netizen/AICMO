@@ -1,8 +1,10 @@
+---
 name: ci-lite
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
   workflow_dispatch:
 
@@ -478,9 +480,6 @@ jobs:
           PY
 
       - name: DB alembic_version (optional)
-        if: ${{ env.DATABASE_URL != '' }}
-        env:
-          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           if [ -f .venv/bin/activate ]; then
             . .venv/bin/activate
@@ -508,7 +507,6 @@ jobs:
         env:
           ALEMBIC_CONFIG: backend/alembic.ini
           PYTHONPATH: ${{ github.workspace }}
-          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           set -e
           if [ -f .venv/bin/activate ]; then
@@ -526,7 +524,6 @@ jobs:
         env:
           ALEMBIC_CONFIG: backend/alembic.ini
           PYTHONPATH: ${{ github.workspace }}
-          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           set -e
           if [ -f .venv/bin/activate ]; then
@@ -542,7 +539,6 @@ jobs:
         env:
           ALEMBIC_CONFIG: backend/alembic.ini
           PYTHONPATH: ${{ github.workspace }}
-          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           set -e
           if [ -f .venv/bin/activate ]; then

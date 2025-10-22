@@ -1,0 +1,54 @@
+---
+name: CI Debug (branch-only)
+
+on:
+  push:
+    # only run for the feature branch to avoid noise
+    branches:
+      - chore/pin-pgvector-workflows
+
+jobs:
+  debug-info:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Collect environment
+        run: |
+          set -xe
+          mkdir -p artifacts
+          env > artifacts/env.txt || true
+          echo '--- python info ---' > artifacts/python.txt
+          python -V >> artifacts/python.txt 2>&1 || true
+          which python >> artifacts/python.txt 2>&1 || true
+          python -m pip --version >> artifacts/python.txt 2>&1 || true
+          python -m pip list --format=columns > artifacts/pip-list.txt || true
+          echo '--- alembic listing ---' > artifacts/alembic.txt
+          if [ -f backend/alembic.ini ]; then
+            ls -la backend/alembic >> artifacts/alembic.txt || true
+            ls -la backend/alembic/versions >> artifacts/alembic.txt || true
+            python - <<'PY' >> artifacts/alembic.txt 2>&1 || true
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+cfg = Config('backend/alembic.ini')
+print('cfg.config_file_name=', cfg.config_file_name)
+print('script_location=', cfg.get_main_option('script_location'))
+sd = ScriptDirectory.from_config(cfg)
+print('heads=', list(sd.get_heads()))
+PY
+          else
+            echo 'no backend/alembic.ini present' >> artifacts/alembic.txt
+          fi
+
+      - name: Upload debug artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-debug-artifacts
+          path: artifacts/**

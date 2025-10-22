@@ -1,0 +1,16 @@
+extends: default
+
+rules:
+  # Many CI workflow steps embed long shell scripts on single lines.
+  # Relax the line-length to avoid distracting errors; keep as warning.
+  line-length:
+    max: 200
+    level: warning
+
+  # The repo uses explicit true/false values in workflows but the yamllint
+  # truthy rule can be noisy when workflows contain expressions; disable it.
+  truthy: disable
+
+  # Allow some comment formatting flexibility in CI scripts by disabling the
+  # comments rule (workflows contain many inline-shell comments).
+  comments: disable

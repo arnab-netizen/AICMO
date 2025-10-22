@@ -1,8 +1,11 @@
+---
 name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+      - master
   pull_request:
 jobs:
   unit-minimal:
@@ -98,7 +101,7 @@ jobs:
   #       env:
   #         PYTHONPATH: .
   #       run: make full-test
-      #   run: black --check backend
+  #     run: black --check backend
 
   taste-pgvector:
     runs-on: ubuntu-latest
@@ -111,9 +114,9 @@ jobs:
         # CI steps that `CREATE EXTENSION IF NOT EXISTS vector;` succeed.
         # We intentionally use the ankane/pgvector image here for the taste-pgvector
         # job which verifies vector-related functionality.
-    image: ankane/pgvector:postgres-16
-    ports: ['5432:5432']
-    env:
+        image: ankane/pgvector:postgres-16
+        ports: ['5432:5432']
+        env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: app
@@ -212,7 +215,9 @@ jobs:
           # Use the sync DATABASE_URL for Alembic (psycopg) so migrations run in a
           # synchronous context. Using an async driver (asyncpg) caused
           # `greenlet_spawn` errors when alembic attempted to connect.
-          DB_URL: ${{ env.DATABASE_URL }}
+          # The actual DATABASE_URL is already exported to the job environment
+          # earlier by the 'Set env' step; avoid referencing ${{ env.* }} in the
+          # workflow mapping to keep the workflow parser/linter happy.
           ALEMBIC_CONFIG: backend/alembic.ini
         run: |
           alembic -c "$ALEMBIC_CONFIG" upgrade head
