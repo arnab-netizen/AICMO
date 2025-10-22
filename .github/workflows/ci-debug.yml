@@ -34,15 +34,7 @@ jobs:
           if [ -f backend/alembic.ini ]; then
             ls -la backend/alembic >> artifacts/alembic.txt || true
             ls -la backend/alembic/versions >> artifacts/alembic.txt || true
-            python - <<'PY' >> artifacts/alembic.txt 2>&1 || true
-from alembic.config import Config
-from alembic.script import ScriptDirectory
-cfg = Config('backend/alembic.ini')
-print('cfg.config_file_name=', cfg.config_file_name)
-print('script_location=', cfg.get_main_option('script_location'))
-sd = ScriptDirectory.from_config(cfg)
-print('heads=', list(sd.get_heads()))
-PY
+            python -c "from alembic.config import Config; from alembic.script import ScriptDirectory; cfg=Config('backend/alembic.ini'); print('cfg.config_file_name=', cfg.config_file_name); print('script_location=', cfg.get_main_option('script_location')); sd=ScriptDirectory.from_config(cfg); print('heads=', list(sd.get_heads()))" >> artifacts/alembic.txt 2>&1 || true
           else
             echo 'no backend/alembic.ini present' >> artifacts/alembic.txt
           fi

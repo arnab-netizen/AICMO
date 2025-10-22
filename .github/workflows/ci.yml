@@ -193,9 +193,12 @@ jobs:
           # to create it. If it's not available, print a warning and continue.
           set -euo pipefail
           echo "Checking for pgvector availability..."
+          # print the availability row for debug (helps triage images missing control file)
+          psql "$DATABASE_URL" -U postgres -h localhost -Atc "SELECT name, default_version, installed_version FROM pg_available_extensions WHERE name='vector' LIMIT 1;" || true
           if psql "$DATABASE_URL" -U postgres -h localhost -Atc "SELECT 1 FROM pg_available_extensions WHERE name='vector' LIMIT 1;" | grep -q 1; then
-            echo "pgvector available -> creating extension"
-            psql "$DATABASE_URL" -U postgres -h localhost -c "CREATE EXTENSION IF NOT EXISTS vector;"
+            echo "pgvector appears available -> attempting to create extension (failure will be tolerated)"
+            # attempt to create; tolerate failure because some server images may have the entry but not the control file
+            psql "$DATABASE_URL" -U postgres -h localhost -c "CREATE EXTENSION IF NOT EXISTS vector;" || echo "[warn] CREATE EXTENSION vector failed but will be ignored (extension control file may be missing)"
           else
             echo "[warn] pgvector extension not available in this Postgres image; skipping CREATE EXTENSION"
             echo "If tests rely on pgvector, use an image with pgvector or install the extension on the server."
