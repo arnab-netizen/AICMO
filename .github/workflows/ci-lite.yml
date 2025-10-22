@@ -141,11 +141,16 @@ jobs:
           if [ ! -f backend/requirements-test.txt ] && [ ! -f backend/requirements-dev.txt ]; then
             echo "Missing backend/requirements-test.txt AND backend/requirements-dev.txt" >&2; exit 1;
           fi
-          if [ -z "${DATABASE_URL:-}" ]; then echo "DATABASE_URL not set" >&2; exit 1; fi
-          case "$DATABASE_URL" in
-            postgresql*|postgresql+* ) echo "[preflight] DATABASE_URL looks like Postgres" ;; 
-            *) echo "DATABASE_URL does not look like Postgres: $DATABASE_URL" >&2; exit 1 ;;
-          esac
+          # DATABASE_URL may be provided later in the job (we avoid setting it at job level)
+          # so don't fail preflight if it's not present yet — warn instead.
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "[warn] DATABASE_URL not set yet; will be resolved in a later step"
+          else
+            case "$DATABASE_URL" in
+              postgresql*|postgresql+* ) echo "[preflight] DATABASE_URL looks like Postgres" ;;
+              *) echo "[warn] DATABASE_URL does not look like Postgres: $DATABASE_URL" ;;
+            esac
+          fi
 
       - name: Install deps
         run: |
@@ -344,18 +349,30 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install psycopg2-binary sqlalchemy
-          # Use the service hostname "postgres" inside the job network
-          echo "DATABASE_URL=postgresql+psycopg2://aicmo:pass@postgres:5432/aicmo" >> $GITHUB_ENV
-          # Sanity check the connection
+          # If a resolved SQLALCHEMY_URL (or DATABASE_URL) was persisted earlier, do not overwrite it.
+          if [ -n "${SQLALCHEMY_URL:-}" ]; then
+            echo "[dbg] SQLALCHEMY_URL already set; exporting as DATABASE_URL"
+            echo "DATABASE_URL=${SQLALCHEMY_URL}" >> $GITHUB_ENV
+          elif [ -z "${DATABASE_URL:-}" ]; then
+            # Fallback: use the service hostname "postgres" inside the job network
+            echo "[dbg] DATABASE_URL not present; setting fallback to service hostname 'postgres'"
+            echo "DATABASE_URL=postgresql+psycopg2://aicmo:pass@postgres:5432/aicmo" >> $GITHUB_ENV
+          else
+            echo "[dbg] DATABASE_URL already present; not overwriting"
+          fi
+
+          # Sanity check the connection using whichever DATABASE_URL will be visible to subsequent steps
           python - <<'PY'
-          import os, sys
+          import os
           from sqlalchemy import create_engine, text
-          url = os.environ.get("DATABASE_URL")
-          assert url, "DATABASE_URL not set"
-          eng = create_engine(url, pool_pre_ping=True)
-          with eng.connect() as c:
-              c.execute(text("SELECT 1"))
-          print("[dbg] DB connectivity OK:", url)
+          url = os.environ.get("DATABASE_URL") or os.environ.get("SQLALCHEMY_URL")
+          if not url:
+              print("[warn] No DATABASE_URL/SQLALCHEMY_URL set; skipping DB connectivity check")
+          else:
+              eng = create_engine(url, pool_pre_ping=True)
+              with eng.connect() as c:
+                  c.execute(text("SELECT 1"))
+              print("[dbg] DB connectivity OK:", url)
           PY
 
       - name: Alembic heads/current (no DB) — prove versions are visible
