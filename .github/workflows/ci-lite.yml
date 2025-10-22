@@ -100,7 +100,7 @@ jobs:
     needs: fast-sqlite
     services:
       postgres:
-        image: ankane/pgvector:latest
+        image: ankane/pgvector:postgres-16
         env:
           POSTGRES_USER: aicmo
           POSTGRES_PASSWORD: pass

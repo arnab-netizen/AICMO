@@ -110,7 +110,7 @@ seed:
 .PHONY: db-up db-down db-migrate db-seed smoke-versions smoke-telemetry test-versions test-taste
 
 db-up:
-	docker run -d --rm --name aicmo-pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 ankane/pgvector:latest
+	docker run -d --rm --name aicmo-pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 ankane/pgvector:postgres-16
 
 db-down:
 	docker stop aicmo-pg || true
