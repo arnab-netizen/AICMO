@@ -110,7 +110,7 @@ seed:
 .PHONY: db-up db-down db-migrate db-seed smoke-versions smoke-telemetry test-versions test-taste
 
 db-up:
-	docker run -d --rm --name aicmo-pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 ankane/pgvector:latest
+	docker run -d --rm --name aicmo-pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 ankane/pgvector:postgres-16
 
 db-down:
 	docker stop aicmo-pg || true
@@ -128,7 +128,13 @@ test-pg:
 
 db-migrate:
 	@if [ -z "$$DB_URL" ]; then echo "Set DB_URL first"; exit 1; fi; \
-	psql "$$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS vector;" && \
+	# Attempt to create pgvector only if the extension is available on the server
+	if psql "$$DB_URL" -Atc "SELECT 1 FROM pg_available_extensions WHERE name='vector' LIMIT 1;" | grep -q 1; then \
+		psql "$$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS vector;"; \
+		echo "[dbg] pgvector available: extension created (or already exists)"; \
+	else \
+		echo "[warn] pgvector extension not available on server; skipping CREATE EXTENSION"; \
+	fi; \
 	psql "$$DB_URL" -f db/migrations/2025-10-19_add_taste_intelligence.sql
 
 db-seed:

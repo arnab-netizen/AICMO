@@ -1,8 +1,10 @@
+---
 name: ci-lite
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
   workflow_dispatch:
 
@@ -100,7 +102,7 @@ jobs:
     needs: fast-sqlite
     services:
       postgres:
-        image: ankane/pgvector:latest
+        image: ankane/pgvector:postgres-16
         env:
           POSTGRES_USER: aicmo
           POSTGRES_PASSWORD: pass
@@ -478,9 +480,6 @@ jobs:
           PY
 
       - name: DB alembic_version (optional)
-        if: ${{ env.DATABASE_URL != '' }}
-        env:
-          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           if [ -f .venv/bin/activate ]; then
             . .venv/bin/activate
@@ -508,7 +507,6 @@ jobs:
         env:
           ALEMBIC_CONFIG: backend/alembic.ini
           PYTHONPATH: ${{ github.workspace }}
-          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           set -e
           if [ -f .venv/bin/activate ]; then
@@ -526,7 +524,6 @@ jobs:
         env:
           ALEMBIC_CONFIG: backend/alembic.ini
           PYTHONPATH: ${{ github.workspace }}
-          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           set -e
           if [ -f .venv/bin/activate ]; then
@@ -542,7 +539,6 @@ jobs:
         env:
           ALEMBIC_CONFIG: backend/alembic.ini
           PYTHONPATH: ${{ github.workspace }}
-          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           set -e
           if [ -f .venv/bin/activate ]; then
