@@ -149,8 +149,13 @@ jobs:
 
       - name: Install deps
         run: |
-          python -m venv .venv
-          . .venv/bin/activate
+          # Create a venv if possible; tolerate failures and fall back to the runner Python
+          python -m venv .venv || true
+          if [ -f .venv/bin/activate ]; then
+            . .venv/bin/activate
+          else
+            echo "[warn] .venv not present; using system python from setup-python"
+          fi
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
           # Install test/dev requirements if available. Prefer requirements-test.txt
@@ -166,7 +171,11 @@ jobs:
 
       - name: Prep DB + migrate
         run: |
-          . .venv/bin/activate
+          if [ -f .venv/bin/activate ]; then
+            . .venv/bin/activate
+          else
+            echo "[warn] .venv not present; using system python from setup-python"
+          fi
           # Normalize DATABASE_URL to a psql-friendly form (remove +driver)
           PSQL_URL=$(python - <<'PY'
           import os, re
@@ -220,7 +229,11 @@ jobs:
 
       - name: Single-head guard
         run: |
-          . .venv/bin/activate
+          if [ -f .venv/bin/activate ]; then
+            . .venv/bin/activate
+          else
+            echo "[warn] .venv not present; using system python from setup-python"
+          fi
           python - <<'PY'
           from alembic.config import Config
           from alembic.script import ScriptDirectory
@@ -235,7 +248,11 @@ jobs:
 
       - name: Apply migrations to head (Python)
         run: |
-          . .venv/bin/activate
+          if [ -f .venv/bin/activate ]; then
+            . .venv/bin/activate
+          else
+            echo "[warn] .venv not present; using system python from setup-python"
+          fi
           echo "[dbg] About to run alembic via python"
           echo "[dbg] SQLALCHEMY_URL='$SQLALCHEMY_URL'"
           echo "[dbg] DATABASE_URL='$DATABASE_URL'"
@@ -291,7 +308,11 @@ jobs:
         working-directory: .
         run: |
           set -e
-          . .venv/bin/activate
+          if [ -f .venv/bin/activate ]; then
+            . .venv/bin/activate
+          else
+            echo "[warn] .venv not present; using system python from setup-python"
+          fi
           echo "CWD: $(pwd)"
           echo "Repo root listing:"
           ls -la
@@ -383,7 +404,11 @@ jobs:
           DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           set -e
-          . .venv/bin/activate
+          if [ -f .venv/bin/activate ]; then
+            . .venv/bin/activate
+          else
+            echo "[warn] .venv not present; using system python from setup-python"
+          fi
           python -c "import sys; import psycopg2, sqlalchemy; print('drivers ok')"
           # Ensure DB is at head before we try to autogenerate
           alembic -c backend/alembic.ini upgrade head
@@ -397,7 +422,11 @@ jobs:
           DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           set -e
-          . .venv/bin/activate
+          if [ -f .venv/bin/activate ]; then
+            . .venv/bin/activate
+          else
+            echo "[warn] .venv not present; using system python from setup-python"
+          fi
           mkdir -p artifacts
           # capture the SQL (won't modify DB) for auditing
           alembic -c backend/alembic.ini upgrade head --sql > artifacts/upgrade_to_head.sql || true
@@ -409,7 +438,11 @@ jobs:
           DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           set -e
-          . .venv/bin/activate
+          if [ -f .venv/bin/activate ]; then
+            . .venv/bin/activate
+          else
+            echo "[warn] .venv not present; using system python from setup-python"
+          fi
           python - <<'PY'
           import pathlib, tempfile, sys, os, shutil
           from alembic.config import Config
@@ -474,7 +507,11 @@ jobs:
         env:
           DATABASE_URL: postgresql+psycopg2://aicmo:pass@postgres:5432/aicmo
         run: |
-          . .venv/bin/activate
+          if [ -f .venv/bin/activate ]; then
+            . .venv/bin/activate
+          else
+            echo "[warn] .venv not present; using system python from setup-python"
+          fi
           pytest -q
 
       - name: Alembic visibility check (list heads from real script_location)
