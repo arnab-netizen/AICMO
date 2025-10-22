@@ -114,7 +114,7 @@ jobs:
         # CI steps that `CREATE EXTENSION IF NOT EXISTS vector;` succeed.
         # We intentionally use the ankane/pgvector image here for the taste-pgvector
         # job which verifies vector-related functionality.
-        image: ankane/pgvector:postgres-16
+        image: ankane/pgvector:latest
         ports: ['5432:5432']
         env:
           POSTGRES_USER: postgres
