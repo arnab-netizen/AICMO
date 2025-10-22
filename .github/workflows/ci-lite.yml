@@ -628,6 +628,11 @@ jobs:
       - name: Alembic visibility check (list heads from real script_location)
         working-directory: .
         run: |
+          if [ -f .venv/bin/activate ]; then
+            . .venv/bin/activate
+          else
+            echo "[warn] .venv not present; using system python from setup-python"
+          fi
           python - <<'PY'
           import os
           from alembic.config import Config
