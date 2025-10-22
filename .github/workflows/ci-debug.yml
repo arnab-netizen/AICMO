@@ -22,7 +22,7 @@ jobs:
 
       - name: Collect environment
         run: |
-          set -xe
+          set -x
           mkdir -p artifacts
           env > artifacts/env.txt || true
           echo '--- python info ---' > artifacts/python.txt
@@ -48,6 +48,7 @@ PY
           fi
 
       - name: Upload debug artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ci-debug-artifacts
