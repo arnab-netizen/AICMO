@@ -165,6 +165,13 @@ jobs:
           pip install -r backend/requirements.txt
           # Ensure Alembic is available for visibility checks and programmatic use
           pip install alembic
+          # Install local editable packages so test suite can import them (e.g. capsule_core)
+          if [ -d "./capsule-core" ]; then
+            echo "Installing local package ./capsule-core"
+            pip install -e ./capsule-core
+          else
+            echo "Local package ./capsule-core not found; skipping editable install"
+          fi
           # Install test/dev requirements if available. Prefer requirements-test.txt
           if [ -f backend/requirements-test.txt ]; then
             echo "Using backend/requirements-test.txt"
