@@ -163,6 +163,8 @@ jobs:
           fi
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
+          # Ensure Alembic is available for visibility checks and programmatic use
+          pip install alembic
           # Install test/dev requirements if available. Prefer requirements-test.txt
           if [ -f backend/requirements-test.txt ]; then
             echo "Using backend/requirements-test.txt"
@@ -429,6 +431,11 @@ jobs:
       - name: Alembic heads/current (no DB) — prove versions are visible
         working-directory: .
         run: |
+          if [ -f .venv/bin/activate ]; then
+            . .venv/bin/activate
+          else
+            echo "[warn] .venv not present; using system python from setup-python"
+          fi
           python - <<'PY'
           from alembic.config import Config
           from alembic.script import ScriptDirectory
