@@ -1,3 +1,6 @@
+import os
+import pytest
+
 from backend.db import ping_db, exec_sql, get_engine, get_db
 
 
@@ -13,6 +16,10 @@ def test_exec_sql_select_one(monkeypatch):
     assert rows and rows[0][0] == 1
 
 
+@pytest.mark.skipif(
+    os.getenv("DATABASE_URL", "").startswith("postgresql"),
+    reason="This test is designed for SQLite in-memory DB only",
+)
 def test_get_db_yields_and_closes(monkeypatch):
     monkeypatch.setenv("DB_URL", "sqlite+pysqlite:///:memory:")
     seen = None

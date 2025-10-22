@@ -1,0 +1,3 @@
+# Add migration filenames (one per line) to whitelist them from destructive scanning
+# e.g.
+# c1c4b4cbf95a_remove_page_and_site_section.py

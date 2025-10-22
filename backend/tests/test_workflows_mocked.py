@@ -1,11 +1,6 @@
 # backend/tests/test_workflows_mocked.py
 from types import SimpleNamespace
-from fastapi.testclient import TestClient
 import asyncio
-
-from backend.app import app
-
-client = TestClient(app)
 
 
 # ---- Fake Temporal client/handle --------------------------------------------
@@ -46,7 +41,7 @@ async def fake_connect(addr: str, namespace: str):
     return FakeClient()
 
 
-def test_workflows_routes_with_mock(monkeypatch):
+def test_workflows_routes_with_mock(monkeypatch, client):
     # Patch temporalio.client.Client.connect to our fake_connect
     import temporalio.client as tclient
 

@@ -1,10 +1,4 @@
-from fastapi.testclient import TestClient
-from backend.app import app
-
-client = TestClient(app)
-
-
-def test_workflows_routes_exist_and_respond():
+def test_workflows_routes_exist_and_respond(client):
     # Describe (may 500 if Temporal is down; route must exist)
     r = client.get("/workflows/sitegen-1")
     assert r.status_code in (200, 500)

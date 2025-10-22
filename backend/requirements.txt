@@ -9,6 +9,7 @@ pydantic==2.9.2
 # Vector & migrations
 pgvector==0.3.5
 alembic==1.13.0
+psycopg2-binary==2.9.9
 
 # Observability
 prometheus-client==0.20.0

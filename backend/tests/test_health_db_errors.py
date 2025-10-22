@@ -1,11 +1,7 @@
-from fastapi.testclient import TestClient
-from backend.app import app
 from backend.db import get_db
 
-client = TestClient(app)
 
-
-def test_health_db_503_when_operation_fails(monkeypatch):
+def test_health_db_503_when_operation_fails(monkeypatch, client):
     class BoomSession:
         def execute(self, *a, **kw):
             raise RuntimeError("db op failed intentionally")
@@ -16,6 +12,7 @@ def test_health_db_503_when_operation_fails(monkeypatch):
     def broken_db():
         yield BoomSession()
 
+    app = client.app
     app.dependency_overrides[get_db] = broken_db
     try:
         r = client.get("/health/db")
@@ -27,10 +24,11 @@ def test_health_db_503_when_operation_fails(monkeypatch):
         app.dependency_overrides.pop(get_db, None)
 
 
-def test_health_db_500_when_engine_unavailable(monkeypatch):
+def test_health_db_500_when_engine_unavailable(monkeypatch, client):
     def raising_get_db():
         raise RuntimeError("engine unavailable")
 
+    app = client.app
     app.dependency_overrides[get_db] = raising_get_db
     try:
         r = client.get("/health/db")

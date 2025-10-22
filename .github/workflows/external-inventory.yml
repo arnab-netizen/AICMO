@@ -1,0 +1,40 @@
+name: external-inventory
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
+
+      - name: Run inventory script
+        run: |
+          python scripts/inventory_external_connections.py
+
+      - name: Upload inventory artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-connections
+          path: |
+            docs/external-connections.md
+            .env.example
+
+      - name: Check for drift (fail if docs changed)
+        run: |
+          git diff --exit-code docs/external-connections.md .env.example || \
+          (echo "::error::Inventory docs changed. Commit the updated files." && exit 1)
