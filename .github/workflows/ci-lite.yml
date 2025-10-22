@@ -420,6 +420,13 @@ jobs:
 
       - name: Ensure DB client + driver and set DATABASE_URL
         run: |
+          # Ensure we use the venv created earlier if present
+          if [ -f .venv/bin/activate ]; then
+            . .venv/bin/activate
+          else
+            echo "[warn] .venv not present; using system python from setup-python"
+          fi
+
           python -m pip install --upgrade pip
           python -m pip install psycopg2-binary sqlalchemy
           # If a resolved SQLALCHEMY_URL (or DATABASE_URL) was persisted earlier, do not overwrite it.
@@ -602,7 +609,12 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          # Use the python that is now first on PATH (we exported .venv/bin to PATH)
+          # Ensure we use the venv created earlier (do not rely on PATH propagation)
+          if [ -f .venv/bin/activate ]; then
+            . .venv/bin/activate
+          else
+            echo "[warn] .venv not present; using system python from setup-python"
+          fi
           echo "[dbg] which python:" $(which python)
           echo "[dbg] python -V:" $(python -V)
           python -m pip show temporalio || true
