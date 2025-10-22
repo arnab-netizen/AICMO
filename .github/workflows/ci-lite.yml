@@ -176,6 +176,14 @@ jobs:
 
       - name: Prep DB + migrate
         run: |
+          # Ensure a DATABASE_URL is available for the prep step; if it's not set yet,
+          # fall back to the service hostname (this is safe for initial connectivity checks
+          # and will be replaced later if a resolved SQLALCHEMY_URL is computed).
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "[warn] DATABASE_URL not set for Prep DB; falling back to service hostname 'postgres'"
+            export DATABASE_URL="postgresql+psycopg2://aicmo:pass@postgres:5432/aicmo"
+          fi
+
           if [ -f .venv/bin/activate ]; then
             . .venv/bin/activate
           else
