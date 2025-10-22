@@ -215,6 +215,12 @@ jobs:
             TRY_PSQL=$(echo "$PSQL_URL" | sed -E 's/@[^:]+:/@localhost:/')
           fi
 
+          # Persist TRY_PSQL for later psql invocations in subsequent steps
+          if [ -n "${TRY_PSQL:-}" ]; then
+            echo "[dbg] Persisting TRY_PSQL for later steps"
+            echo "TRY_PSQL=$TRY_PSQL" >> $GITHUB_ENV
+          fi
+
           # Wait for Postgres to become ready (try up to ~30s)
           for i in {1..30}; do
             if pg_isready -q -d "$TRY_PSQL"; then
@@ -313,9 +319,18 @@ jobs:
           PY
 
           # === Schema asserts (fail fast) ===
-          psql "$TRY_PSQL" -Atc "SELECT 1 FROM pg_indexes WHERE tablename='site' AND indexname='ux_site_slug';" | grep 1
-          psql "$TRY_PSQL" -Atc "SELECT indexdef FROM pg_indexes WHERE tablename='page' AND indexdef LIKE '%UNIQUE% (site_id, path)%';" | grep UNIQUE
-          psql "$TRY_PSQL" -Atc "SELECT table_name FROM information_schema.views WHERE table_schema='public' AND table_name='site_spec';" | grep site_spec
+          # Compute an effective psql connection string. Prefer TRY_PSQL (persisted earlier),
+          # otherwise fall back to DATABASE_URL. Strip any "+driver" suffix so psql accepts the URI.
+          EFFECTIVE_PSQL="${TRY_PSQL:-${DATABASE_URL:-}}"
+          if [ -z "$EFFECTIVE_PSQL" ]; then
+            echo "[err] No connection string available for psql assertions" >&2
+            exit 1
+          fi
+          EFFECTIVE_PSQL=$(echo "$EFFECTIVE_PSQL" | sed -E 's#^postgresql\+[^:]+://#postgresql://#')
+
+          psql "$EFFECTIVE_PSQL" -Atc "SELECT 1 FROM pg_indexes WHERE tablename='site' AND indexname='ux_site_slug';" | grep 1
+          psql "$EFFECTIVE_PSQL" -Atc "SELECT indexdef FROM pg_indexes WHERE tablename='page' AND indexdef LIKE '%UNIQUE% (site_id, path)%';" | grep UNIQUE
+          psql "$EFFECTIVE_PSQL" -Atc "SELECT table_name FROM information_schema.views WHERE table_schema='public' AND table_name='site_spec';" | grep site_spec
 
       - name: Alembic visibility check
         working-directory: .
