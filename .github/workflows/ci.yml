@@ -223,7 +223,47 @@ jobs:
           # workflow mapping to keep the workflow parser/linter happy.
           ALEMBIC_CONFIG: backend/alembic.ini
         run: |
+          set -euo pipefail
+
+          # Compute a sync SQLAlchemy URL for Alembic and sync-only scripts.
+          SYNC_URL=$(python - <<'PY'
+import os,sys
+u = os.environ.get('DATABASE_URL') or os.environ.get('DB_URL') or ''
+if not u:
+    sys.exit(0)
+if '+asyncpg' in u:
+    print(u.replace('+asyncpg', '+psycopg2'))
+else:
+    print(u)
+PY
+)
+
+          if [ -n "${SYNC_URL:-}" ]; then
+            echo "[dbg] computed SYNC_URL: $SYNC_URL"
+            # Export for this step and make available to subprocesses
+            export SQLALCHEMY_URL="$SYNC_URL"
+            export DATABASE_URL="$SYNC_URL"
+          else
+            echo "[warn] could not compute SYNC_URL; proceeding with existing env vars"
+          fi
+
+          # Diagnostic: print relevant DB/SQLAlchemy driver versions to help triage MissingGreenlet
+          python - <<'PY'
+import importlib
+def ver(name):
+    try:
+        m = importlib.import_module(name)
+        return getattr(m, '__version__', getattr(m, 'version', 'unknown'))
+    except Exception:
+        return None
+for pkg in ('sqlalchemy','asyncpg','greenlet','psycopg'):
+    print(pkg, ver(pkg))
+PY
+
+          # Run Alembic migrations using the computed sync URL (env-aware via alembic env.py)
           alembic -c "$ALEMBIC_CONFIG" upgrade head
+
+          # Seed demo data (uses sync engine helpers)
           python -m backend.tools.seed_taste_demo
 
       - name: Smoke checks
