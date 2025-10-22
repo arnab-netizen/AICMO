@@ -154,36 +154,47 @@ jobs:
 
       - name: Install deps
         run: |
-          # Create a venv if possible; tolerate failures and fall back to the runner Python
-          python -m venv .venv || true
-          if [ -f .venv/bin/activate ]; then
-            . .venv/bin/activate
-          else
-            echo "[warn] .venv not present; using system python from setup-python"
-          fi
-          python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
+          # Create an isolated venv and explicitly install into it. We then
+          # expose the venv bin directory via GITHUB_ENV so subsequent steps
+          # use the same interpreter and installed packages.
+          set -euo pipefail
+          python -m venv .venv
+          . .venv/bin/activate
+          VENV_PY=.venv/bin/python
+
+          echo "[dbg] venv python:" $($VENV_PY -V 2>&1)
+          echo "[dbg] which python:" $(which python)
+          echo "[dbg] pip (venv) info:" $($VENV_PY -m pip --version 2>&1)
+
+          $VENV_PY -m pip install --upgrade pip
+          # Install pinned project dependencies into the venv
+          $VENV_PY -m pip install -r backend/requirements.txt
           # Ensure Alembic is available for visibility checks and programmatic use
-          pip install alembic
+          $VENV_PY -m pip install alembic
           # Install local editable packages so test suite can import them (e.g. capsule_core)
           if [ -d "./capsule-core" ]; then
-            echo "Installing local package ./capsule-core"
-            pip install -e ./capsule-core
+            echo "Installing local package ./capsule-core into venv"
+            $VENV_PY -m pip install -e ./capsule-core
           else
             echo "Local package ./capsule-core not found; skipping editable install"
           fi
           # Install Temporal client library required by some backend modules/tests
-          pip install "temporalio>=1.18.0"
+          $VENV_PY -m pip install "temporalio>=1.18.0"
           # Install test/dev requirements if available. Prefer requirements-test.txt
           if [ -f backend/requirements-test.txt ]; then
             echo "Using backend/requirements-test.txt"
-            pip install -r backend/requirements-test.txt
+            $VENV_PY -m pip install -r backend/requirements-test.txt
           elif [ -f backend/requirements-dev.txt ]; then
             echo "Using backend/requirements-dev.txt"
-            pip install -r backend/requirements-dev.txt
+            $VENV_PY -m pip install -r backend/requirements-dev.txt
           else
             echo "No test requirements file found; continuing without extra test deps"
           fi
+
+          # Export the venv bin dir into PATH for subsequent steps
+          echo "PATH=$(pwd)/.venv/bin:$PATH" >> $GITHUB_ENV
+          # Provide a quick verification that temporalio is installed in the venv
+          echo "[dbg] temporalio (venv) ->" $($VENV_PY -m pip show temporalio 2>/dev/null || echo "not-installed")
 
       - name: Prep DB + migrate
         run: |
@@ -208,23 +219,10 @@ jobs:
           PY
           )
 
-          # If the service hostname isn't resolvable yet, try localhost (service port is mapped)
-          DB_HOST=$(python - <<'PY'
-          import os
-          from urllib.parse import urlparse
-          u = os.environ['DATABASE_URL']
-          p = urlparse(u)
-          print(p.hostname or '')
-          PY
-          )
-
-          if getent hosts "$DB_HOST" >/dev/null 2>&1; then
-            echo "[dbg] DB host '$DB_HOST' resolves"
-            TRY_PSQL="$PSQL_URL"
-          else
-            echo "[warn] DB host '$DB_HOST' not resolvable yet; falling back to localhost"
-            TRY_PSQL=$(echo "$PSQL_URL" | sed -E 's/@[^:]+:/@localhost:/')
-          fi
+          # In GitHub Actions we map the Postgres service port to localhost:5432.
+          # Prefer connecting via localhost to avoid intermittent Docker DNS resolution
+          # issues for the service hostname 'postgres'. Always normalize to localhost here.
+          TRY_PSQL=$(echo "$PSQL_URL" | sed -E 's/@[^:]+:/@localhost:/')
 
           # Persist TRY_PSQL for later psql invocations in subsequent steps
           if [ -n "${TRY_PSQL:-}" ]; then
@@ -232,10 +230,14 @@ jobs:
             echo "TRY_PSQL=$TRY_PSQL" >> $GITHUB_ENV
           fi
 
-          # Wait for Postgres to become ready (try up to ~30s)
-          for i in {1..30}; do
-            if pg_isready -q -d "$TRY_PSQL"; then
-              echo "[dbg] Postgres ready"
+          # Extract host/port for an explicit pg_isready check
+          PSQL_HOST=$(echo "$TRY_PSQL" | sed -E 's#.*@([^:/]+):([0-9]+)/.*#\1#')
+          PSQL_PORT=$(echo "$TRY_PSQL" | sed -E 's#.*@([^:/]+):([0-9]+)/.*#\2#')
+
+          # Wait for Postgres to become ready (try up to ~60s)
+          for i in {1..60}; do
+            if pg_isready -q -h "${PSQL_HOST:-localhost}" -p "${PSQL_PORT:-5432}" -U aicmo -d aicmo; then
+              echo "[dbg] Postgres ready on ${PSQL_HOST:-localhost}:${PSQL_PORT:-5432}"
               break
             fi
             sleep 1
@@ -252,6 +254,15 @@ jobs:
             echo "SQLALCHEMY_URL=$SQLALCHEMY_URL" >> $GITHUB_ENV
             echo "DATABASE_URL=$SQLALCHEMY_URL" >> $GITHUB_ENV
             echo "[dbg] SQLALCHEMY_URL set to: $SQLALCHEMY_URL"
+          fi
+
+          echo "[dbg] Using TRY_PSQL='$TRY_PSQL' for schema cleanup"
+          # Quick validation: ensure psql can connect before attempting destructive ops
+          if ! psql "$TRY_PSQL" -c '\l' >/dev/null 2>&1; then
+            echo "[err] psql cannot connect using TRY_PSQL='$TRY_PSQL'" >&2
+            # Dump environment for debugging
+            env | sort
+            exit 1
           fi
 
           # Clean schema each run
@@ -416,9 +427,9 @@ jobs:
             echo "[dbg] SQLALCHEMY_URL already set; exporting as DATABASE_URL"
             echo "DATABASE_URL=${SQLALCHEMY_URL}" >> $GITHUB_ENV
           elif [ -z "${DATABASE_URL:-}" ]; then
-            # Fallback: use the service hostname "postgres" inside the job network
-            echo "[dbg] DATABASE_URL not present; setting fallback to service hostname 'postgres'"
-            echo "DATABASE_URL=postgresql+psycopg2://aicmo:pass@postgres:5432/aicmo" >> $GITHUB_ENV
+            # Fallback: use localhost (service port is mapped to the runner) to avoid DNS issues
+            echo "[dbg] DATABASE_URL not present; setting fallback to localhost"
+            echo "DATABASE_URL=postgresql+psycopg2://aicmo:pass@localhost:5432/aicmo" >> $GITHUB_ENV
           else
             echo "[dbg] DATABASE_URL already present; not overwriting"
           fi
@@ -589,15 +600,13 @@ jobs:
 
       - name: Run tests (Postgres + SQLite)
         env:
-          DATABASE_URL: postgresql+psycopg2://aicmo:pass@postgres:5432/aicmo
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          if [ -f .venv/bin/activate ]; then
-            . .venv/bin/activate
-          else
-            echo "[warn] .venv not present; using system python from setup-python"
-          fi
-          pytest -q
+          # Use the python that is now first on PATH (we exported .venv/bin to PATH)
+          echo "[dbg] which python:" $(which python)
+          echo "[dbg] python -V:" $(python -V)
+          python -m pip show temporalio || true
+          python -m pytest -q
 
       - name: Alembic visibility check (list heads from real script_location)
         working-directory: .
