@@ -581,6 +581,7 @@ jobs:
       - name: Run tests (Postgres + SQLite)
         env:
           DATABASE_URL: postgresql+psycopg2://aicmo:pass@postgres:5432/aicmo
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           if [ -f .venv/bin/activate ]; then
             . .venv/bin/activate
