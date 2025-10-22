@@ -172,6 +172,8 @@ jobs:
           else
             echo "Local package ./capsule-core not found; skipping editable install"
           fi
+          # Install Temporal client library required by some backend modules/tests
+          pip install "temporalio>=1.18.0"
           # Install test/dev requirements if available. Prefer requirements-test.txt
           if [ -f backend/requirements-test.txt ]; then
             echo "Using backend/requirements-test.txt"
