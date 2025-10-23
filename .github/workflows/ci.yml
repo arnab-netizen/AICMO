@@ -236,10 +236,18 @@ jobs:
             # Run Alembic migrations using the computed sync URL (env-aware via alembic env.py)
             alembic -c "$ALEMBIC_CONFIG" upgrade head
 
-            # Seed demo data (uses sync engine helpers). Run with explicit
-            # sync URL in the same command to guarantee the process uses
-            # the psycopg driver (avoid asyncpg/greenlet mismatches).
-            SQLALCHEMY_URL="$SYNC_URL" DATABASE_URL="$SYNC_URL" python -m backend.tools.seed_taste_demo
+            # Quick test: run the seed via an inline Python wrapper that sets
+            # the SQLALCHEMY_URL/DATABASE_URL environment before importing the
+            # seed module. This verifies whether module-level imports are
+            # causing the asyncpg dialect to be selected.
+            python - <<PY
+import os
+os.environ['SQLALCHEMY_URL'] = '${SYNC_URL}'
+os.environ['DATABASE_URL'] = '${SYNC_URL}'
+print('[dbg] wrapper env SQLALCHEMY_URL=', os.environ.get('SQLALCHEMY_URL'))
+from backend.tools import seed_taste_demo
+seed_taste_demo.main()
+PY
 
       - name: Smoke checks
         run: |
