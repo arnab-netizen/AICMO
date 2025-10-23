@@ -99,6 +99,8 @@ jobs:
   tests:
     name: tests (apply migrations + run pytest)
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
     needs: fast-sqlite
     services:
       postgres:
@@ -557,6 +559,12 @@ jobs:
 
           cfg = Config('backend/alembic.ini')
 
+          # Ensure alembic uses the resolved sync SQLALCHEMY_URL (if provided) so that
+          # autogenerate runs with a psycopg2-backed connection instead of any async DSN.
+          url = os.environ.get('SQLALCHEMY_URL') or os.environ.get('DATABASE_URL')
+          if url:
+              cfg.set_main_option('sqlalchemy.url', url)
+
           # Defensive: try to ensure DB is at head (no-op if already at head)
           try:
               command.upgrade(cfg, 'head')
@@ -575,7 +583,7 @@ jobs:
           repo_versions = os.path.abspath('backend/alembic/versions')
           cfg.set_main_option('version_locations', f"{tmpdir / 'versions'},{repo_versions}")
 
-          # Try autogenerate into the temp dir
+          # Try autogenerate into the temp dir (will use cfg.sqlalchemy.url set above)
           try:
               command.revision(cfg, message='DRIFT_PROBE', autogenerate=True)
           except SystemExit:
