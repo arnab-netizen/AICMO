@@ -146,6 +146,14 @@ jobs:
         run: |
           python -m pip install -U pip
           pip install -r backend/requirements.txt
+          # If the in-tree editable package exists (capsule-core), install it so
+          # tests importing `capsule_core` succeed during pytest collection.
+          if [ -d "./capsule-core" ]; then
+            echo "Installing local package ./capsule-core"
+            pip install -e ./capsule-core
+          else
+            echo "Local package ./capsule-core not present; skipping editable install"
+          fi
           # Dev-only tools used by CI (mypy, ruff, black)
           if [ -f backend/requirements-dev.txt ]; then pip install -r backend/requirements-dev.txt; fi
           pip install pytest pytest-asyncio httpx alembic prometheus-client
