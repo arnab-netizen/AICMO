@@ -28,6 +28,29 @@ async def main() -> int:
         from httpx import AsyncClient, ASGITransport
 
         app = importlib.import_module("backend.app").app
+    except ModuleNotFoundError as mnf:
+        # Try to be resilient in CI: if small optional deps are missing (e.g., structlog or httpx),
+        # attempt a best-effort pip install and retry once.
+        missing = mnf.name
+        print("APP_IMPORT_MISSING:", missing)
+        try:
+            import subprocess
+
+            print(f"Attempting to pip install missing package: {missing}")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", missing])
+        except Exception as pip_e:
+            print("pip install attempt failed:", pip_e)
+            print("APP_IMPORT_ERROR:", repr(mnf))
+            return 3
+        # Retry imports once
+        try:
+            import importlib
+            from httpx import AsyncClient, ASGITransport
+
+            app = importlib.import_module("backend.app").app
+        except Exception as e:
+            print("APP_IMPORT_ERROR after pip retry:", repr(e))
+            return 3
     except Exception as e:
         print("APP_IMPORT_ERROR:", repr(e))
         return 3
