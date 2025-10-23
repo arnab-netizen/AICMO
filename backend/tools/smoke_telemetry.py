@@ -2,13 +2,24 @@ import asyncio
 import os
 from typing import List
 import sys
+from pathlib import Path
+
+# Make local `capsule-core/` importable when running in the repository (CI or local dev).
+try:
+    repo_root = Path(__file__).resolve().parents[2]
+    capsule_core_dir = repo_root / "capsule-core"
+    if capsule_core_dir.exists() and str(capsule_core_dir) not in sys.path:
+        sys.path.insert(0, str(capsule_core_dir))
+except Exception:
+    pass
 
 try:
     from httpx import AsyncClient, ASGITransport
     from backend.app import app
 except ModuleNotFoundError as mnf:
-    # Try to be resilient in CI: if small optional deps are missing (e.g., capsule_core or httpx),
-    # attempt a best-effort pip install and retry once.
+    # Try to be resilient in CI: if small optional deps are missing (e.g., httpx),
+    # attempt a best-effort pip install and retry once. Local `capsule-core` should
+    # now be importable via the sys.path insertion above, so we won't try to pip-install it.
     missing = mnf.name
     print("APP_IMPORT_MISSING:", missing)
     try:
