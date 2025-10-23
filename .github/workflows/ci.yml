@@ -156,7 +156,8 @@ jobs:
           fi
           # Dev-only tools used by CI (mypy, ruff, black)
           if [ -f backend/requirements-dev.txt ]; then pip install -r backend/requirements-dev.txt; fi
-          pip install pytest pytest-asyncio httpx alembic prometheus-client
+          # Ensure coverage tooling is available for coverage gates used later
+          pip install pytest pytest-asyncio pytest-cov coverage httpx alembic prometheus-client
 
       - name: Run pre-commit (all files)
         run: |
