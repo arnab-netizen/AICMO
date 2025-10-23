@@ -31,12 +31,17 @@ def _require_capsule_core_types():
 
 router = APIRouter()
 try:
-    # Attempt to initialize lightweight metrics/logger if capsule_core present
-    _, _, _, get_registry, get_logger = _require_capsule_core_types()
+    # Attempt to initialize lightweight metrics/logger and model types if capsule_core present
+    RunRequest, RunResponse, StatusResponse, get_registry, get_logger = (
+        _require_capsule_core_types()
+    )
     log = get_logger("sitegen")
     mreg = get_registry("sitegen")
 except Exception:
-    # Provide no-op fallbacks so handlers can still be imported
+    # Provide no-op fallbacks so handlers can still be imported when capsule_core
+    # is not available in the environment (e.g., CI jobs that don't install it).
+    from pydantic import BaseModel
+
     class _NoOp:
         def counter(self, *a, **k):
             class _C:
@@ -50,6 +55,23 @@ except Exception:
             return None
 
         return _l
+
+    # Minimal runtime-compatible pydantic fallbacks for the capsule_core models.
+    # These satisfy FastAPI's response_model and request parsing used by tests.
+    class RunRequest(BaseModel):
+        project_id: str
+        payload: dict | None = None
+
+    class RunResponse(BaseModel):
+        task_id: str
+        accepted: bool = True
+
+    class StatusResponse(BaseModel):
+        task_id: str
+        state: str
+        score: float | None = None
+        result: dict | None = None
+        error: str | None = None
 
     mreg = _NoOp()
 
