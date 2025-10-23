@@ -1,8 +1,27 @@
 import asyncio
 import os
 from typing import List
-from httpx import AsyncClient, ASGITransport
-from backend.app import app
+import sys
+
+try:
+    from httpx import AsyncClient, ASGITransport
+    from backend.app import app
+except ModuleNotFoundError as mnf:
+    # Try to be resilient in CI: if small optional deps are missing (e.g., capsule_core or httpx),
+    # attempt a best-effort pip install and retry once.
+    missing = mnf.name
+    print("APP_IMPORT_MISSING:", missing)
+    try:
+        import subprocess
+
+        print(f"Attempting to pip install missing package: {missing}")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", missing])
+    except Exception as pip_e:
+        print("pip install attempt failed:", pip_e)
+        raise
+    # Retry imports once
+    from httpx import AsyncClient, ASGITransport  # type: ignore
+    from backend.app import app  # type: ignore
 
 # Optional skip patterns from env var (comma-separated)
 SKIP_PATTERNS = (os.getenv("SMOKE_SKIP", "") or "").split(",")
