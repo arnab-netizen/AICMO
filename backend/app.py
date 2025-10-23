@@ -10,7 +10,12 @@ from backend.core.config import settings
 from backend.db import ping_db
 from backend.routers.health import router as health_router
 from backend.routers.test import router as test_router
-from backend.modules.sitegen.routes import router as sitegen_router
+
+try:
+    # SiteGen is optional; import guarded so missing optional deps don't crash app at import time
+    from backend.modules.sitegen.routes import router as sitegen_router  # type: ignore
+except Exception:
+    sitegen_router = None
 from backend.routers.sites import router as sites_router
 from backend.routers.sites_compat import router as sites_compat_router
 from backend.routers.deployments import router as deployments_router
@@ -49,7 +54,12 @@ app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
 # Include routers
 app.include_router(health_router, tags=["health"])
 app.include_router(test_router, tags=["test"])
-app.include_router(sitegen_router, prefix="/sitegen", tags=["sitegen"])
+if sitegen_router is not None:
+    app.include_router(sitegen_router, prefix="/sitegen", tags=["sitegen"])
+else:
+    log.warning(
+        "SiteGen router not loaded at import time; set DISABLE_SITEGEN=1 to silence this message"
+    )
 
 # include the lightweight draft/materialize endpoints used by tests
 # sitegen_draft router already declares prefix="/sitegen", include without

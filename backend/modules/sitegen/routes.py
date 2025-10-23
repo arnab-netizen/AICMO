@@ -1,16 +1,60 @@
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
-from capsule_core.run import RunRequest, RunResponse, StatusResponse
-from capsule_core.metrics import get_registry
-from capsule_core.logging import get_logger
+
 from .config import SiteGenSettings
 from .store import STORE as MEMORY_STORE
 from .store_db import DBStore
 from .repo import get_engine, create_tables_for_sqlite
 
+
+if TYPE_CHECKING:
+    # Expose types for static analysis only
+    from capsule_core.run import RunRequest, RunResponse, StatusResponse  # type: ignore
+    from capsule_core.metrics import get_registry  # type: ignore
+    from capsule_core.logging import get_logger  # type: ignore
+
+
+# Lazy imports for optional heavy dependency `capsule_core` to avoid import-time failures
+def _require_capsule_core_types():
+    try:
+        from capsule_core.run import RunRequest, RunResponse, StatusResponse  # type: ignore
+        from capsule_core.metrics import get_registry  # type: ignore
+        from capsule_core.logging import get_logger  # type: ignore
+
+        return RunRequest, RunResponse, StatusResponse, get_registry, get_logger
+    except Exception as e:
+        raise RuntimeError(f"capsule_core import failed: {e}") from e
+
+
 router = APIRouter()
-log = get_logger("sitegen")
-mreg = get_registry("sitegen")
+try:
+    # Attempt to initialize lightweight metrics/logger if capsule_core present
+    _, _, _, get_registry, get_logger = _require_capsule_core_types()
+    log = get_logger("sitegen")
+    mreg = get_registry("sitegen")
+except Exception:
+    # Provide no-op fallbacks so handlers can still be imported
+    class _NoOp:
+        def counter(self, *a, **k):
+            class _C:
+                def inc(self_inner):
+                    return None
+
+            return _C()
+
+    def _noop_logger(*a, **k):
+        def _l(*_a, **_k):
+            return None
+
+        return _l
+
+    mreg = _NoOp()
+
+    def log(*a, **k):
+        return None
 
 
 def require_api_key(x_api_key: str | None = Header(default=None)):
