@@ -1,6 +1,20 @@
 import asyncio
 from typing import List
 import os
+import sys
+from pathlib import Path
+
+# If this repository contains a top-level `capsule-core` package directory,
+# make it importable automatically. This lets CI run `python -m backend.tools.smoke_versions`
+# without needing to set PYTHONPATH manually.
+try:
+    repo_root = Path(__file__).resolve().parents[2]
+    capsule_core_dir = repo_root / "capsule-core"
+    if capsule_core_dir.exists() and str(capsule_core_dir) not in sys.path:
+        sys.path.insert(0, str(capsule_core_dir))
+except Exception:
+    # Be conservative: if anything goes wrong here, fall back to default imports
+    pass
 
 
 async def main() -> int:
