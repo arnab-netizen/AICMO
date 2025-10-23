@@ -180,6 +180,9 @@ jobs:
           else
             echo "Local package ./capsule-core not found; skipping editable install"
           fi
+          # Ensure small optional deps used by smoke/pre-commit hooks are available
+          # (structlog is required by capsule-core logging config used in smoke checks)
+          $VENV_PY -m pip install structlog || true
           # Install Temporal client library required by some backend modules/tests
           $VENV_PY -m pip install "temporalio>=1.18.0"
           # Install test/dev requirements if available. Prefer requirements-test.txt
