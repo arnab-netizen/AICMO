@@ -7,16 +7,26 @@ from typing import Any, Dict, Optional
 import httpx
 import streamlit as st
 
-API_BASE = os.getenv("API_BASE", "http://localhost:8000")  # change if needed
+API_BASE = os.getenv("API_BASE_URL") or os.getenv("API_BASE") or "http://localhost:8000"
+
+
+# If API_BASE_URL is empty string, treat as same-origin (relative paths).
+def _api_base_for_request():
+    b = (os.getenv("API_BASE_URL") if os.getenv("API_BASE_URL") is not None else API_BASE) or ""
+    return b.rstrip("/")
+
+
 TIMEOUT = int(os.getenv("API_TIMEOUT", "20"))
 
 st.set_page_config(page_title="AICMO Dashboard", page_icon="✨", layout="wide")
 
 
 def _api_url(path: str, base: Optional[str] = None) -> str:
-    base = (base or API_BASE).rstrip("/")
+    # base: if provided use it; otherwise use env/API_BASE; if empty -> same-origin
+    base_val = base if base is not None else _api_base_for_request()
+    base_str = base_val.rstrip("/") if base_val else ""
     path = f"/{path.lstrip('/')}"
-    return f"{base}{path}"
+    return f"{base_str}{path}"
 
 
 def _pretty_json(payload: Any) -> str:
