@@ -221,6 +221,20 @@ jobs:
             echo "[info] pgvector not installed; tests will skip pgvector-specific checks unless migrations add the extension dynamically."
           fi
 
+      - name: Ensure pgvector is present in test DB (create & verify)
+        run: |
+          set -euo pipefail
+          echo "Ensuring pgvector extension exists in the test database (DATABASE_URL=$DATABASE_URL)"
+          # Try to create the extension in the DB we'll use for tests. Fail if not possible.
+          psql "$DATABASE_URL" -U postgres -h localhost -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          if psql "$DATABASE_URL" -U postgres -h localhost -Atc "SELECT 1 FROM pg_extension WHERE extname='vector' LIMIT 1;" | grep -q 1; then
+            echo "[ok] pgvector available in $DATABASE_URL"
+          else
+            echo "[error] pgvector extension not present in $DATABASE_URL after CREATE EXTENSION."
+            echo "Hint: use a Postgres image with pgvector preinstalled (the job uses ankane/pgvector:latest) or ensure the extension control file exists in the server.";
+            exit 1
+          fi
+
       - name: Prepare DB (Alembic migrate + seed)
         env:
           ALEMBIC_CONFIG: backend/alembic.ini
@@ -236,6 +250,11 @@ jobs:
               export DATABASE_URL="$SYNC_URL"
               # Also override DB_URL (used by some runtime helpers/tests)
               export DB_URL="$SYNC_URL"
+              # Persist the computed sync URL for subsequent workflow steps
+              # so later steps (pytest) see the same DB as migrations/seed.
+              echo "SQLALCHEMY_URL=$SYNC_URL" >> $GITHUB_ENV
+              echo "DATABASE_URL=$SYNC_URL" >> $GITHUB_ENV
+              echo "DB_URL=$SYNC_URL" >> $GITHUB_ENV
             else
               echo "[warn] could not compute SYNC_URL; proceeding with existing env vars"
             fi
@@ -263,9 +282,9 @@ jobs:
           SMOKE_SKIP="/api/visualgen/run,/api/copyhook/run" python -m backend.tools.smoke_telemetry
 
       - name: Run tests (versions + taste)
-        env:
-          DB_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
         run: |
+          echo "[dbg] DB_URL=${DB_URL:-<unset>}"
+          echo "[dbg] DATABASE_URL=${DATABASE_URL:-<unset>}"
           pytest -q backend/tests/test_metrics_endpoint.py
           pytest -q backend/tests/test_version_endpoints.py
           pytest -q backend/tests/test_taste_endpoints_integration.py
