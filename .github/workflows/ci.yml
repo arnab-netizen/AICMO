@@ -226,6 +226,8 @@ jobs:
               echo "[dbg] computed SYNC_URL: $SYNC_URL"
               export SQLALCHEMY_URL="$SYNC_URL"
               export DATABASE_URL="$SYNC_URL"
+              # Also override DB_URL (used by some runtime helpers/tests)
+              export DB_URL="$SYNC_URL"
             else
               echo "[warn] could not compute SYNC_URL; proceeding with existing env vars"
             fi
@@ -240,14 +242,16 @@ jobs:
             # the SQLALCHEMY_URL/DATABASE_URL environment before importing the
             # seed module. This verifies whether module-level imports are
             # causing the asyncpg dialect to be selected.
-            python - <<PY
+            python - <<'PY'
 import os
-os.environ['SQLALCHEMY_URL'] = '${SYNC_URL}'
-os.environ['DATABASE_URL'] = '${SYNC_URL}'
+os.environ['SQLALCHEMY_URL'] = os.environ.get('SQLALCHEMY_URL', '${SYNC_URL}')
+os.environ['DATABASE_URL'] = os.environ.get('DATABASE_URL', '${SYNC_URL}')
+os.environ['DB_URL'] = os.environ.get('DB_URL', '${SYNC_URL}')
 print('[dbg] wrapper env SQLALCHEMY_URL=', os.environ.get('SQLALCHEMY_URL'))
+print('[dbg] wrapper env DB_URL=', os.environ.get('DB_URL'))
 from backend.tools import seed_taste_demo
 seed_taste_demo.main()
-PY
+            PY
 
       - name: Smoke checks
         run: |
