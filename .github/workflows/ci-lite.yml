@@ -617,6 +617,19 @@ jobs:
           sys.exit(1)
           PY
 
+      - name: Install local capsule-core into venv (explicit)
+        if: always()
+        run: |
+          # Ensure we use the venv created earlier
+          if [ -f .venv/bin/activate ]; then
+            . .venv/bin/activate
+            echo "Installing local ./capsule-core into venv"
+            pip install -e ./capsule-core || true
+          else
+            echo "No .venv found; attempting system pip install of ./capsule-core"
+            python -m pip install -e ./capsule-core || true
+          fi
+
       - name: Run tests (Postgres + SQLite)
         env:
           PYTHONPATH: ${{ github.workspace }}
