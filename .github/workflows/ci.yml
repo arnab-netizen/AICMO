@@ -242,16 +242,12 @@ jobs:
             # the SQLALCHEMY_URL/DATABASE_URL environment before importing the
             # seed module. This verifies whether module-level imports are
             # causing the asyncpg dialect to be selected.
-            python - <<'PY'
-import os
-os.environ['SQLALCHEMY_URL'] = os.environ.get('SQLALCHEMY_URL', '${SYNC_URL}')
-os.environ['DATABASE_URL'] = os.environ.get('DATABASE_URL', '${SYNC_URL}')
-os.environ['DB_URL'] = os.environ.get('DB_URL', '${SYNC_URL}')
-print('[dbg] wrapper env SQLALCHEMY_URL=', os.environ.get('SQLALCHEMY_URL'))
-print('[dbg] wrapper env DB_URL=', os.environ.get('DB_URL'))
-from backend.tools import seed_taste_demo
-seed_taste_demo.main()
-            PY
+            # Use the new CLI arg to explicitly pass the sync DSN to the seed
+            # script. Print the command and a masked DSN first so logs clearly
+            # show what was executed.
+            MASKED=$(echo "$SYNC_URL" | sed -E 's#:(//[^:]+):([^@]+)@#:\1:***@#') || MASKED="$SYNC_URL"
+            echo "[dbg] running seed: python -m backend.tools.seed_taste_demo --url \"$MASKED\""
+            python -m backend.tools.seed_taste_demo --url "$SYNC_URL"
 
       - name: Smoke checks
         run: |
