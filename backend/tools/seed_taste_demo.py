@@ -1,12 +1,25 @@
 import os
 import random
-from sqlalchemy import text
+import argparse
+from typing import Optional
+from sqlalchemy import text, create_engine
 from backend.db import get_engine
 
 
-def main():
+def main(url: Optional[str] = None):
+    """Seed demo assets.
+
+    If `url` is provided, build a sync Engine from that URL and use it.
+    Otherwise fall back to the project's runtime helper `get_engine()`.
+    """
     random.seed(42)
-    engine = get_engine()
+    if url:
+        # Create a sync engine directly from the provided URL. Keep connect
+        # args compatible with the session helpers (sqlite uses check_same_thread).
+        connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
+        engine = create_engine(url, connect_args=connect_args, future=True)
+    else:
+        engine = get_engine()
     with engine.begin() as cx:
         # ensure minimal assets table exists (id + name)
         cx.execute(
@@ -48,8 +61,15 @@ def main():
     print("Seeded demo assets.")
 
 
+def _parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="Seed demo taste assets")
+    p.add_argument("--url", help="Optional DB URL to use for seeding (overrides env)")
+    return p.parse_args()
+
+
 if __name__ == "__main__":
-    # project uses DB_URL in config; accept either for ad-hoc scripts
-    if "DB_URL" not in os.environ and "DATABASE_URL" not in os.environ:
-        raise SystemExit("Set DB_URL or DATABASE_URL")
-    main()
+    args = _parse_args()
+    # If no explicit url provided, ensure some env var exists for convenience
+    if not args.url and "DB_URL" not in os.environ and "DATABASE_URL" not in os.environ:
+        raise SystemExit("Set DB_URL or DATABASE_URL or provide --url")
+    main(url=args.url)
