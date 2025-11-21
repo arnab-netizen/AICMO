@@ -29,6 +29,14 @@ from aicmo.io.client_reports import (
     CreativeRationale,
     ChannelVariant,
     ToneVariant,
+    MessagingPyramid,
+    SWOTBlock,
+    CompetitorSnapshot,
+    PersonaCard,
+    ActionPlan,
+    CTAVariant,
+    OfferAngle,
+    HookInsight,
     generate_output_report_markdown,
 )
 from backend.schemas import (
@@ -228,8 +236,8 @@ def aicmo_generate(req: GenerateRequest):
     """
     Stub generator:
     - Uses brief to build deterministic, client-ready structures.
-    - Now includes multi-channel variants, tone variants, email subjects,
-      and a creative rationale block.
+    - Includes messaging pyramid, SWOT, competitor snapshot,
+      persona cards, action plan and creatives with rationale.
     """
     b = req.brief.brand
     g = req.brief.goal
@@ -237,7 +245,60 @@ def aicmo_generate(req: GenerateRequest):
     s = req.brief.strategy_extras
     today = date.today()
 
-    # MARKETING PLAN
+    # Messaging pyramid, SWOT, competitor snapshot
+    messaging_pyramid = MessagingPyramid(
+        promise=s.success_30_days
+        or f"{b.brand_name} will see tangible movement towards {g.primary_goal or 'key business goals'} in the next 30 days.",
+        key_messages=[
+            "We replace random acts of marketing with a simple, repeatable system.",
+            "We reuse a few strong ideas across channels instead of chasing every trend.",
+            "We focus on what moves your KPIs, not vanity metrics.",
+        ],
+        proof_points=[
+            "Clear, channel-wise plans instead of ad-hoc posting.",
+            "Consistent brand story across all touchpoints.",
+            "Strategy tied back to the goals and constraints you shared.",
+        ],
+        values=s.brand_adjectives or ["reliable", "consistent", "growth-focused"],
+    )
+
+    swot = SWOTBlock(
+        strengths=[
+            "Clear willingness to invest in structured marketing.",
+            "Defined primary audience and goals.",
+        ],
+        weaknesses=[
+            "Inconsistent past posting and campaigns.",
+            "Limited reuse of high-performing ideas.",
+        ],
+        opportunities=[
+            "Own a clear narrative in your niche.",
+            "Build a recognisable content style on top platforms.",
+        ],
+        threats=[
+            "Competitors who communicate more consistently.",
+            "Algorithm shifts that punish irregular posting.",
+        ],
+    )
+
+    competitor_snapshot = CompetitorSnapshot(
+        narrative=(
+            "Most brands in this category share similar promises and visuals. "
+            "They publish sporadically and rarely build a clear, repeating narrative."
+        ),
+        common_patterns=[
+            "Generic 'quality and service' messaging.",
+            "No clear proof or concrete outcomes.",
+            "Inconsistent or stagnant social presence.",
+        ],
+        differentiation_opportunities=[
+            "Show concrete outcomes and transformations.",
+            "Use simple, repeatable story arcs across content.",
+            "Emphasise your unique process and experience.",
+        ],
+    )
+
+    # Marketing Plan
     mp = MarketingPlanView(
         executive_summary=(
             f"{b.brand_name} is aiming to drive {g.primary_goal or 'growth'} "
@@ -272,9 +333,12 @@ def aicmo_generate(req: GenerateRequest):
                 kpi_impact="Leads, trials, purchases, repeat usage.",
             ),
         ],
+        messaging_pyramid=messaging_pyramid,
+        swot=swot,
+        competitor_snapshot=competitor_snapshot,
     )
 
-    # CAMPAIGN BLUEPRINT
+    # Campaign blueprint
     big_idea_industry = b.industry or "your category"
     cb = CampaignBlueprintView(
         big_idea=f"Whenever your ideal buyer thinks of {big_idea_industry}, they remember {b.brand_name} first.",
@@ -291,7 +355,7 @@ def aicmo_generate(req: GenerateRequest):
         ),
     )
 
-    # SOCIAL CALENDAR – simple 7-day stub
+    # Social calendar (7 days)
     posts: list[CalendarPostView] = []
     for i in range(7):
         d = today + timedelta(days=i)
@@ -314,7 +378,7 @@ def aicmo_generate(req: GenerateRequest):
         posts=posts,
     )
 
-    # PERFORMANCE REVIEW – stub if requested
+    # Performance review (stub)
     pr: Optional[PerformanceReviewView] = None
     if req.generate_performance_review:
         pr = PerformanceReviewView(
@@ -326,7 +390,61 @@ def aicmo_generate(req: GenerateRequest):
             )
         )
 
-    # CREATIVES – multi-channel + tones + email subjects + scripts
+    # Persona cards
+    persona_cards = [
+        PersonaCard(
+            name="Primary Decision Maker",
+            demographics="Varies by brand; typically 25–45, responsible for buying decisions.",
+            psychographics=(
+                "Values clarity, proof, and predictable outcomes over hype. "
+                "Tired of random experiments and wants a system."
+            ),
+            pain_points=[
+                "Inconsistent marketing results.",
+                "Too many disconnected tactics.",
+                "No clear way to measure progress.",
+            ],
+            triggers=[
+                "Seeing peers enjoy consistent leads.",
+                "Feeling pressure to show results quickly.",
+            ],
+            objections=[
+                "Will this be too much work for my team?",
+                "Will this just be another campaign that fades away?",
+            ],
+            content_preferences=[
+                "Clear, example-driven content.",
+                "Short case studies.",
+                "Before/after narratives.",
+            ],
+            primary_platforms=a.online_hangouts or ["Instagram", "LinkedIn"],
+            tone_preference=(
+                ", ".join(s.brand_adjectives) if s.brand_adjectives else "Clear and confident"
+            ),
+        )
+    ]
+
+    # Action plan
+    action_plan = ActionPlan(
+        quick_wins=[
+            "Align the next 7 days of content to the 2–3 key messages defined in this report.",
+            "Refresh bio/description on key platforms to reflect the new core promise.",
+        ],
+        next_10_days=[
+            "Publish at least one 'proof' post (testimonial, screenshot, mini case study).",
+            "Test one strong offer or lead magnet and track responses.",
+        ],
+        next_30_days=[
+            "Run a focused campaign around one key offer with consistent messaging.",
+            "Review content performance and double down on top themes and formats.",
+        ],
+        risks=[
+            "Inconsistent implementation across platforms.",
+            "Stopping after initial results instead of compounding further.",
+        ],
+    )
+
+    # Creatives
     creatives: Optional[CreativesBlock] = None
     if req.generate_creatives:
         core_promise = (
@@ -358,7 +476,6 @@ def aicmo_generate(req: GenerateRequest):
             ),
         )
 
-        # Multi-channel variants
         channel_variants = [
             ChannelVariant(
                 platform="Instagram",
@@ -395,7 +512,6 @@ def aicmo_generate(req: GenerateRequest):
             ),
         ]
 
-        # Tone variants
         tone_variants = [
             ToneVariant(
                 tone_label="Professional",
@@ -420,14 +536,12 @@ def aicmo_generate(req: GenerateRequest):
             ),
         ]
 
-        # Email subject lines
         email_subject_lines = [
             "Your marketing doesn't need more ideas – it needs a system.",
             f"What happens when {b.brand_name} stops posting randomly?",
             "3 campaigns that can carry your growth for the next 90 days.",
         ]
 
-        # Generic hooks, captions, ad scripts
         hooks = [
             "Stop posting randomly. Start compounding your brand.",
             "Your content is working harder than your strategy. Let's fix that.",
@@ -447,8 +561,50 @@ def aicmo_generate(req: GenerateRequest):
             )
         ]
 
+        hook_insights = [
+            HookInsight(
+                hook=hooks[0],
+                insight="Reframes the problem from 'more activity' to 'more compounding', which appeals to strategic buyers.",
+            ),
+            HookInsight(
+                hook=hooks[1],
+                insight="Highlights the mismatch between effort and strategy, making the reader feel seen and understood.",
+            ),
+        ]
+
+        cta_library = [
+            CTAVariant(
+                label="Soft",
+                text="Curious how this could work for you? Reply and we can walk through it.",
+                usage_context="Awareness posts, early-stage leads.",
+            ),
+            CTAVariant(
+                label="Medium",
+                text="Want the full playbook for your brand? Book a short call.",
+                usage_context="Consideration-stage content with proof.",
+            ),
+            CTAVariant(
+                label="Hard",
+                text="Ready to stop guessing your marketing? Let's start this week.",
+                usage_context="Strong offer posts and end of campaign.",
+            ),
+        ]
+
+        offer_angles = [
+            OfferAngle(
+                label="Value angle",
+                description="Focus on long-term compounding ROI instead of single-campaign spikes.",
+                example_usage="Turn 3 campaigns into a marketing system that keeps working after the campaign ends.",
+            ),
+            OfferAngle(
+                label="Risk-reversal",
+                description="Reduce perceived risk by emphasising clarity, structure and support.",
+                example_usage="Instead of trying 10 random ideas, run 1 clear, guided playbook for 30 days.",
+            ),
+        ]
+
         creatives = CreativesBlock(
-            notes="Initial creative system with platform variations, tones, email subjects and scripts.",
+            notes="Initial creative system with platform variations, tones, email subjects, CTAs and scripts.",
             hooks=hooks,
             captions=captions,
             scripts=scripts,
@@ -456,7 +612,12 @@ def aicmo_generate(req: GenerateRequest):
             channel_variants=channel_variants,
             email_subject_lines=email_subject_lines,
             tone_variants=tone_variants,
+            hook_insights=hook_insights,
+            cta_library=cta_library,
+            offer_angles=offer_angles,
         )
+    else:
+        creatives = None
 
     out = AICMOOutputReport(
         marketing_plan=mp,
@@ -464,8 +625,9 @@ def aicmo_generate(req: GenerateRequest):
         social_calendar=cal,
         performance_review=pr,
         creatives=creatives,
+        persona_cards=persona_cards,
+        action_plan=action_plan,
     )
-
     return out
 
 
@@ -576,8 +738,12 @@ def aicmo_export_pptx(payload: dict):
 @app.post("/aicmo/export/zip")
 def aicmo_export_zip(payload: dict):
     """
-    Bundle final report and a few text assets into a ZIP.
-    Body: { "brief": {...}, "output": {...} }
+    Export a ZIP with:
+      - 01_Strategy/report.md
+      - 01_Strategy/report.pdf
+      - 01_Strategy/persona_cards.md
+      - 02_Creatives/hooks.txt, captions.txt, scripts.txt, email_subject_lines.txt,
+        cta_library.txt, offer_angles.txt
     """
     brief = ClientInputBrief.model_validate(payload["brief"])
     output = AICMOOutputReport.model_validate(payload["output"])
@@ -587,9 +753,56 @@ def aicmo_export_zip(payload: dict):
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        # Core strategy
         z.writestr("01_Strategy/report.md", report_md)
         z.writestr("01_Strategy/report.pdf", pdf_bytes)
         z.writestr("meta/brand_name.txt", brief.brand.brand_name)
+
+        # Persona cards
+        if output.persona_cards:
+            lines = []
+            for p in output.persona_cards:
+                lines.append(f"# {p.name}")
+                lines.append(f"Demographics: {p.demographics}")
+                lines.append(f"Psychographics: {p.psychographics}")
+                lines.append(f"Pain points: {', '.join(p.pain_points)}")
+                lines.append(f"Triggers: {', '.join(p.triggers)}")
+                lines.append(f"Objections: {', '.join(p.objections)}")
+                lines.append(f"Content preferences: {', '.join(p.content_preferences)}")
+                lines.append(f"Primary platforms: {', '.join(p.primary_platforms)}")
+                lines.append(f"Tone preference: {p.tone_preference}")
+                lines.append("")
+            z.writestr("01_Strategy/persona_cards.md", "\n".join(lines))
+
+        # Creatives multi-format packs
+        if output.creatives:
+            cr = output.creatives
+            if cr.hooks:
+                z.writestr("02_Creatives/hooks.txt", "\n".join(cr.hooks))
+            if cr.captions:
+                z.writestr("02_Creatives/captions.txt", "\n".join(cr.captions))
+            if cr.scripts:
+                z.writestr(
+                    "02_Creatives/scripts.txt",
+                    "\n\n---\n\n".join(cr.scripts),
+                )
+            if cr.email_subject_lines:
+                z.writestr(
+                    "02_Creatives/email_subject_lines.txt",
+                    "\n".join(cr.email_subject_lines),
+                )
+            if cr.cta_library:
+                lines = ["Label | CTA | Context"]
+                for cta in cr.cta_library:
+                    lines.append(f"{cta.label} | {cta.text} | {cta.usage_context}")
+                z.writestr("02_Creatives/cta_library.txt", "\n".join(lines))
+            if cr.offer_angles:
+                lines = []
+                for angle in cr.offer_angles:
+                    lines.append(f"{angle.label}: {angle.description}")
+                    lines.append(f"Example: {angle.example_usage}")
+                    lines.append("")
+                z.writestr("02_Creatives/offer_angles.txt", "\n".join(lines))
 
     buf.seek(0)
     return StreamingResponse(

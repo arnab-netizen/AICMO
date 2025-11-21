@@ -108,11 +108,34 @@ class StrategyPillar(BaseModel):
     kpi_impact: Optional[str] = None
 
 
+class MessagingPyramid(BaseModel):
+    promise: str
+    key_messages: List[str] = Field(default_factory=list)
+    proof_points: List[str] = Field(default_factory=list)
+    values: List[str] = Field(default_factory=list)
+
+
+class SWOTBlock(BaseModel):
+    strengths: List[str] = Field(default_factory=list)
+    weaknesses: List[str] = Field(default_factory=list)
+    opportunities: List[str] = Field(default_factory=list)
+    threats: List[str] = Field(default_factory=list)
+
+
+class CompetitorSnapshot(BaseModel):
+    narrative: str
+    common_patterns: List[str] = Field(default_factory=list)
+    differentiation_opportunities: List[str] = Field(default_factory=list)
+
+
 class MarketingPlanView(BaseModel):
     executive_summary: str
     situation_analysis: str
     strategy: str
     pillars: List[StrategyPillar] = Field(default_factory=list)
+    messaging_pyramid: Optional[MessagingPyramid] = None
+    swot: Optional[SWOTBlock] = None
+    competitor_snapshot: Optional[CompetitorSnapshot] = None
 
 
 class CampaignObjectiveView(BaseModel):
@@ -158,9 +181,6 @@ class PerformanceReviewView(BaseModel):
     summary: PerfSummaryView
 
 
-# --------- NEW: Creative rationale + variants ---------
-
-
 class CreativeRationale(BaseModel):
     strategy_summary: str
     psychological_triggers: List[str] = Field(default_factory=list)
@@ -169,28 +189,65 @@ class CreativeRationale(BaseModel):
 
 
 class ChannelVariant(BaseModel):
-    platform: str  # Instagram / LinkedIn / X / Email
-    format: str  # reel / static / carousels / post / email
+    platform: str
+    format: str
     hook: str
     caption: str
 
 
 class ToneVariant(BaseModel):
-    tone_label: str  # "Professional", "Friendly", "Bold"
+    tone_label: str
     example_caption: str
+
+
+class HookInsight(BaseModel):
+    hook: str
+    insight: str
+
+
+class CTAVariant(BaseModel):
+    label: str
+    text: str
+    usage_context: str
+
+
+class OfferAngle(BaseModel):
+    label: str
+    description: str
+    example_usage: str
+
+
+class PersonaCard(BaseModel):
+    name: str
+    demographics: str
+    psychographics: str
+    pain_points: List[str] = Field(default_factory=list)
+    triggers: List[str] = Field(default_factory=list)
+    objections: List[str] = Field(default_factory=list)
+    content_preferences: List[str] = Field(default_factory=list)
+    primary_platforms: List[str] = Field(default_factory=list)
+    tone_preference: str
+
+
+class ActionPlan(BaseModel):
+    quick_wins: List[str] = Field(default_factory=list)
+    next_10_days: List[str] = Field(default_factory=list)
+    next_30_days: List[str] = Field(default_factory=list)
+    risks: List[str] = Field(default_factory=list)
 
 
 class CreativesBlock(BaseModel):
     notes: Optional[str] = None
     hooks: List[str] = Field(default_factory=list)
     captions: List[str] = Field(default_factory=list)
-    scripts: List[str] = Field(default_factory=list)  # ad script versions
-
-    # Day 3 additions:
+    scripts: List[str] = Field(default_factory=list)
     rationale: Optional[CreativeRationale] = None
     channel_variants: List[ChannelVariant] = Field(default_factory=list)
     email_subject_lines: List[str] = Field(default_factory=list)
     tone_variants: List[ToneVariant] = Field(default_factory=list)
+    hook_insights: List[HookInsight] = Field(default_factory=list)
+    cta_library: List[CTAVariant] = Field(default_factory=list)
+    offer_angles: List[OfferAngle] = Field(default_factory=list)
 
 
 class AICMOOutputReport(BaseModel):
@@ -199,6 +256,8 @@ class AICMOOutputReport(BaseModel):
     social_calendar: SocialCalendarView
     performance_review: Optional[PerformanceReviewView] = None
     creatives: Optional[CreativesBlock] = None
+    persona_cards: List[PersonaCard] = Field(default_factory=list)
+    action_plan: Optional[ActionPlan] = None
 
 
 # =========================================
@@ -241,34 +300,95 @@ def generate_output_report_markdown(
         **Brand adjectives:** {", ".join(s.brand_adjectives) if s.brand_adjectives else "Not specified"}
 
         ---
+        """
+    ).strip()
+
+    # --- Strategic Marketing Plan ---
+    md += dedent(
+        """
 
         ## 2. Strategic Marketing Plan
 
         ### 2.1 Executive Summary
 
-        {mp.executive_summary}
+        """
+    )
+    md += f"\n{mp.executive_summary}\n"
+
+    md += dedent(
+        """
 
         ### 2.2 Situation Analysis
 
-        {mp.situation_analysis}
+        """
+    )
+    md += f"\n{mp.situation_analysis}\n"
+
+    md += dedent(
+        """
 
         ### 2.3 Strategy
 
-        {mp.strategy}
-
-        ### 2.4 Strategic Pillars
-
         """
-    ).strip()
+    )
+    md += f"\n{mp.strategy}\n"
 
+    md += "\n### 2.4 Strategic Pillars\n\n"
     if mp.pillars:
         for p in mp.pillars:
             md += (
-                f"\n- **{p.name}** – {p.description or ''} _(KPI impact: {p.kpi_impact or 'N/A'})_"
+                f"- **{p.name}** – {p.description or ''} _(KPI impact: {p.kpi_impact or 'N/A'})_\n"
             )
     else:
-        md += "\n_No explicit pillars defined._"
+        md += "_No explicit pillars defined._\n"
 
+    if mp.messaging_pyramid:
+        mpyr = mp.messaging_pyramid
+        md += "\n### 2.5 Brand messaging pyramid\n\n"
+        md += f"**Brand promise:** {mpyr.promise}\n\n"
+        if mpyr.key_messages:
+            md += "**Key messages:**\n"
+            for msg in mpyr.key_messages:
+                md += f"- {msg}\n"
+        if mpyr.proof_points:
+            md += "\n**Proof points:**\n"
+            for p in mpyr.proof_points:
+                md += f"- {p}\n"
+        if mpyr.values:
+            md += "\n**Values / personality:**\n"
+            for v in mpyr.values:
+                md += f"- {v}\n"
+
+    if mp.swot:
+        sw = mp.swot
+        md += "\n### 2.6 SWOT snapshot\n\n"
+        md += "**Strengths**\n"
+        for x in sw.strengths:
+            md += f"- {x}\n"
+        md += "\n**Weaknesses**\n"
+        for x in sw.weaknesses:
+            md += f"- {x}\n"
+        md += "\n**Opportunities**\n"
+        for x in sw.opportunities:
+            md += f"- {x}\n"
+        md += "\n**Threats**\n"
+        for x in sw.threats:
+            md += f"- {x}\n"
+
+    if mp.competitor_snapshot:
+        cs = mp.competitor_snapshot
+        md += "\n### 2.7 Competitor snapshot\n\n"
+        md += f"{cs.narrative}\n\n"
+        if cs.common_patterns:
+            md += "**Common patterns:**\n"
+            for ptn in cs.common_patterns:
+                md += f"- {ptn}\n"
+        if cs.differentiation_opportunities:
+            md += "\n**Differentiation opportunities:**\n"
+            for opp in cs.differentiation_opportunities:
+                md += f"- {opp}\n"
+
+    # --- Campaign Blueprint ---
     md += dedent(
         """
 
@@ -293,6 +413,25 @@ def generate_output_report_markdown(
         md += f"**{ap.name}**\n\n"
         md += f"{ap.description or ''}\n"
 
+    if output.persona_cards:
+        md += "\n### 3.4 Detailed persona cards\n\n"
+        for p in output.persona_cards:
+            md += f"**{p.name}**\n\n"
+            md += f"- Demographics: {p.demographics}\n"
+            md += f"- Psychographics: {p.psychographics}\n"
+            if p.pain_points:
+                md += f"- Pain points: {', '.join(p.pain_points)}\n"
+            if p.triggers:
+                md += f"- Triggers: {', '.join(p.triggers)}\n"
+            if p.objections:
+                md += f"- Objections: {', '.join(p.objections)}\n"
+            if p.content_preferences:
+                md += f"- Content preferences: {', '.join(p.content_preferences)}\n"
+            if p.primary_platforms:
+                md += f"- Primary platforms: {', '.join(p.primary_platforms)}\n"
+            md += f"- Tone preference: {p.tone_preference}\n\n"
+
+    # --- Calendar ---
     md += dedent(
         f"""
 
@@ -313,6 +452,7 @@ def generate_output_report_markdown(
             f"{p.cta} | {p.asset_type} | {p.status or ''} |\n"
         )
 
+    # --- Performance Review ---
     if pr:
         md += dedent(
             f"""
@@ -339,11 +479,33 @@ def generate_output_report_markdown(
             """
         )
 
+    # --- Action Plan ---
+    if output.action_plan:
+        ap = output.action_plan
+        md += "\n\n---\n\n## 6. Next 30 days – Action plan\n\n"
+        if ap.quick_wins:
+            md += "**Quick wins:**\n"
+            for item in ap.quick_wins:
+                md += f"- {item}\n"
+        if ap.next_10_days:
+            md += "\n**Next 10 days:**\n"
+            for item in ap.next_10_days:
+                md += f"- {item}\n"
+        if ap.next_30_days:
+            md += "\n**Next 30 days:**\n"
+            for item in ap.next_30_days:
+                md += f"- {item}\n"
+        if ap.risks:
+            md += "\n**Risks & watchouts:**\n"
+            for item in ap.risks:
+                md += f"- {item}\n"
+
+    # --- Creatives ---
     if cr:
-        md += "\n\n---\n\n## 6. Creatives & Multi-Channel Adaptation\n"
+        md += "\n\n---\n\n## 7. Creatives & Multi-Channel Adaptation\n"
 
         if cr.rationale:
-            md += "\n### 6.1 Creative Rationale\n"
+            md += "\n### 7.1 Creative rationale\n\n"
             md += f"{cr.rationale.strategy_summary}\n\n"
             if cr.rationale.psychological_triggers:
                 md += "**Psychological triggers used:**\n"
@@ -354,7 +516,7 @@ def generate_output_report_markdown(
                 md += f"\n**Risks / guardrails:** {cr.rationale.risk_notes}\n"
 
         if cr.channel_variants:
-            md += "\n### 6.2 Platform-specific variants\n\n"
+            md += "\n### 7.2 Platform-specific variants\n\n"
             md += "| Platform | Format | Hook | Caption |\n"
             md += "|----------|--------|------|---------|\n"
             for v in cr.channel_variants:
@@ -364,27 +526,43 @@ def generate_output_report_markdown(
                 )
 
         if cr.email_subject_lines:
-            md += "\n### 6.3 Email subject lines\n\n"
+            md += "\n### 7.3 Email subject lines\n\n"
             for sline in cr.email_subject_lines:
                 md += f"- {sline}\n"
 
         if cr.tone_variants:
-            md += "\n### 6.4 Tone/style variants\n\n"
+            md += "\n### 7.4 Tone/style variants\n\n"
             for tv in cr.tone_variants:
                 md += f"- **{tv.tone_label}:** {tv.example_caption}\n"
 
+        if cr.hook_insights:
+            md += "\n### 7.5 Hook insights (why these work)\n\n"
+            for hi in cr.hook_insights:
+                md += f"- **{hi.hook}** – {hi.insight}\n"
+
+        if cr.cta_library:
+            md += "\n### 7.6 CTA library\n\n"
+            for cta in cr.cta_library:
+                md += f"- **{cta.label}:** {cta.text} _(Use: {cta.usage_context})_\n"
+
+        if cr.offer_angles:
+            md += "\n### 7.7 Offer angles\n\n"
+            for angle in cr.offer_angles:
+                md += f"- **{angle.label}:** {angle.description}\n"
+                md += f"  - Example: {angle.example_usage}\n"
+
         if cr.hooks:
-            md += "\n### 6.5 Generic hooks\n\n"
+            md += "\n### 7.8 Generic hooks\n\n"
             for h in cr.hooks:
                 md += f"- {h}\n"
 
         if cr.captions:
-            md += "\n### 6.6 Generic captions\n\n"
+            md += "\n### 7.9 Generic captions\n\n"
             for c in cr.captions:
                 md += f"- {c}\n"
 
         if cr.scripts:
-            md += "\n### 6.7 Ad script snippets\n\n"
+            md += "\n### 7.10 Ad script snippets\n\n"
             for stext in cr.scripts:
                 md += f"- {stext}\n"
 
