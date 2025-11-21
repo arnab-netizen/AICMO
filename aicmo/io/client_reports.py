@@ -1,5 +1,3 @@
-"""AICMO IO Layer – Client Reports, Briefs, and Output Models."""
-
 from __future__ import annotations
 
 from datetime import date
@@ -101,7 +99,6 @@ class ClientInputBrief(BaseModel):
 
 # =========================================
 # OUTPUT SIDE – AICMO composite report model
-# (shaped to match your Streamlit code)
 # =========================================
 
 
@@ -161,11 +158,39 @@ class PerformanceReviewView(BaseModel):
     summary: PerfSummaryView
 
 
+# --------- NEW: Creative rationale + variants ---------
+
+
+class CreativeRationale(BaseModel):
+    strategy_summary: str
+    psychological_triggers: List[str] = Field(default_factory=list)
+    audience_fit: str
+    risk_notes: Optional[str] = None
+
+
+class ChannelVariant(BaseModel):
+    platform: str  # Instagram / LinkedIn / X / Email
+    format: str  # reel / static / carousels / post / email
+    hook: str
+    caption: str
+
+
+class ToneVariant(BaseModel):
+    tone_label: str  # "Professional", "Friendly", "Bold"
+    example_caption: str
+
+
 class CreativesBlock(BaseModel):
     notes: Optional[str] = None
     hooks: List[str] = Field(default_factory=list)
     captions: List[str] = Field(default_factory=list)
-    scripts: List[str] = Field(default_factory=list)
+    scripts: List[str] = Field(default_factory=list)  # ad script versions
+
+    # Day 3 additions:
+    rationale: Optional[CreativeRationale] = None
+    channel_variants: List[ChannelVariant] = Field(default_factory=list)
+    email_subject_lines: List[str] = Field(default_factory=list)
+    tone_variants: List[ToneVariant] = Field(default_factory=list)
 
 
 class AICMOOutputReport(BaseModel):
@@ -195,6 +220,7 @@ def generate_output_report_markdown(
     cb = output.campaign_blueprint
     cal = output.social_calendar
     pr = output.performance_review
+    cr = output.creatives
 
     brand_name = b.brand_name or "Client"
 
@@ -238,8 +264,7 @@ def generate_output_report_markdown(
     if mp.pillars:
         for p in mp.pillars:
             md += (
-                f"\n- **{p.name}** – {p.description or ''} "
-                f"_(KPI impact: {p.kpi_impact or 'N/A'})_"
+                f"\n- **{p.name}** – {p.description or ''} _(KPI impact: {p.kpi_impact or 'N/A'})_"
             )
     else:
         md += "\n_No explicit pillars defined._"
@@ -314,21 +339,52 @@ def generate_output_report_markdown(
             """
         )
 
-    if output.creatives:
-        cr = output.creatives
-        md += "\n\n---\n\n## 6. Creatives & Assets\n"
-        if cr.notes:
-            md += f"\n{cr.notes}\n"
+    if cr:
+        md += "\n\n---\n\n## 6. Creatives & Multi-Channel Adaptation\n"
+
+        if cr.rationale:
+            md += "\n### 6.1 Creative Rationale\n"
+            md += f"{cr.rationale.strategy_summary}\n\n"
+            if cr.rationale.psychological_triggers:
+                md += "**Psychological triggers used:**\n"
+                for t in cr.rationale.psychological_triggers:
+                    md += f"- {t}\n"
+            md += f"\n**Audience fit:** {cr.rationale.audience_fit}\n"
+            if cr.rationale.risk_notes:
+                md += f"\n**Risks / guardrails:** {cr.rationale.risk_notes}\n"
+
+        if cr.channel_variants:
+            md += "\n### 6.2 Platform-specific variants\n\n"
+            md += "| Platform | Format | Hook | Caption |\n"
+            md += "|----------|--------|------|---------|\n"
+            for v in cr.channel_variants:
+                md += (
+                    f"| {v.platform} | {v.format} | {v.hook} | "
+                    f"{v.caption.replace('|', '/')} |\n"
+                )
+
+        if cr.email_subject_lines:
+            md += "\n### 6.3 Email subject lines\n\n"
+            for sline in cr.email_subject_lines:
+                md += f"- {sline}\n"
+
+        if cr.tone_variants:
+            md += "\n### 6.4 Tone/style variants\n\n"
+            for tv in cr.tone_variants:
+                md += f"- **{tv.tone_label}:** {tv.example_caption}\n"
+
         if cr.hooks:
-            md += "\n**Hooks:**\n"
+            md += "\n### 6.5 Generic hooks\n\n"
             for h in cr.hooks:
                 md += f"- {h}\n"
+
         if cr.captions:
-            md += "\n**Captions:**\n"
+            md += "\n### 6.6 Generic captions\n\n"
             for c in cr.captions:
                 md += f"- {c}\n"
+
         if cr.scripts:
-            md += "\n**Scripts:**\n"
+            md += "\n### 6.7 Ad script snippets\n\n"
             for stext in cr.scripts:
                 md += f"- {stext}\n"
 

@@ -26,6 +26,9 @@ from aicmo.io.client_reports import (
     PerformanceReviewView,
     PerfSummaryView,
     CreativesBlock,
+    CreativeRationale,
+    ChannelVariant,
+    ToneVariant,
     generate_output_report_markdown,
 )
 from backend.schemas import (
@@ -225,10 +228,13 @@ def aicmo_generate(req: GenerateRequest):
     """
     Stub generator:
     - Uses brief to build deterministic, client-ready structures.
-    - Replace internals later with real LLM calls.
+    - Now includes multi-channel variants, tone variants, email subjects,
+      and a creative rationale block.
     """
     b = req.brief.brand
     g = req.brief.goal
+    a = req.brief.audience
+    s = req.brief.strategy_extras
     today = date.today()
 
     # MARKETING PLAN
@@ -239,31 +245,39 @@ def aicmo_generate(req: GenerateRequest):
             "campaign focus, and channel mix."
         ),
         situation_analysis=(
-            "Audience: "
-            f"{req.brief.audience.primary_customer}.\n\n"
-            "Market context and competition will be refined in future iterations."
+            f"Primary audience: {a.primary_customer}.\n\n"
+            "Market context and competition will be refined in future iterations, "
+            "but the focus is on consistent, value-driven messaging that compounds over time."
         ),
         strategy=(
-            "Position the brand as the default choice for its niche through "
-            "consistent, value-driven content across priority channels."
+            "Position the brand as the default choice for its niche by combining:\n"
+            "- consistent social presence\n"
+            "- proof-driven storytelling (testimonials, case studies)\n"
+            "- clear, repeated core promises across all touchpoints."
         ),
         pillars=[
             StrategyPillar(
                 name="Awareness & Reach",
                 description="Grow top-of-funnel awareness via social, search and collaborations.",
-                kpi_impact="Drives impressions, reach and profile visits.",
+                kpi_impact="Impressions, reach, profile visits.",
             ),
             StrategyPillar(
                 name="Trust & Proof",
                 description="Leverage testimonials, case studies and UGC.",
-                kpi_impact="Drives saves, shares, and conversion intent.",
+                kpi_impact="Saves, shares, reply DMs, conversion intent.",
+            ),
+            StrategyPillar(
+                name="Conversion & Retention",
+                description="Use clear offers, scarcity, and nurture flows to convert and retain.",
+                kpi_impact="Leads, trials, purchases, repeat usage.",
             ),
         ],
     )
 
     # CAMPAIGN BLUEPRINT
+    big_idea_industry = b.industry or "your category"
     cb = CampaignBlueprintView(
-        big_idea=f"Make {b.brand_name} the go-to name whenever people think of {b.industry or 'your category'}.",
+        big_idea=f"Whenever your ideal buyer thinks of {big_idea_industry}, they remember {b.brand_name} first.",
         objective=CampaignObjectiveView(
             primary=g.primary_goal or "brand_awareness",
             secondary=g.secondary_goal,
@@ -271,8 +285,8 @@ def aicmo_generate(req: GenerateRequest):
         audience_persona=AudiencePersonaView(
             name="Core Buyer",
             description=(
-                f"Primary decision-maker who currently considers multiple alternatives "
-                f"before choosing {b.brand_name}."
+                f"{a.primary_customer} who is actively looking for better options and wants "
+                "less friction, more clarity, and trustworthy proof before committing."
             ),
         ),
     )
@@ -281,11 +295,12 @@ def aicmo_generate(req: GenerateRequest):
     posts: list[CalendarPostView] = []
     for i in range(7):
         d = today + timedelta(days=i)
+        theme = "Brand Story" if i == 0 else ("Social Proof" if i == 2 else "Educational")
         posts.append(
             CalendarPostView(
                 date=d,
                 platform="Instagram",
-                theme="Brand Story" if i == 0 else "Educational",
+                theme=theme,
                 hook=f"Hook idea for day {i+1}",
                 cta="Learn more",
                 asset_type="reel" if i % 2 == 0 else "static_post",
@@ -305,29 +320,144 @@ def aicmo_generate(req: GenerateRequest):
         pr = PerformanceReviewView(
             summary=PerfSummaryView(
                 growth_summary="Performance review will be populated once data is available.",
-                wins="- Early engagement shows strong interest.\n",
-                failures="- Limited data from paid campaigns so far.\n",
-                opportunities="- Double down on top performing content themes.\n",
+                wins="- Early engagement signals strong message–market resonance.\n",
+                failures="- Limited coverage on secondary channels.\n",
+                opportunities="- Double down on top performing content themes and formats.\n",
             )
         )
 
+    # CREATIVES – multi-channel + tones + email subjects + scripts
     creatives: Optional[CreativesBlock] = None
     if req.generate_creatives:
-        creatives = CreativesBlock(
-            notes="Initial creative hooks and captions generated by AICMO.",
-            hooks=[
-                f"Why {b.brand_name} is different from the rest.",
-                "Stop guessing. Start compounding your results.",
-            ],
-            captions=[
-                "Your brand deserves a consistent marketing engine. Let's build it.",
-            ],
-            scripts=[
-                "Opening: Show the problem.\nMiddle: Show your unique angle.\nClose: Strong CTA.",
-            ],
+        core_promise = (
+            s.success_30_days
+            or f"See visible progress towards {g.primary_goal or 'your goal'} within 30 days."
         )
 
-    # Final output
+        rationale = CreativeRationale(
+            strategy_summary=(
+                "The creative system is built around repeating a few clear promises in multiple "
+                "formats. Instagram focuses on visual storytelling, LinkedIn focuses on authority "
+                "and proof, while X focuses on sharp, scroll-stopping hooks.\n\n"
+                "By reusing the same core ideas across platforms, the brand compounds recognition "
+                "instead of starting from scratch each time."
+            ),
+            psychological_triggers=[
+                "Social proof",
+                "Loss aversion (fear of missing out on better results)",
+                "Clarity and specificity (concrete promises)",
+                "Authority and expertise",
+            ],
+            audience_fit=(
+                "Ideal for busy decision-makers who scan feeds quickly but respond strongly to "
+                "clear proof and repeated, simple promises."
+            ),
+            risk_notes=(
+                "Avoid over-claiming or using fear-heavy framing; keep promises ambitious but "
+                "credible and backed by examples whenever possible."
+            ),
+        )
+
+        # Multi-channel variants
+        channel_variants = [
+            ChannelVariant(
+                platform="Instagram",
+                format="reel",
+                hook=f"Stop guessing your {big_idea_industry} marketing.",
+                caption=(
+                    f"Most {big_idea_industry} brands post randomly and hope it works.\n\n"
+                    f"{b.brand_name} is switching to a simple, repeatable system: "
+                    f"{core_promise}\n\n"
+                    "Save this if you're done improvising your growth."
+                ),
+            ),
+            ChannelVariant(
+                platform="LinkedIn",
+                format="post",
+                hook=f"What happened when {b.brand_name} stopped 'posting and praying'.",
+                caption=(
+                    "We replaced random content with a clear playbook: 3 pillars, 2 offers, "
+                    "and 1 simple narrative that repeats everywhere.\n\n"
+                    "Result: more consistent leads, fewer 'spray and pray' campaigns."
+                ),
+            ),
+            ChannelVariant(
+                platform="X",
+                format="thread",
+                hook="Most brands don't have a marketing problem. They have a focus problem.",
+                caption=(
+                    "Thread:\n"
+                    "1/ They jump from trend to trend.\n"
+                    "2/ They never commit to one clear promise.\n"
+                    "3/ Their content feels different on every platform.\n\n"
+                    "Fix the focus → the metrics follow."
+                ),
+            ),
+        ]
+
+        # Tone variants
+        tone_variants = [
+            ToneVariant(
+                tone_label="Professional",
+                example_caption=(
+                    f"{b.brand_name} is implementing a structured, data-aware marketing "
+                    "system to replace ad-hoc posting and scattered campaigns."
+                ),
+            ),
+            ToneVariant(
+                tone_label="Friendly",
+                example_caption=(
+                    "No more 'post and pray'. We're building a simple, repeatable marketing "
+                    "engine that works even on your busiest weeks."
+                ),
+            ),
+            ToneVariant(
+                tone_label="Bold",
+                example_caption=(
+                    "If your marketing still depends on random ideas and last-minute posts, "
+                    "you're leaving serious money on the table."
+                ),
+            ),
+        ]
+
+        # Email subject lines
+        email_subject_lines = [
+            "Your marketing doesn't need more ideas – it needs a system.",
+            f"What happens when {b.brand_name} stops posting randomly?",
+            "3 campaigns that can carry your growth for the next 90 days.",
+        ]
+
+        # Generic hooks, captions, ad scripts
+        hooks = [
+            "Stop posting randomly. Start compounding your brand.",
+            "Your content is working harder than your strategy. Let's fix that.",
+        ]
+
+        captions = [
+            "Great marketing is not about doing more. It's about repeating the right things "
+            "consistently across channels.",
+            "You don't need 100 ideas. You need 5 ideas repeated in 100 smart ways.",
+        ]
+
+        scripts = [
+            (
+                "Opening: Show the chaos (random posts, no clear message).\n"
+                "Middle: Introduce the system (3 pillars, 2 offers, 1 narrative).\n"
+                "Close: Invite them to take the first step (DM / click / reply)."
+            )
+        ]
+
+        creatives = CreativesBlock(
+            notes="Initial creative system with platform variations, tones, email subjects and scripts.",
+            hooks=hooks,
+            captions=captions,
+            scripts=scripts,
+            rationale=rationale,
+            channel_variants=channel_variants,
+            email_subject_lines=email_subject_lines,
+            tone_variants=tone_variants,
+        )
+
     out = AICMOOutputReport(
         marketing_plan=mp,
         campaign_blueprint=cb,
