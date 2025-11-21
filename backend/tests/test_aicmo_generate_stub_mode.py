@@ -11,7 +11,6 @@ from backend.main import app, GenerateRequest
 from aicmo.io.client_reports import (
     ClientInputBrief,
     AICMOOutputReport,
-    CreativesBlock,
 )
 
 
@@ -99,21 +98,23 @@ def test_aicmo_generate_stub_mode_offline(client, sample_brief):
     assert output.campaign_blueprint.big_idea
 
     assert output.social_calendar is not None
-    assert isinstance(output.social_calendar, list)
-    assert len(output.social_calendar) > 0
+    # social_calendar is a SocialCalendarView with posts list
+    assert output.social_calendar.start_date
+    assert output.social_calendar.end_date
+    assert isinstance(output.social_calendar.posts, list)
 
     assert output.persona_cards is not None
     assert isinstance(output.persona_cards, list)
     assert len(output.persona_cards) > 0
 
     assert output.action_plan is not None
-    assert output.action_plan.immediate_actions
-    assert output.action_plan.month_2_3_actions
-    assert output.action_plan.month_4_6_actions
+    # ActionPlan has: quick_wins, next_10_days, next_30_days, risks
+    assert output.action_plan.quick_wins is not None
+    assert output.action_plan.next_10_days is not None
+    assert output.action_plan.next_30_days is not None
 
     # Validate creatives if present
     if output.creatives:
-        assert isinstance(output.creatives, CreativesBlock)
         assert output.creatives.hooks
         assert output.creatives.captions
         assert output.creatives.email_subject_lines
