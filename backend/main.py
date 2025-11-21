@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import zipfile
 from datetime import date, timedelta
 from enum import Enum
@@ -231,10 +232,9 @@ def submit_performance_review(report: PerformanceReviewReport):
 # ============================================================
 
 
-@app.post("/aicmo/generate", response_model=AICMOOutputReport)
-def aicmo_generate(req: GenerateRequest):
+def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
     """
-    Stub generator:
+    Stub generator (internal).
     - Uses brief to build deterministic, client-ready structures.
     - Includes messaging pyramid, SWOT, competitor snapshot,
       persona cards, action plan and creatives with rationale.
@@ -629,6 +629,45 @@ def aicmo_generate(req: GenerateRequest):
         action_plan=action_plan,
     )
     return out
+
+
+@app.post("/aicmo/generate", response_model=AICMOOutputReport)
+def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
+    """
+    Public endpoint.
+
+    1. Always builds a deterministic stub output (CI-safe, offline).
+    2. If AICMO_USE_LLM=1 and OpenAI is configured:
+         → passes stub through the LLM polish layer.
+       Otherwise:
+         → returns the stub as-is.
+    """
+    base_output = _generate_stub_output(req)
+
+    use_llm = os.getenv("AICMO_USE_LLM", "0") == "1"
+
+    if not use_llm:
+        # Default: offline & deterministic (current behaviour)
+        return base_output
+
+    # LLM mode – best-effort polish, never breaks the endpoint
+    try:
+        from aicmo.llm.client import enhance_with_llm
+
+        enhanced = enhance_with_llm(
+            brief=req.brief,
+            stub_output=base_output,
+            options=req.model_dump(),
+        )
+        return enhanced
+    except RuntimeError as e:
+        # OpenAI SDK missing etc. – log and fall back quietly
+        print(f"[AICMO] LLM disabled or not installed: {e}")
+        return base_output
+    except Exception as e:
+        # Any unexpected LLM error – do NOT break operator flow
+        print(f"[AICMO] LLM enhancement failed, falling back to stub: {e}")
+        return base_output
 
 
 @app.post("/aicmo/revise", response_model=AICMOOutputReport)
