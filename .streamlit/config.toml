@@ -5,9 +5,6 @@ toolbarMode = "developer"
 [logger]
 level = "debug"
 
-[cache]
-maxMessageSize = 200
-
 [server]
 headless = true
 runOnSave = true
