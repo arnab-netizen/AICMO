@@ -111,6 +111,8 @@ if "recent_projects" not in st.session_state:
 # BACKEND HELPERS
 # ═══════════════════════════════════════════════════════════════════════
 
+DEFAULT_API_BASE = "http://127.0.0.1:8000"
+
 
 def call_backend(
     method: str,
