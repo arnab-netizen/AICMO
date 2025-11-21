@@ -1,11 +1,37 @@
-"""LLM enhancement layer for AICMO output – optional OpenAI polish layer."""
+"""LLM enhancement layer for AICMO output – supports Claude Sonnet 4 (default) and OpenAI."""
 
 from __future__ import annotations
 
 import os
-from typing import Any, Optional
+from typing import Any, Optional, Literal
 
 from aicmo.io.client_reports import ClientInputBrief, AICMOOutputReport
+
+
+def _get_llm_provider() -> Literal["claude", "openai"]:
+    """Determine which LLM provider to use based on environment variables."""
+    # Default to Claude Sonnet 4 if available, fall back to OpenAI
+    provider = os.getenv("AICMO_LLM_PROVIDER", "claude").lower()
+    if provider not in ("claude", "openai"):
+        provider = "claude"
+    return provider  # type: ignore
+
+
+def _get_claude_client():
+    """
+    Lazy import of Anthropic SDK for Claude models.
+    """
+    try:
+        from anthropic import Anthropic  # type: ignore
+    except ImportError as e:  # pragma: no cover - handled gracefully by caller
+        raise RuntimeError(
+            "Anthropic SDK is not installed. Install `anthropic` and try again."
+        ) from e
+
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if api_key:
+        return Anthropic(api_key=api_key)
+    return Anthropic()
 
 
 def _get_openai_client():
@@ -31,11 +57,13 @@ def _rewrite_text_block(
     section_label: str,
     original_text: str,
     max_tokens: int = 600,
+    provider: Literal["claude", "openai"] = "claude",
 ) -> str:
     """
     Ask the LLM to refine / polish a single text block.
 
     If anything goes wrong, returns the original text unchanged.
+    Supports both Claude (via Anthropic) and OpenAI APIs.
     """
     if not original_text or not original_text.strip():
         return original_text
@@ -66,19 +94,33 @@ IMPORTANT:
 - Output ONLY the rewritten text, no explanations.
 """.strip()
 
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a senior marketing strategist helping refine marketing copy.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=max_tokens,
-            temperature=0.7,
-        )
-        new_text = response.choices[0].message.content
+        if provider == "claude":
+            # Use Anthropic Claude API
+            response = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                system="You are a senior marketing strategist helping refine marketing copy.",
+                messages=[
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            new_text = response.content[0].text
+        else:
+            # Use OpenAI API
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a senior marketing strategist helping refine marketing copy.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=max_tokens,
+                temperature=0.7,
+            )
+            new_text = response.choices[0].message.content
+
         if not new_text:
             return original_text
         return str(new_text).strip()
@@ -98,14 +140,24 @@ def enhance_with_llm(
 
     This keeps structure stable (good for tests / CI)
     while upgrading the actual copy for real clients.
+
+    Default: Claude Sonnet 4 (via ANTHROPIC_API_KEY)
+    Fallback: OpenAI (via OPENAI_API_KEY and AICMO_OPENAI_MODEL)
     """
     options = options or {}
-    # 👉 Set this env var to your mini model id (e.g. gpt-4o-mini)
-    model = os.getenv("AICMO_OPENAI_MODEL", "gpt-4o-mini")
 
-    client = _get_openai_client()
+    # Determine provider and get appropriate client + model
+    provider = _get_llm_provider()
+
+    if provider == "claude":
+        client = _get_claude_client()
+        # Default to Claude Sonnet 4 (latest recommended Claude 3 model)
+        model = os.getenv("AICMO_CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
+    else:
+        client = _get_openai_client()
+        model = os.getenv("AICMO_OPENAI_MODEL", "gpt-4o-mini")
+
     brief_json = brief.model_dump_json(indent=2)
-
     enhanced = stub_output.model_copy(deep=True)
 
     # --- Marketing plan sections ---
@@ -116,6 +168,7 @@ def enhance_with_llm(
         brief_json,
         "Marketing plan – Executive summary",
         mp.executive_summary,
+        provider=provider,
     )
     mp.situation_analysis = _rewrite_text_block(
         client,
@@ -123,6 +176,7 @@ def enhance_with_llm(
         brief_json,
         "Marketing plan – Situation analysis",
         mp.situation_analysis,
+        provider=provider,
     )
     mp.strategy = _rewrite_text_block(
         client,
@@ -130,6 +184,7 @@ def enhance_with_llm(
         brief_json,
         "Marketing plan – Strategy",
         mp.strategy,
+        provider=provider,
     )
 
     # --- Campaign big idea ---
@@ -140,6 +195,7 @@ def enhance_with_llm(
         brief_json,
         "Campaign big idea",
         cb.big_idea,
+        provider=provider,
     )
 
     # --- Creatives: hooks, captions, email subjects, channel captions ---
@@ -156,6 +212,7 @@ def enhance_with_llm(
                         "Short hook line",
                         h,
                         max_tokens=120,
+                        provider=provider,
                     )
                 )
             cr.hooks = new_hooks
@@ -171,6 +228,7 @@ def enhance_with_llm(
                         "Social media caption",
                         c,
                         max_tokens=200,
+                        provider=provider,
                     )
                 )
             cr.captions = new_caps
@@ -186,6 +244,7 @@ def enhance_with_llm(
                         "Email subject line (keep super short)",
                         s,
                         max_tokens=40,
+                        provider=provider,
                     )
                 )
             cr.email_subject_lines = new_subjects
@@ -200,6 +259,7 @@ def enhance_with_llm(
                     f"{v.platform} hook",
                     v.hook,
                     max_tokens=80,
+                    provider=provider,
                 )
                 # ^ small polish: this keeps it per-platform
                 new_caption = _rewrite_text_block(
@@ -209,6 +269,7 @@ def enhance_with_llm(
                     f"{v.platform} caption",
                     v.caption,
                     max_tokens=220,
+                    provider=provider,
                 )
                 v.hook = new_hook
                 v.caption = new_caption
