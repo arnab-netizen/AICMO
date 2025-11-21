@@ -4,15 +4,21 @@ from __future__ import annotations
 
 from io import BytesIO
 
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-
 
 def text_to_pdf_bytes(text: str) -> bytes:
     """
     Very simple text-to-PDF converter.
     For real client use, you may want styling & page breaks.
     """
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen import canvas
+    except ImportError as e:
+        raise ImportError(
+            "reportlab is required for PDF generation. "
+            "Install with: pip install reportlab>=4.0.0"
+        ) from e
+
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
