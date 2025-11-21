@@ -17,6 +17,7 @@ from pydantic import BaseModel
 # Phase 5: Learning store + industry presets + LLM enhancement
 from backend.learning_usage import record_learning_from_output
 from backend.llm_enhance import enhance_with_llm as enhance_with_llm_new
+from backend.generators.marketing_plan import generate_marketing_plan
 from aicmo.presets.industry_presets import list_available_industries
 
 from aicmo.io.client_reports import (
@@ -638,20 +639,34 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
 
 
 @app.post("/aicmo/generate", response_model=AICMOOutputReport)
-def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
+async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
     """
-    Public endpoint.
+    Public endpoint for AICMO generation.
 
     1. Always builds a deterministic stub output (CI-safe, offline).
     2. If AICMO_USE_LLM=1:
-         → passes stub through the new enhanced LLM layer with industry presets + learning store.
+         → Uses LLM generators (marketing plan, etc.)
+         → Passes through the LLM enhancement layer with industry presets
        Otherwise:
-         → returns the stub as-is.
-    3. Phase 5: Auto-records output as a learning example for future clients (always, non-blocking).
+         → Returns the stub as-is.
+    3. Auto-records output as a learning example (always, non-blocking).
     """
-    base_output = _generate_stub_output(req)
-
+    # Check if LLM should be used
     use_llm = os.getenv("AICMO_USE_LLM", "0") == "1"
+
+    if use_llm:
+        try:
+            # Use LLM to generate marketing plan
+            marketing_plan = await generate_marketing_plan(req.brief)
+            base_output = _generate_stub_output(req)
+            # Update with LLM-generated marketing plan
+            base_output.marketing_plan = marketing_plan
+        except Exception as e:
+            print(f"[AICMO] LLM marketing plan generation failed, using stub: {e}")
+            base_output = _generate_stub_output(req)
+    else:
+        # Default: offline & deterministic (current behaviour)
+        base_output = _generate_stub_output(req)
 
     if not use_llm:
         # Default: offline & deterministic (current behaviour)
@@ -666,7 +681,7 @@ def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
 
     # LLM mode – best-effort polish with industry presets + learning, never breaks the endpoint
     try:
-        # Phase 5: Use new enhanced LLM layer with industry presets + learning
+        # Phase 5: Use enhanced LLM layer with industry presets + learning
         enhanced = enhance_with_llm_new(
             brief=req.brief,
             stub_output=base_output.model_dump(),
