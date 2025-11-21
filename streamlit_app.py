@@ -130,24 +130,50 @@ def aicmo_generate(
     api_base: str,
     brief: Dict[str, Any],
     industry: Optional[str],
-    generate_marketing_plan: bool = True,
-    generate_campaign_blueprint: bool = True,
-    generate_social_calendar: bool = True,
-    generate_performance_review: bool = False,
-    generate_creatives: bool = True,
+    outputs: list[str],
     timeout: int = 30,
 ) -> Dict[str, Any]:
-    """Call /aicmo/generate endpoint."""
+    """
+    Temporary: use CopyHook as the 'report generator' until /aicmo/generate exists.
+
+    We build a payload similar to backend/tests/test_copyhook_api.py:
+      - project_id
+      - goal
+      - constraints (brand, tone, audience, benefits, CTA)
+      - sources
+      - policy_id
+      - budget_tokens
+    """
+    brand = brief.get("brand", {})
+    brand_name = brand.get("brand_name") or brand.get("name") or "ClientBrand"
+    objective = brief.get("objective", "Landing page hero variants")
+    audience = brief.get("audience", "Target decision makers")
+    channels = brief.get("channels", [])
+    benefits = brief.get("benefits") or brief.get("pain_points") or []
+
+    goal = f"3 landing page hero variants for {brand_name}"
+    if objective:
+        goal = f"3 landing page hero variants for {brand_name} – {objective}"
+
     payload = {
-        "brief": brief,
-        "industry_key": industry,
-        "generate_marketing_plan": generate_marketing_plan,
-        "generate_campaign_blueprint": generate_campaign_blueprint,
-        "generate_social_calendar": generate_social_calendar,
-        "generate_performance_review": generate_performance_review,
-        "generate_creatives": generate_creatives,
+        "project_id": "streamlit-manual-test-001",
+        "goal": goal,
+        "constraints": {
+            "brand": brand_name,
+            "tone": brief.get("tone", "confident, clear"),
+            "must_avoid": [],
+            "main_cta": "Book a demo",
+            "audience": audience,
+            "benefits": benefits or ["Ship faster", "Reduce ops cost", "Centralize workflows"],
+            "channels": channels,
+            "industry": industry,
+        },
+        "sources": [],
+        "policy_id": "policy/default",
+        "budget_tokens": 15000,
     }
-    resp = call_backend("POST", api_base, "/aicmo/generate", json_body=payload, timeout=timeout)
+
+    resp = call_backend("POST", api_base, "/api/copyhook/run", json_body=payload, timeout=timeout)
     resp.raise_for_status()
     return resp.json()
 
@@ -392,61 +418,57 @@ elif nav == "Brief & Generate":
         generate_btn = st.button("Generate Draft Report", type="primary", use_container_width=True)
 
     if generate_btn:
-        if not any(
-            [gen_marketing_plan, gen_campaign_blueprint, gen_social_calendar, gen_creatives]
-        ):
-            st.error("Select at least one output for AICMO to generate.")
+        try:
+            brief = json.loads(brief_str)
+        except json.JSONDecodeError as e:
+            st.error(f"Invalid JSON in brief: {e}")
         else:
-            try:
-                if uploaded is not None:
-                    # TODO: if you intend to parse file on backend, send it separately
-                    pass
+            # Build outputs list from checkboxes
+            selected_outputs = []
+            if gen_marketing_plan:
+                selected_outputs.append("marketing_plan")
+            if gen_campaign_blueprint:
+                selected_outputs.append("campaign_blueprint")
+            if gen_social_calendar:
+                selected_outputs.append("social_calendar")
+            if gen_performance_review:
+                selected_outputs.append("performance_review")
+            if gen_creatives:
+                selected_outputs.append("creatives")
 
-                brief = json.loads(brief_str)
-            except json.JSONDecodeError as e:
-                st.error(f"Invalid JSON in brief: {e}")
+            if not selected_outputs:
+                st.error("Select at least one output for AICMO to generate.")
             else:
                 with st.status(
-                    "Calling AICMO backend to generate report…", expanded=True
+                    "Calling AICMO (CopyHook) to generate hero variants…", expanded=True
                 ) as status:
                     try:
                         result = aicmo_generate(
                             api_base=api_base,
                             brief=brief,
                             industry=selected_industry,
-                            generate_marketing_plan=gen_marketing_plan,
-                            generate_campaign_blueprint=gen_campaign_blueprint,
-                            generate_social_calendar=gen_social_calendar,
-                            generate_performance_review=gen_performance_review,
-                            generate_creatives=gen_creatives,
+                            outputs=selected_outputs,
                             timeout=int(timeout),
                         )
                         st.session_state.current_brief = brief
                         st.session_state.generated_report = result
-                        st.session_state.current_project_id = result.get(
-                            "project_id", st.session_state.current_project_id
-                        )
 
-                        # usage estimation (very rough)
-                        text_blob = json.dumps(result)
-                        st.session_state.usage_counter["reports"] += 1
-                        st.session_state.usage_counter["words"] += len(text_blob.split())
+                        status.update(label="Variants generated.", state="complete")
+                        st.success("CopyHook variants generated successfully.")
 
-                        # push into recent projects list
-                        st.session_state.recent_projects.insert(
-                            0,
-                            {
-                                "id": st.session_state.current_project_id,
-                                "name": _safe_get_current_project_name(),
-                                "subtitle": brief.get("objective", ""),
-                                "brief": brief,
-                                "report": result,
-                            },
-                        )
-
-                        status.update(label="Report generated.", state="complete")
-                        st.success("Draft report generated. Move to **Workshop** tab to refine.")
-                        st.json(result)
+                        # Show them in a nice way
+                        variants = result.get("variants") or result.get("headlines") or []
+                        if variants:
+                            for i, v in enumerate(variants, 1):
+                                st.markdown(f"### Variant {i}")
+                                headline = v.get("headline") or v.get("title") or ""
+                                body = v.get("body") or v.get("copy") or ""
+                                st.write(f"**{headline}**")
+                                if body:
+                                    st.write(body)
+                                st.markdown("---")
+                        else:
+                            st.json(result)
                     except Exception as exc:
                         status.update(label="Generation failed.", state="error")
                         st.error(f"Generation failed: {exc}")
