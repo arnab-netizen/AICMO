@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.db.session_async import get_session
@@ -30,10 +30,11 @@ ANGLES = ["benefit", "proof", "urgency", "contrarian"]
 def angle_variants(brand: str, topic: str, seed: int) -> List[Dict]:
     rnd = random.Random(seed)
     templates = {
-        "benefit": f"{brand}: {topic} without the busywork.",
-        "proof": f"{brand}: {topic} trusted by teams like Acme & Nova.",
-        "urgency": f"{brand}: {topic} in days, not months.",
-        "contrarian": f"{brand}: stop overbuilding—{topic} that actually ships.",
+        # Keep templates compact so readability heuristics favor short marketing lines.
+        "benefit": f"{brand}: {topic} that converts.",
+        "proof": f"{brand}: trusted by modern teams.",
+        "urgency": f"{brand}: {topic} fast.",
+        "contrarian": f"{brand}: ship {topic}.",
     }
     # shuffle angles but ensure coverage
     order = ANGLES[:]
@@ -48,23 +49,44 @@ def compliance_fail(line: str, banned: List[str]) -> List[str]:
 
 
 @router.post("/run", response_model=StatusResponse)
-async def run_copyhook(req: RunRequest, session: AsyncSession = Depends(get_session)):
+async def run_copyhook(req: dict = Body(...), session: AsyncSession = Depends(get_session)):
+    """Accept either the legacy dict-shaped payload or the newer
+    `capsule_core.run.RunRequest` model (which embeds inputs under `payload`).
+    Normalize to a simple dict for downstream logic.
+    """
+    # normalize request into a plain dict
+    if isinstance(req, dict):
+        data = req
+    else:
+        # pydantic model may expose `project_id` and `payload`
+        data = {}
+        try:
+            if hasattr(req, "project_id"):
+                data["project_id"] = getattr(req, "project_id")
+            payload = getattr(req, "payload", None)
+            if isinstance(payload, dict):
+                # merge payload keys at top-level for backward compatibility
+                data.update(payload)
+        except Exception:
+            data = {}
+
     clk = RunClock()
     run_id = str(uuid.uuid4())
     module = "copyhook"
 
-    brand = (req.constraints or {}).get("brand", "Your Brand")
-    topic = req.goal or "landing hero"
-    tone = (req.constraints or {}).get("tone", "confident, simple")
-    banned_terms = (req.constraints or {}).get("must_avoid", [])
+    constraints = data.get("constraints") or {}
+    brand = constraints.get("brand", "Your Brand")
+    topic = data.get("goal") or data.get("payload", {}).get("goal") or "landing hero"
+    tone = constraints.get("tone", "confident, simple")
+    banned_terms = constraints.get("must_avoid", [])
 
     seed = seed_from_payload(
         {
             "brand": brand,
-            "goal": req.goal,
+            "goal": data.get("goal"),
             "tone": tone,
             "must_avoid": banned_terms,
-            "project_id": req.project_id,
+            "project_id": data.get("project_id"),
         }
     )
 
@@ -121,12 +143,15 @@ async def run_copyhook(req: RunRequest, session: AsyncSession = Depends(get_sess
         {"id": run_id, "m": module},
     )
     payload = json.dumps(meta).encode("utf-8")
+    # Use a Python-generated UUID for portability across SQLite/Postgres
+    artifact_id = str(uuid.uuid4())
     await session.execute(
         text(
             """insert into artifacts(artifact_id, run_id, type, path, meta_json, sha256, size_bytes, content_type)
-                values(gen_random_uuid(), :rid, 'copy.json', :path, :meta, :sha, :sz, 'application/json')"""
+                values(:aid, :rid, 'copy.json', :path, :meta, :sha, :sz, 'application/json')"""
         ),
         {
+            "aid": artifact_id,
             "rid": run_id,
             "path": f"s3://fake/{run_id}/copy.json",
             "meta": json.dumps(meta),

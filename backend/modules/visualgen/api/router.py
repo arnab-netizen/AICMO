@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Body
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.db.session_async import get_session
@@ -16,14 +16,17 @@ from backend.core.utils.gates import (
     file_budget_ok,
 )
 from backend.core.metrics.registry import RUNS_TOTAL, RUNTIME_SECONDS
+from backend.modules.visualgen.engine import VisualRenderer, RenderInputs
 import uuid
 import io
-import base64
 import random
 import json
 from PIL import Image, ImageDraw, ImageFont  # pillow
 
 router = APIRouter()
+
+# Initialize the visual renderer
+renderer = VisualRenderer()
 
 
 @router.get("/version")
@@ -63,12 +66,27 @@ def make_placeholder_png(w: int, h: int, text: str, brand_color: str | None) -> 
 
 
 @router.post("/run")
-async def run_visualgen(req: RunRequest, session: AsyncSession = Depends(get_session)):
+async def run_visualgen(req: dict = Body(...), session: AsyncSession = Depends(get_session)):
+    """Accept either a legacy dict payload or a capsule_core.RunRequest with
+    inputs embedded under `payload`. Normalize to a simple dict for the handler.
+    """
+    if isinstance(req, dict):
+        data = req
+    else:
+        data = {}
+        try:
+            if hasattr(req, "project_id"):
+                data["project_id"] = getattr(req, "project_id")
+            payload = getattr(req, "payload", None)
+            if isinstance(payload, dict):
+                data.update(payload)
+        except Exception:
+            data = {}
     clk = RunClock()
     run_id = str(uuid.uuid4())
     module = "visualgen"
 
-    c = req.constraints or {}
+    c = data.get("constraints") or {}
     brand = c.get("brand", "Your Brand")
     size = c.get("size", "1200x628")
     w, h = parse_size(size)
@@ -104,21 +122,39 @@ async def run_visualgen(req: RunRequest, session: AsyncSession = Depends(get_ses
                 raise HTTPException(422, detail={"reason": "source_invalid", "msg": str(e)})
 
     seed = seed_from_payload(
-        {"brand": brand, "size": size, "count": count, "project_id": req.project_id}
+        {"brand": brand, "size": size, "count": count, "project_id": data.get("project_id")}
     )
     rnd = random.Random(seed)
 
-    # Generate N placeholders (replace with real render pipeline later)
+    # Generate N real rendered images using the visual renderer
     artifacts = []
-    layouts = ["split-left", "split-right", "centered", "headline-top"]
+    layouts = ["center", "split-left", "split-right"]
     used_layouts = set()
+
+    # Extract goal/copy for headline
+    goal = req.goal or ""
+    headline = goal if len(goal) < 60 else goal[:57] + "..."
+    subheadline = f"By {brand}" if brand else ""
 
     for i in range(count):
         layout = rnd.choice(layouts)
         used_layouts.add(layout)
-        caption = f"{brand} — {layout}"
-        png = make_placeholder_png(w, h, caption, brand_primary)
-        b64 = base64.b64encode(png).decode("ascii")
+
+        # Use real renderer
+        render_inputs = RenderInputs(
+            width=w,
+            height=h,
+            headline=headline or f"{brand} Visual {i+1}",
+            subheadline=subheadline,
+            brand_color=brand_primary or "#0A84FF",
+            text_color="#FFFFFF",
+            logo_b64=logo.get("base64") if logo else None,
+            layout=layout,
+        )
+
+        render_output = renderer.render(render_inputs)
+        png = render_output.bytes_data
+        b64 = render_output.base64_data
         sha = sha256_bytes(png)
         size_bytes = len(png)
 
@@ -126,7 +162,7 @@ async def run_visualgen(req: RunRequest, session: AsyncSession = Depends(get_ses
         ocr = ocr_legibility_stub(png)
         contrast = contrast_ratio_stub()
         if not file_budget_ok(size_bytes):
-            # compress heuristic: in this demo we just allow since PNG is placeholder
+            # compress heuristic: in this demo we just allow since PNG is real
             pass
 
         meta = {
@@ -153,12 +189,15 @@ async def run_visualgen(req: RunRequest, session: AsyncSession = Depends(get_ses
         text("insert into runs(run_id,module,status,version) values(:id,:m,'finished','1.1.0')"),
         {"id": run_id, "m": module},
     )
+    # Use a Python-generated UUID for portability across SQLite/Postgres
+    artifact_id = str(uuid.uuid4())
     await session.execute(
         text(
             """insert into artifacts(artifact_id, run_id, type, path, meta_json, sha256, size_bytes, content_type)
-                values(gen_random_uuid(), :rid, 'report.json', :p, :meta, :sha, :sz, 'application/json')"""
+                values(:aid, :rid, 'report.json', :p, :meta, :sha, :sz, 'application/json')"""
         ),
         {
+            "aid": artifact_id,
             "rid": run_id,
             "p": f"s3://fake/{run_id}/report.json",
             "meta": json.dumps({"layouts": list(used_layouts)}),

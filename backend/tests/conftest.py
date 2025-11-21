@@ -74,3 +74,41 @@ def seed_taste_demo_if_postgres():
                 "emb": emb,
             },
         )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_runs_and_artifacts_tables():
+    """Create minimal `runs` and `artifacts` tables for tests running against
+    the default in-memory SQLite DB so endpoints that persist runs/artifacts
+    don't fail with missing tables. This is intentionally minimal and
+    idempotent across runs.
+    """
+    engine = get_engine()
+    from sqlalchemy import MetaData, Table, Column, String, Integer, Text
+
+    metadata = MetaData()
+    Table(
+        "runs",
+        metadata,
+        Column("run_id", String, primary_key=True),
+        Column("module", String),
+        Column("status", String),
+        Column("version", String),
+        Column("tokens_used", Integer),
+        Column("seconds_used", Integer),
+        Column("cost_estimate", String),
+    )
+    Table(
+        "artifacts",
+        metadata,
+        Column("artifact_id", String, primary_key=True),
+        Column("run_id", String),
+        Column("type", String),
+        Column("path", Text),
+        Column("meta_json", Text),
+        Column("sha256", String),
+        Column("size_bytes", Integer),
+        Column("content_type", String),
+    )
+
+    metadata.create_all(engine)
