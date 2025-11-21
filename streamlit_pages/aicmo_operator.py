@@ -7,6 +7,9 @@ from typing import Any, Optional
 import httpx
 import streamlit as st
 
+# Phase 5: Import industry presets
+from aicmo.presets.industry_presets import list_available_industries, get_industry_preset
+
 API_BASE = os.getenv("API_BASE_URL") or os.getenv("API_BASE") or "http://localhost:8000"
 
 
@@ -54,6 +57,26 @@ with st.sidebar:
     timeout_input = st.number_input(
         "Timeout (seconds)", value=TIMEOUT, min_value=5, max_value=120, step=5
     )
+
+    # Phase 5: Industry selector
+    st.divider()
+    st.subheader("Industry Preset (Optional)")
+    available_industries = list_available_industries()
+    industry_key = st.selectbox(
+        "Select Industry",
+        options=["none"] + available_industries,
+        help="Choose an industry preset to guide content generation",
+    )
+
+    # Display selected preset info
+    if industry_key != "none":
+        preset = get_industry_preset(industry_key)
+        if preset:
+            st.info(f"**{preset.name}**: {preset.description}")
+            with st.expander("View preset details"):
+                st.markdown("**Priority Channels**: " + ", ".join(preset.priority_channels))
+                st.markdown("**Sample KPIs**: " + ", ".join(preset.sample_kpis))
+                st.markdown("**Default Tone**: " + preset.default_tone)
 
 # ========== TAB 1: BRIEF INTAKE & GENERATION ==========
 
@@ -116,6 +139,7 @@ with tab_brief:
                 "generate_social_calendar": True,
                 "generate_performance_review": False,
                 "generate_creatives": gen_creatives,
+                "industry_key": None if industry_key == "none" else industry_key,  # Phase 5
             }
 
             result = post_json(

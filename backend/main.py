@@ -14,6 +14,11 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import PlainTextResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
+# Phase 5: Learning store + industry presets + LLM enhancement
+from backend.learning_usage import record_learning_from_output
+from backend.llm_enhance import enhance_with_llm as enhance_with_llm_new
+from aicmo.presets.industry_presets import list_available_industries
+
 from aicmo.io.client_reports import (
     ClientInputBrief,
     AICMOOutputReport,
@@ -78,6 +83,7 @@ class GenerateRequest(BaseModel):
     generate_social_calendar: bool = True
     generate_performance_review: bool = False
     generate_creatives: bool = True
+    industry_key: Optional[str] = None  # Phase 5: Optional industry preset key
 
 
 app = FastAPI(title="AICMO API")
@@ -637,10 +643,11 @@ def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
     Public endpoint.
 
     1. Always builds a deterministic stub output (CI-safe, offline).
-    2. If AICMO_USE_LLM=1 and OpenAI is configured:
-         → passes stub through the LLM polish layer.
+    2. If AICMO_USE_LLM=1:
+         → passes stub through the new enhanced LLM layer with industry presets + learning store.
        Otherwise:
          → returns the stub as-is.
+    3. Phase 5: Auto-records output as a learning example for future clients (always, non-blocking).
     """
     base_output = _generate_stub_output(req)
 
@@ -648,26 +655,55 @@ def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
 
     if not use_llm:
         # Default: offline & deterministic (current behaviour)
+        # But still try to record learning (non-blocking)
+        try:
+            record_learning_from_output(
+                brief=req.brief, output=base_output.model_dump(), notes="Auto-recorded stub output"
+            )
+        except Exception as e:
+            print(f"[AICMO] Learning recording failed (non-critical): {e}")
         return base_output
 
-    # LLM mode – best-effort polish, never breaks the endpoint
+    # LLM mode – best-effort polish with industry presets + learning, never breaks the endpoint
     try:
-        from aicmo.llm.client import enhance_with_llm
-
-        enhanced = enhance_with_llm(
+        # Phase 5: Use new enhanced LLM layer with industry presets + learning
+        enhanced = enhance_with_llm_new(
             brief=req.brief,
-            stub_output=base_output,
-            options=req.model_dump(),
+            stub_output=base_output.model_dump(),
+            options={"industry_key": req.industry_key},
         )
-        return enhanced
+
+        # Convert enhanced dict back to AICMOOutputReport
+        enhanced_output = AICMOOutputReport.model_validate(enhanced)
+
+        # Phase 5: Auto-record this enhanced output as a learning example
+        try:
+            record_learning_from_output(
+                brief=req.brief,
+                output=enhanced,
+                notes=f"LLM-enhanced output (industry: {req.industry_key or 'none'})",
+            )
+        except Exception as e:
+            print(f"[AICMO] Learning recording failed (non-critical): {e}")
+
+        return enhanced_output
     except RuntimeError as e:
-        # OpenAI SDK missing etc. – log and fall back quietly
+        # LLM SDK missing etc. – log and fall back quietly
         print(f"[AICMO] LLM disabled or not installed: {e}")
         return base_output
     except Exception as e:
         # Any unexpected LLM error – do NOT break operator flow
         print(f"[AICMO] LLM enhancement failed, falling back to stub: {e}")
         return base_output
+
+
+@app.get("/aicmo/industries")
+def list_industries():
+    """Phase 5: List available industry presets."""
+    return {
+        "industries": list_available_industries(),
+        "description": "Industry presets for content generation guidance",
+    }
 
 
 @app.post("/aicmo/revise", response_model=AICMOOutputReport)
@@ -679,6 +715,7 @@ async def aicmo_revise(
     Revision stub:
     - Reads brief + current_output + instructions from 'meta' JSON.
     - For now, just appends a note to the executive summary so you see a change.
+    - Phase 5: Auto-records revised output as a learning example.
     """
     try:
         data = json.loads(meta)
@@ -698,6 +735,15 @@ async def aicmo_revise(
     )
 
     revised = current.model_copy(update={"marketing_plan": revised_mp})
+
+    # Phase 5: Try to record revised output (non-blocking)
+    try:
+        brief = ClientInputBrief.model_validate(data.get("brief", {}))
+        record_learning_from_output(
+            brief=brief, output=revised.model_dump(), notes="Auto-recorded revised output"
+        )
+    except Exception as e:
+        print(f"[AICMO] Learning recording failed (non-critical): {e}")
 
     return revised
 

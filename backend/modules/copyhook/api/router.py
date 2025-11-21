@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Body
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.db.session_async import get_session
-from capsule_core.run import RunRequest, StatusResponse
+from capsule_core.run import StatusResponse
 from backend.core.utils.determinism import RunClock, seed_from_payload, estimate_cost
 from backend.core.utils.gates import (
     readability_score,
