@@ -24,16 +24,54 @@ def client():
 @pytest.fixture
 def sample_brief():
     """Minimal valid ClientInputBrief for testing."""
+    from aicmo.io.client_reports import (
+        BrandBrief,
+        AudienceBrief,
+        GoalBrief,
+        VoiceBrief,
+        ProductServiceBrief,
+        ProductServiceItem,
+        AssetsConstraintsBrief,
+        OperationsBrief,
+        StrategyExtrasBrief,
+    )
+
     return ClientInputBrief(
-        brand="TechCorp",
-        goal="Launch new SaaS product",
-        target_audience="Tech-savvy entrepreneurs",
-        message_pillars=["Innovation", "Simplicity", "Reliability"],
-        tone="Professional yet approachable",
-        campaign_duration_weeks=6,
-        primary_channels=["LinkedIn", "Twitter"],
-        success_metrics=["Lead generation", "Brand awareness"],
-        additional_context="Product addresses pain point in project management",
+        brand=BrandBrief(
+            brand_name="TechCorp",
+            industry="SaaS",
+            business_type="B2B",
+            description="Project management software",
+        ),
+        audience=AudienceBrief(
+            primary_customer="Tech-savvy entrepreneurs",
+            pain_points=["Workflow inefficiency", "Team coordination"],
+        ),
+        goal=GoalBrief(
+            primary_goal="Launch new SaaS product",
+            timeline="3 months",
+            kpis=["Lead generation", "Brand awareness"],
+        ),
+        voice=VoiceBrief(
+            tone_of_voice=["Professional", "Approachable"],
+        ),
+        product_service=ProductServiceBrief(
+            items=[
+                ProductServiceItem(
+                    name="Main Product",
+                    usp="Streamline team workflows",
+                )
+            ],
+        ),
+        assets_constraints=AssetsConstraintsBrief(
+            focus_platforms=["LinkedIn", "Twitter"],
+        ),
+        operations=OperationsBrief(
+            needs_calendar=True,
+        ),
+        strategy_extras=StrategyExtrasBrief(
+            brand_adjectives=["Innovative", "Reliable"],
+        ),
     )
 
 
