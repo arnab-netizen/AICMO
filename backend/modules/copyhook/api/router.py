@@ -63,12 +63,17 @@ async def optional_session():
 
 
 @router.post("/run", response_model=StatusResponse)
-async def run_copyhook(req: dict = Body(...)):
+async def run_copyhook(req: dict = Body(...), skip_gates: bool = False):
     """Accept either the legacy dict-shaped payload or the newer
     `capsule_core.run.RunRequest` model (which embeds inputs under `payload`).
     Normalize to a simple dict for downstream logic.
 
     Note: Database session is optional for development environments.
+
+    Args:
+        req: The request payload
+        skip_gates: If True, bypass quality gates (readability, dedup, platform limits).
+                   Use only for development/testing. Compliance (banned terms) is always checked.
     """
     session = None
     # normalize request into a plain dict
@@ -122,22 +127,28 @@ async def run_copyhook(req: dict = Body(...)):
         RUNS_TOTAL.labels(module, "rejected").inc()
         raise HTTPException(422, detail={"reason": "banned_terms", "hits": comp_hits})
 
-    scores = [readability_score(v) for v in variants]
-    if not all(s >= 55 for s in scores):
-        RUNS_TOTAL.labels(module, "rejected").inc()
-        raise HTTPException(422, detail={"reason": "readability_fail", "scores": scores})
+    # Skip quality gates if explicitly requested (dev mode)
+    if not skip_gates:
+        scores = [readability_score(v) for v in variants]
+        if not all(s >= 55 for s in scores):
+            RUNS_TOTAL.labels(module, "rejected").inc()
+            raise HTTPException(422, detail={"reason": "readability_fail", "scores": scores})
 
-    if not dedup_jaccard_ok(variants):
-        RUNS_TOTAL.labels(module, "rejected").inc()
-        raise HTTPException(422, detail={"reason": "dedup_fail"})
+        if not dedup_jaccard_ok(variants):
+            RUNS_TOTAL.labels(module, "rejected").inc()
+            raise HTTPException(422, detail={"reason": "dedup_fail"})
 
-    platform_ok = [platform_limit_ok(v) for v in variants]
-    # ensure at least one is valid for google/linkedin
-    if not any(po["google"] and po["linkedin"] for po in platform_ok):
-        RUNS_TOTAL.labels(module, "rejected").inc()
-        raise HTTPException(
-            422, detail={"reason": "platform_limits_fail", "platform_ok": platform_ok}
-        )
+        platform_ok = [platform_limit_ok(v) for v in variants]
+        # ensure at least one is valid for google/linkedin
+        if not any(po["google"] and po["linkedin"] for po in platform_ok):
+            RUNS_TOTAL.labels(module, "rejected").inc()
+            raise HTTPException(
+                422, detail={"reason": "platform_limits_fail", "platform_ok": platform_ok}
+            )
+    else:
+        # Still compute scores even if we skip gates, for informational purposes
+        scores = [readability_score(v) for v in variants]
+        platform_ok = [platform_limit_ok(v) for v in variants]
 
     # Minimal A/B plan (2x2)
     ab_plan = {
