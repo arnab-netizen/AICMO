@@ -2,7 +2,7 @@ import io
 import json
 import os
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import requests
 import streamlit as st
@@ -11,10 +11,13 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 # Try to import creative directions if available
-try:
+if TYPE_CHECKING:
     from aicmo.creative.directions_engine import CreativeDirection
-except Exception:  # optional, feature gate if not available
-    CreativeDirection = None  # type: ignore
+else:
+    try:
+        from aicmo.creative.directions_engine import CreativeDirection
+    except Exception:  # optional, feature gate if not available
+        CreativeDirection = None  # type: ignore
 
 # Try to import humanization wrapper for post-processing
 try:
@@ -69,7 +72,7 @@ def _slugify_filename(value: str, default: str = "aicmo_report") -> str:
     return value or default
 
 
-def _directions_to_markdown(directions: List[CreativeDirection]) -> str:
+def _directions_to_markdown(directions: List[Any]) -> str:
     """Convert creative directions to markdown format."""
     lines: List[str] = []
     for idx, d in enumerate(directions, start=1):
