@@ -21,6 +21,9 @@ from backend.generators.marketing_plan import generate_marketing_plan
 from backend.agency_grade_enhancers import apply_agency_grade_enhancements
 from aicmo.presets.industry_presets import list_available_industries
 
+# Phase L: Vector-based memory learning
+from backend.services.learning import learn_from_report
+
 from aicmo.io.client_reports import (
     ClientInputBrief,
     AICMOOutputReport,
@@ -692,6 +695,16 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
             except Exception as e:
                 print(f"[AICMO] Agency-grade enhancements failed (non-critical): {e}")
 
+        # Phase L: Auto-learn from this final report
+        try:
+            learn_from_report(
+                report=base_output,
+                project_id=None,  # No explicit project ID in this context
+                tags=["auto_learn", "final_report"],
+            )
+        except Exception as e:
+            print(f"[AICMO] Auto-learning failed (non-critical): {e}")
+
         return base_output
 
     # LLM mode – best-effort polish with industry presets + learning, never breaks the endpoint
@@ -724,6 +737,16 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
         except Exception as e:
             print(f"[AICMO] Learning recording failed (non-critical): {e}")
 
+        # Phase L: Auto-learn from this final report
+        try:
+            learn_from_report(
+                report=enhanced_output,
+                project_id=None,  # No explicit project ID in this context
+                tags=["auto_learn", "final_report", "llm_enhanced"],
+            )
+        except Exception as e:
+            print(f"[AICMO] Auto-learning failed (non-critical): {e}")
+
         return enhanced_output
     except RuntimeError as e:
         # LLM SDK missing etc. – log and fall back quietly
@@ -737,6 +760,16 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
             except Exception as e:
                 print(f"[AICMO] Agency-grade enhancements failed (non-critical): {e}")
 
+        # Phase L: Auto-learn from this final report (even on fallback)
+        try:
+            learn_from_report(
+                report=base_output,
+                project_id=None,
+                tags=["auto_learn", "final_report", "llm_fallback"],
+            )
+        except Exception as e:
+            print(f"[AICMO] Auto-learning failed (non-critical): {e}")
+
         return base_output
     except Exception as e:
         # Any unexpected LLM error – do NOT break operator flow
@@ -749,6 +782,16 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
                 apply_agency_grade_enhancements(req.brief, base_output)
             except Exception as e:
                 print(f"[AICMO] Agency-grade enhancements failed (non-critical): {e}")
+
+        # Phase L: Auto-learn from this final report (even on fallback)
+        try:
+            learn_from_report(
+                report=base_output,
+                project_id=None,
+                tags=["auto_learn", "final_report", "llm_fallback"],
+            )
+        except Exception as e:
+            print(f"[AICMO] Auto-learning failed (non-critical): {e}")
 
         return base_output
 
