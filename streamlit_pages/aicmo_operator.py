@@ -10,7 +10,11 @@ from openai import OpenAI
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
-from aicmo.creative.directions_engine import CreativeDirection
+# Try to import creative directions if available
+try:
+    from aicmo.creative.directions_engine import CreativeDirection
+except Exception:  # optional, feature gate if not available
+    CreativeDirection = None  # type: ignore
 
 # Try to import humanization wrapper for post-processing
 try:
