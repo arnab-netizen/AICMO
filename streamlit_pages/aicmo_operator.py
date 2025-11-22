@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
@@ -9,6 +10,7 @@ from openai import OpenAI
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
+from aicmo.creative.directions_engine import CreativeDirection
 
 # Try to import humanization wrapper for post-processing
 try:
@@ -30,6 +32,100 @@ st.set_page_config(
     page_title="AICMO Operator – Premium",
     layout="wide",
 )
+
+
+# -------------------------------------------------
+# Helper functions
+# -------------------------------------------------
+
+
+def remove_placeholders(text: str) -> str:
+    """Remove common placeholder text that indicates incomplete generation."""
+    if not text:
+        return text
+
+    forbidden = [
+        "not yet summarised",
+        "will be refined later",
+        "N/A",
+        "Not specified",
+        "undefined",
+    ]
+    for f in forbidden:
+        text = text.replace(f, "")
+    return text
+
+
+def _slugify_filename(value: str, default: str = "aicmo_report") -> str:
+    """Convert a string into a safe filename."""
+    value = (value or "").strip() or default
+    value = value.lower()
+    value = re.sub(r"[^a-z0-9]+", "-", value)
+    value = value.strip("-")
+    return value or default
+
+
+def _directions_to_markdown(directions: List[CreativeDirection]) -> str:
+    """Convert creative directions to markdown format."""
+    lines: List[str] = []
+    for idx, d in enumerate(directions, start=1):
+        lines.append(f"## Direction {idx}: {d.name}")
+        if d.tagline:
+            lines.append(f"**Tagline:** {d.tagline}")
+        if d.description:
+            lines.append("")
+            lines.append(d.description)
+        if d.visual_style:
+            lines.append("")
+            lines.append(f"**Visual style:** {d.visual_style}")
+        if d.color_directions:
+            lines.append(f"**Color direction:** {d.color_directions}")
+        if d.tone_voice:
+            lines.append(f"**Tone & voice:** {d.tone_voice}")
+        if d.messaging_pillars:
+            lines.append("")
+            lines.append("**Messaging pillars:**")
+            for p in d.messaging_pillars:
+                lines.append(f"- {p}")
+        if d.example_hooks:
+            lines.append("")
+            lines.append("**Example hooks:**")
+            for h in d.example_hooks:
+                lines.append(f"- {h}")
+        if d.example_post_ideas:
+            lines.append("")
+            lines.append("**Example post ideas:**")
+            for idea in d.example_post_ideas:
+                lines.append(f"- {idea}")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _report_with_creative_directions(report_obj: Any) -> Any:
+    """Merge creative directions markdown into report for deck export."""
+    cd_md = st.session_state.get("creative_directions_markdown")
+    if not cd_md:
+        return report_obj
+
+    # Best-effort conversion to dict
+    try:
+        if hasattr(report_obj, "model_dump"):
+            base = report_obj.model_dump()
+        elif hasattr(report_obj, "dict"):
+            base = report_obj.dict()
+        elif hasattr(report_obj, "__dict__"):
+            base = dict(report_obj.__dict__)
+        elif isinstance(report_obj, dict):
+            base = dict(report_obj)
+        else:
+            base = {"raw": str(report_obj)}
+    except Exception:
+        base = {"raw": str(report_obj)}
+
+    base["creative_directions"] = cd_md
+    return base
 
 
 # -------------------------------------------------
