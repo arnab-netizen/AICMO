@@ -13,5 +13,6 @@ python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
 python-multipart>=0.0.6
 reportlab>=4.0.0
+openai>=2.0.0
 
 -e ./capsule-core

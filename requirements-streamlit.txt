@@ -1,2 +1,5 @@
 streamlit==1.38.0
 requests>=2.32.0
+openai>=2.0.0
+SQLAlchemy>=2.0
+psycopg2-binary>=2.9
