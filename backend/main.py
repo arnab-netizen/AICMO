@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from backend.learning_usage import record_learning_from_output
 from backend.llm_enhance import enhance_with_llm as enhance_with_llm_new
 from backend.generators.marketing_plan import generate_marketing_plan
+from backend.agency_grade_enhancers import apply_agency_grade_enhancements
 from aicmo.presets.industry_presets import list_available_industries
 
 from aicmo.io.client_reports import (
@@ -85,6 +86,8 @@ class GenerateRequest(BaseModel):
     generate_performance_review: bool = False
     generate_creatives: bool = True
     industry_key: Optional[str] = None  # Phase 5: Optional industry preset key
+    package_preset: Optional[str] = None  # TURBO: package name
+    include_agency_grade: bool = False  # TURBO: enable agency-grade enhancements
 
 
 app = FastAPI(title="AICMO API")
@@ -650,6 +653,7 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
        Otherwise:
          → Returns the stub as-is.
     3. Auto-records output as a learning example (always, non-blocking).
+    4. If include_agency_grade=True: applies agency-grade turbo enhancements.
     """
     # Check if LLM should be used
     use_llm = os.getenv("AICMO_USE_LLM", "0") == "1"
@@ -677,6 +681,15 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
             )
         except Exception as e:
             print(f"[AICMO] Learning recording failed (non-critical): {e}")
+
+        # TURBO: Apply agency-grade enhancements if requested and enabled
+        turbo_enabled = os.getenv("AICMO_TURBO_ENABLED", "1") == "1"
+        if req.include_agency_grade and turbo_enabled:
+            try:
+                apply_agency_grade_enhancements(req.brief, base_output)
+            except Exception as e:
+                print(f"[AICMO] Agency-grade enhancements failed (non-critical): {e}")
+
         return base_output
 
     # LLM mode – best-effort polish with industry presets + learning, never breaks the endpoint
@@ -691,11 +704,19 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
         # Convert enhanced dict back to AICMOOutputReport
         enhanced_output = AICMOOutputReport.model_validate(enhanced)
 
+        # TURBO: Apply agency-grade enhancements if requested and enabled
+        turbo_enabled = os.getenv("AICMO_TURBO_ENABLED", "1") == "1"
+        if req.include_agency_grade and turbo_enabled:
+            try:
+                apply_agency_grade_enhancements(req.brief, enhanced_output)
+            except Exception as e:
+                print(f"[AICMO] Agency-grade enhancements failed (non-critical): {e}")
+
         # Phase 5: Auto-record this enhanced output as a learning example
         try:
             record_learning_from_output(
                 brief=req.brief,
-                output=enhanced,
+                output=enhanced_output.model_dump(),
                 notes=f"LLM-enhanced output (industry: {req.industry_key or 'none'})",
             )
         except Exception as e:
@@ -705,10 +726,28 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
     except RuntimeError as e:
         # LLM SDK missing etc. – log and fall back quietly
         print(f"[AICMO] LLM disabled or not installed: {e}")
+
+        # TURBO: Apply agency-grade enhancements if requested and enabled (even on fallback)
+        turbo_enabled = os.getenv("AICMO_TURBO_ENABLED", "1") == "1"
+        if req.include_agency_grade and turbo_enabled:
+            try:
+                apply_agency_grade_enhancements(req.brief, base_output)
+            except Exception as e:
+                print(f"[AICMO] Agency-grade enhancements failed (non-critical): {e}")
+
         return base_output
     except Exception as e:
         # Any unexpected LLM error – do NOT break operator flow
         print(f"[AICMO] LLM enhancement failed, falling back to stub: {e}")
+
+        # TURBO: Apply agency-grade enhancements if requested and enabled (even on fallback)
+        turbo_enabled = os.getenv("AICMO_TURBO_ENABLED", "1") == "1"
+        if req.include_agency_grade and turbo_enabled:
+            try:
+                apply_agency_grade_enhancements(req.brief, base_output)
+            except Exception as e:
+                print(f"[AICMO] Agency-grade enhancements failed (non-critical): {e}")
+
         return base_output
 
 

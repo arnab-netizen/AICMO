@@ -88,6 +88,87 @@ st.markdown(
 
 DEFAULT_API_BASE = "http://localhost:8000"
 
+# -------------------------------------------------
+# Package presets (Fiverr/Upwork-style)
+# -------------------------------------------------
+
+PACKAGE_PRESETS = {
+    # GENERAL PACKAGES
+    "Quick Social Pack (Basic)": {
+        "marketing_plan": False,
+        "campaign_blueprint": False,
+        "social_calendar": True,
+        "performance_review": False,
+        "creatives": True,
+        "include_agency_grade": False,
+    },
+    "Strategy + Campaign Pack (Standard)": {
+        "marketing_plan": True,
+        "campaign_blueprint": True,
+        "social_calendar": True,
+        "performance_review": False,
+        "creatives": True,
+        "include_agency_grade": False,
+    },
+    "Full CMO / Go-To-Market (Premium)": {
+        "marketing_plan": True,
+        "campaign_blueprint": True,
+        "social_calendar": True,
+        "performance_review": True,
+        "creatives": True,
+        "include_agency_grade": True,
+    },
+    # SPECIALISED PACKAGES
+    "Ads Launch Pack (Meta/Google/LinkedIn)": {
+        "marketing_plan": False,
+        "campaign_blueprint": True,
+        "social_calendar": True,
+        "performance_review": False,
+        "creatives": True,
+        "include_agency_grade": False,
+    },
+    "Email Funnel Pack": {
+        "marketing_plan": False,
+        "campaign_blueprint": True,
+        "social_calendar": False,
+        "performance_review": False,
+        "creatives": True,
+        "include_agency_grade": False,
+    },
+    "Launch Campaign Pack": {
+        "marketing_plan": True,
+        "campaign_blueprint": True,
+        "social_calendar": True,
+        "performance_review": False,
+        "creatives": True,
+        "include_agency_grade": True,
+    },
+    "Performance Review & Growth Audit": {
+        "marketing_plan": False,
+        "campaign_blueprint": False,
+        "social_calendar": False,
+        "performance_review": True,
+        "creatives": False,
+        "include_agency_grade": True,
+    },
+    "Organic Authority Pack (LinkedIn-first)": {
+        "marketing_plan": True,
+        "campaign_blueprint": False,
+        "social_calendar": True,
+        "performance_review": False,
+        "creatives": True,
+        "include_agency_grade": False,
+    },
+    "Local Business Growth Pack": {
+        "marketing_plan": True,
+        "campaign_blueprint": True,
+        "social_calendar": True,
+        "performance_review": False,
+        "creatives": True,
+        "include_agency_grade": False,
+    },
+}
+
 if "current_project_id" not in st.session_state:
     st.session_state.current_project_id = None
 
@@ -105,6 +186,13 @@ if "usage_counter" not in st.session_state:
 
 if "recent_projects" not in st.session_state:
     st.session_state.recent_projects = []  # list[dict]
+
+# NEW: Package preset and agency-grade flag
+if "package_preset" not in st.session_state:
+    st.session_state.package_preset = "Strategy + Campaign Pack (Standard)"
+
+if "include_agency_grade" not in st.session_state:
+    st.session_state.include_agency_grade = False
 
 
 # ═══════════════════════════════════════════════════════════════════════

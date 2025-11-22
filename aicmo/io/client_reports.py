@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from textwrap import dedent
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from pydantic import BaseModel, HttpUrl, Field
 
@@ -258,6 +258,8 @@ class AICMOOutputReport(BaseModel):
     creatives: Optional[CreativesBlock] = None
     persona_cards: List[PersonaCard] = Field(default_factory=list)
     action_plan: Optional[ActionPlan] = None
+    # TURBO: agency-grade extra sections (title → markdown body)
+    extra_sections: Dict[str, str] = Field(default_factory=dict)
 
 
 # =========================================
@@ -565,5 +567,13 @@ def generate_output_report_markdown(
             md += "\n### 7.10 Ad script snippets\n\n"
             for stext in cr.scripts:
                 md += f"- {stext}\n"
+
+    # --- Agency-Grade TURBO Sections ---
+    if output.extra_sections:
+        md += "\n\n---\n\n# Agency-Grade Strategic Add-ons\n"
+        for title, body in output.extra_sections.items():
+            if not body:
+                continue
+            md += f"\n## {title}\n\n{body.strip()}\n"
 
     return md.strip()
