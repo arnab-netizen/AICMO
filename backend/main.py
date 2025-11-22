@@ -19,6 +19,7 @@ from backend.llm_enhance import enhance_with_llm as enhance_with_llm_new
 from backend.generators.marketing_plan import generate_marketing_plan
 from backend.agency_grade_enhancers import apply_agency_grade_enhancements
 from aicmo.presets.industry_presets import list_available_industries
+from aicmo.generators import generate_swot
 
 # Phase L: Vector-based memory learning
 from backend.services.learning import learn_from_report
@@ -288,23 +289,12 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
         values=s.brand_adjectives or ["reliable", "consistent", "growth-focused"],
     )
 
+    swot_dict = generate_swot(req.brief)
     swot = SWOTBlock(
-        strengths=[
-            "Clear willingness to invest in structured marketing.",
-            "Defined primary audience and goals.",
-        ],
-        weaknesses=[
-            "Inconsistent past posting and campaigns.",
-            "Limited reuse of high-performing ideas.",
-        ],
-        opportunities=[
-            "Own a clear narrative in your niche.",
-            "Build a recognisable content style on top platforms.",
-        ],
-        threats=[
-            "Competitors who communicate more consistently.",
-            "Algorithm shifts that punish irregular posting.",
-        ],
+        strengths=swot_dict.get("strengths", []),
+        weaknesses=swot_dict.get("weaknesses", []),
+        opportunities=swot_dict.get("opportunities", []),
+        threats=swot_dict.get("threats", []),
     )
 
     competitor_snapshot = CompetitorSnapshot(
@@ -870,7 +860,7 @@ def aicmo_export_pdf(payload: dict):
         JSONResponse with error details on failure.
     """
     markdown = payload.get("markdown") or ""
-    result = safe_export_pdf(markdown)
+    result = safe_export_pdf(markdown, check_placeholders=True)
 
     # If result is a dict, it's an error – return as JSON
     if isinstance(result, dict):

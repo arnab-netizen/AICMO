@@ -223,7 +223,7 @@ def safe_export_pptx(
                 "export_type": "pptx",
             }
 
-        # Generate PPTX
+        # Generate PPTX with expanded slides
         prs = Presentation()
 
         # Title slide
@@ -245,34 +245,158 @@ def safe_export_pptx(
             slide = prs.slides.add_slide(prs.slide_layouts[1])
             slide.shapes.title.text = "Executive Summary"
             body = slide.placeholders[1].text_frame
-            for line in mp.executive_summary.splitlines():
-                if not body.text:
-                    body.text = line
-                else:
+            body.word_wrap = True
+            lines = (mp.executive_summary or "").splitlines()
+            if lines:
+                body.text = lines[0] if lines else "(No summary)"
+                for line in lines[1:]:
                     body.add_paragraph().text = line
         except Exception as e:
             logger.error(
                 f"PPTX export failed: error adding executive summary slide: {e}", exc_info=True
             )
-            return {
-                "error": True,
-                "message": "Failed to add executive summary to presentation. Please try again.",
-                "export_type": "pptx",
-            }
+            logger.debug("PPTX export: continuing without executive summary slide")
 
-        # Big idea slide
+        # Situation analysis slide
+        try:
+            if mp.situation_analysis:
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = "Situation Analysis"
+                body = slide.placeholders[1].text_frame
+                body.word_wrap = True
+                body.text = (
+                    mp.situation_analysis[:300] + "..."
+                    if len(mp.situation_analysis) > 300
+                    else mp.situation_analysis
+                )
+        except Exception as e:
+            logger.debug(f"PPTX export: error adding situation analysis slide: {e}")
+
+        # Strategy slide
+        try:
+            if mp.strategy:
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = "Strategy"
+                body = slide.placeholders[1].text_frame
+                body.word_wrap = True
+                body.text = mp.strategy[:300] + "..." if len(mp.strategy) > 300 else mp.strategy
+        except Exception as e:
+            logger.debug(f"PPTX export: error adding strategy slide: {e}")
+
+        # Strategic pillars slide
+        try:
+            if mp.pillars:
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = "Strategic Pillars"
+                body = slide.placeholders[1].text_frame
+                body.word_wrap = True
+                for pillar in mp.pillars[:3]:  # First 3 pillars
+                    pillar_text = f"{pillar.name}: {pillar.description}"[:150] + "..."
+                    if not body.text:
+                        body.text = pillar_text
+                    else:
+                        body.add_paragraph().text = pillar_text
+        except Exception as e:
+            logger.debug(f"PPTX export: error adding pillars slide: {e}")
+
+        # Campaign big idea slide
         try:
             slide = prs.slides.add_slide(prs.slide_layouts[1])
             slide.shapes.title.text = "Campaign Big Idea"
             body = slide.placeholders[1].text_frame
+            body.word_wrap = True
             body.text = cb.big_idea or "(No big idea defined)"
         except Exception as e:
             logger.error(f"PPTX export failed: error adding big idea slide: {e}", exc_info=True)
-            return {
-                "error": True,
-                "message": "Failed to add campaign section to presentation. Please try again.",
-                "export_type": "pptx",
-            }
+            logger.debug("PPTX export: continuing without big idea slide")
+
+        # Campaign objective slide
+        try:
+            if cb.objective:
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = "Campaign Objective"
+                body = slide.placeholders[1].text_frame
+                body.word_wrap = True
+                body.text = f"Primary: {cb.objective.primary or 'N/A'}"
+                if cb.objective.secondary:
+                    body.add_paragraph().text = f"Secondary: {cb.objective.secondary}"
+        except Exception as e:
+            logger.debug(f"PPTX export: error adding objective slide: {e}")
+
+        # Audience persona slide
+        try:
+            if cb.audience_persona:
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = f"Target Audience: {cb.audience_persona.name}"
+                body = slide.placeholders[1].text_frame
+                body.word_wrap = True
+                body.text = cb.audience_persona.description or "(No description)"
+        except Exception as e:
+            logger.debug(f"PPTX export: error adding audience slide: {e}")
+
+        # Social calendar overview slide
+        try:
+            if output.social_calendar and output.social_calendar.posts:
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = "Social Content Calendar"
+                body = slide.placeholders[1].text_frame
+                body.word_wrap = True
+                cal = output.social_calendar
+                body.text = f"Period: {cal.start_date} to {cal.end_date}"
+                body.add_paragraph().text = f"Posts Planned: {len(cal.posts)}"
+                body.add_paragraph().text = (
+                    f"Platforms: {', '.join(set(p.platform for p in cal.posts[:5]))}"
+                )
+        except Exception as e:
+            logger.debug(f"PPTX export: error adding calendar slide: {e}")
+
+        # KPIs / Measurement slide
+        try:
+            if mp.messaging_pyramid:
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = "Key Messages"
+                body = slide.placeholders[1].text_frame
+                body.word_wrap = True
+                mp_text = mp.messaging_pyramid
+                body.text = f"Promise: {mp_text.promise}"
+                for msg in mp_text.key_messages[:2]:  # First 2 key messages
+                    body.add_paragraph().text = f"• {msg[:100]}" if msg else ""
+        except Exception as e:
+            logger.debug(f"PPTX export: error adding messaging slide: {e}")
+
+        # Action plan slide
+        try:
+            if output.action_plan:
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = "Action Plan"
+                body = slide.placeholders[1].text_frame
+                body.word_wrap = True
+                ap = output.action_plan
+                if ap.quick_wins:
+                    body.text = "Quick Wins:"
+                    for win in ap.quick_wins[:2]:
+                        body.add_paragraph().text = f"• {win[:80]}" if win else ""
+                if ap.next_10_days:
+                    body.add_paragraph().text = "Next 10 Days:"
+                    for item in ap.next_10_days[:2]:
+                        body.add_paragraph().text = f"• {item[:80]}" if item else ""
+        except Exception as e:
+            logger.debug(f"PPTX export: error adding action plan slide: {e}")
+
+        # Creatives overview slide
+        try:
+            if output.creatives:
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = "Creative System"
+                body = slide.placeholders[1].text_frame
+                body.word_wrap = True
+                cr = output.creatives
+                if cr.hooks:
+                    body.text = "Hooks:"
+                    for hook in cr.hooks[:2]:
+                        body.add_paragraph().text = f"• {hook[:100]}" if hook else ""
+        except Exception as e:
+            logger.debug(f"PPTX export: error adding creatives slide: {e}")
 
         # Write to buffer
         try:
@@ -289,7 +413,9 @@ def safe_export_pptx(
                     "export_type": "pptx",
                 }
 
-            logger.info(f"PPTX export successful ({len(pptx_bytes)} bytes)")
+            logger.info(
+                f"PPTX export successful ({len(pptx_bytes)} bytes, {len(prs.slides)} slides)"
+            )
 
             return StreamingResponse(
                 content=iter([pptx_bytes]),

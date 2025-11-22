@@ -15,20 +15,40 @@ from typing import Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 from openai import OpenAI
 
-# -------------------------------------------------------------------
 # Config
-# -------------------------------------------------------------------
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_DB_PATH = os.getenv("AICMO_MEMORY_DB", "db/aicmo_memory.db")
 DEFAULT_EMBEDDING_MODEL = os.getenv("AICMO_EMBEDDING_MODEL", "text-embedding-3-small")
 
+# Memory retention policy: max entries per project
+DEFAULT_MAX_MEMORY_ENTRIES_PER_PROJECT = int(os.getenv("AICMO_MEMORY_MAX_PER_PROJECT", "200"))
+DEFAULT_MAX_MEMORY_ENTRIES_TOTAL = int(os.getenv("AICMO_MEMORY_MAX_TOTAL", "5000"))
+
 USE_FAKE_EMBEDDINGS = os.getenv("AICMO_FAKE_EMBEDDINGS", "").lower() in (
     "1",
     "true",
     "yes",
 )
+
+# Phase L Persistence Guard: Warn if using non-persistent in-memory DB
+if DEFAULT_DB_PATH == ":memory:":
+    logger.warning(
+        "Phase L: AICMO_MEMORY_DB=':memory:' – learning will NOT persist across restarts. "
+        "Set AICMO_MEMORY_DB to a file path for persistent learning."
+    )
+elif DEFAULT_DB_PATH.startswith("/tmp/"):
+    logger.warning(
+        f"Phase L: AICMO_MEMORY_DB={DEFAULT_DB_PATH} – temporary directory may lose data on reboot. "
+        "Consider using persistent storage (e.g., /var/lib/aicmo/ or db/)"
+    )
+else:
+    # Ensure parent directory exists for file-based DB
+    db_dir = os.path.dirname(DEFAULT_DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+    logger.debug(f"Phase L: Using persistent DB at {DEFAULT_DB_PATH}")
 
 
 def _get_client() -> OpenAI:
@@ -175,7 +195,7 @@ def learn_from_blocks(
         return 0
 
     tags = list(tags or [])
-    now = dt.datetime.utcnow().isoformat()
+    now = dt.datetime.now(dt.timezone.utc).isoformat()
 
     titles = [b[0] for b in blocks]
     texts = [b[1] for b in blocks]
@@ -202,10 +222,147 @@ def learn_from_blocks(
                 ),
             )
         conn.commit()
+
+        # Enforce retention policy
+        _cleanup_old_entries(db_path, project_id=project_id)
+
     finally:
         conn.close()
 
     return len(blocks)
+
+
+def _cleanup_old_entries(
+    db_path: str = DEFAULT_DB_PATH,
+    project_id: Optional[str] = None,
+    max_per_project: int = DEFAULT_MAX_MEMORY_ENTRIES_PER_PROJECT,
+    max_total: int = DEFAULT_MAX_MEMORY_ENTRIES_TOTAL,
+) -> int:
+    """
+    Enforce memory retention policy by deleting oldest entries if limits exceeded.
+
+    Args:
+        db_path: Path to SQLite database
+        project_id: Optional project to clean (if None, clean global limit)
+        max_per_project: Maximum entries per project
+        max_total: Maximum total entries
+
+    Returns:
+        Number of entries deleted
+    """
+    conn = _get_conn(db_path)
+    try:
+        cur = conn.cursor()
+        deleted = 0
+
+        if project_id:
+            # Per-project cleanup
+            cur.execute(
+                "SELECT COUNT(*) FROM memory_items WHERE project_id = ?",
+                (project_id,),
+            )
+            count = cur.fetchone()[0]
+
+            if count > max_per_project:
+                # Delete oldest entries for this project
+                to_delete = count - max_per_project
+                cur.execute(
+                    """
+                    DELETE FROM memory_items
+                    WHERE project_id = ? AND id IN (
+                        SELECT id FROM memory_items
+                        WHERE project_id = ?
+                        ORDER BY created_at ASC
+                        LIMIT ?
+                    )
+                    """,
+                    (project_id, project_id, to_delete),
+                )
+                deleted += cur.rowcount
+                logger.info(
+                    f"Phase L cleanup: Deleted {deleted} entries for project {project_id} "
+                    f"(was {count}, limit {max_per_project})"
+                )
+
+        # Global cleanup
+        cur.execute("SELECT COUNT(*) FROM memory_items")
+        total_count = cur.fetchone()[0]
+
+        if total_count > max_total:
+            # Delete oldest entries globally
+            to_delete = total_count - max_total
+            cur.execute(
+                """
+                DELETE FROM memory_items
+                WHERE id IN (
+                    SELECT id FROM memory_items
+                    ORDER BY created_at ASC
+                    LIMIT ?
+                )
+                """,
+                (to_delete,),
+            )
+            deleted += cur.rowcount
+            logger.info(
+                f"Phase L cleanup: Deleted {deleted} total entries "
+                f"(was {total_count}, limit {max_total})"
+            )
+
+        conn.commit()
+        return deleted
+
+    finally:
+        conn.close()
+
+
+def get_memory_stats(db_path: str = DEFAULT_DB_PATH) -> dict:
+    """
+    Get memory usage statistics.
+
+    Returns:
+        Dict with total_entries, entries_per_project, top_kinds
+    """
+    conn = _get_conn(db_path)
+    try:
+        cur = conn.cursor()
+
+        # Total entries
+        cur.execute("SELECT COUNT(*) FROM memory_items")
+        total_entries = cur.fetchone()[0]
+
+        # Entries per project
+        cur.execute(
+            """
+            SELECT project_id, COUNT(*) as count
+            FROM memory_items
+            GROUP BY project_id
+            ORDER BY count DESC
+            LIMIT 10
+            """
+        )
+        entries_per_project = {row[0] or "(global)": row[1] for row in cur.fetchall()}
+
+        # Top kinds
+        cur.execute(
+            """
+            SELECT kind, COUNT(*) as count
+            FROM memory_items
+            GROUP BY kind
+            ORDER BY count DESC
+            """
+        )
+        top_kinds = {row[0]: row[1] for row in cur.fetchall()}
+
+        return {
+            "total_entries": total_entries,
+            "entries_per_project": entries_per_project,
+            "top_kinds": top_kinds,
+            "max_per_project": DEFAULT_MAX_MEMORY_ENTRIES_PER_PROJECT,
+            "max_total": DEFAULT_MAX_MEMORY_ENTRIES_TOTAL,
+        }
+
+    finally:
+        conn.close()
 
 
 # -------------------------------------------------------------------
@@ -292,7 +449,9 @@ def retrieve_relevant_blocks(
         scored.append((score, item))
 
     scored.sort(key=lambda x: x[0], reverse=True)
-    return [mi for score, mi in scored[:limit]]
+    results = [mi for score, mi in scored[:limit]]
+    logger.info(f"Phase L: Retrieved {len(results)} relevant blocks from {len(rows)} total items")
+    return results
 
 
 def format_blocks_for_prompt(
@@ -337,7 +496,9 @@ def augment_prompt_with_memory(
     """
     items = retrieve_relevant_blocks(query=brief_text, limit=limit)
     if not items:
+        logger.info("Phase L: No relevant memory blocks found, using base prompt")
         return base_prompt
 
     context = format_blocks_for_prompt(items)
+    logger.info(f"Phase L: Augmented prompt with {len(items)} memory block(s)")
     return f"{context}\n\n---\n\n{base_prompt}"

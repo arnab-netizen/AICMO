@@ -304,14 +304,18 @@ def aicmo_learn(
     tags: Dict[str, str],
     timeout: int,
 ) -> Dict[str, Any]:
-    """Call /aicmo/learn endpoint (Phase 5 learning store)."""
+    """Call /api/learn/from-report endpoint (Phase L memory engine)."""
+    # Convert tags dict to list of formatted strings
+    tag_list = [f"{k}:{v}" for k, v in tags.items()] if tags else []
+
     payload = {
         "project_id": project_id,
-        "brief": brief,
         "report": final_report,
-        "tags": tags,
+        "tags": tag_list,
     }
-    resp = call_backend("POST", api_base, "/aicmo/learn", json_body=payload, timeout=timeout)
+    resp = call_backend(
+        "POST", api_base, "/api/learn/from-report", json_body=payload, timeout=timeout
+    )
     resp.raise_for_status()
     return resp.json()
 
@@ -696,23 +700,84 @@ elif nav == "Learn & Improve":
                     },
                     timeout=int(timeout),
                 )
-                st.success("Project sent to learning store.")
+                st.success(
+                    f"✅ AICMO learned from this project! ({result.get('stored_blocks', '?')} blocks stored)"
+                )
                 st.json(result)
             except Exception as exc:
-                st.error(f"Learning call failed: {exc}")
+                error_msg = str(exc)
+                st.error(
+                    f"❌ Teaching failed: {error_msg}\n\nMake sure the backend is running and the endpoint /api/learn/from-report is available."
+                )
 
         st.markdown("---")
         st.markdown("#### Add external reference reports (optional)")
         ref_files = st.file_uploader(
             "Upload top-agency reports / decks to use as reference material",
-            type=["pdf", "pptx", "docx"],
+            type=["pdf", "pptx", "docx", "txt"],
             accept_multiple_files=True,
         )
         if ref_files:
-            st.warning(
-                "Backend wiring needed: send these files to your reference/embedding pipeline."
+            st.info(
+                f"📚 Ready to learn from {len(ref_files)} file(s). Click below to add to Phase L memory."
             )
-            st.write([f.name for f in ref_files])
+
+            if st.button("📖 Teach AICMO from these files", key="teach_from_files"):
+                with st.spinner("📚 Teaching AICMO from your files..."):
+                    try:
+                        # Extract text from uploaded files
+                        extracted_files = []
+                        for uploaded_file in ref_files:
+                            try:
+                                # Try to read as text (works for .txt, .docx preview, .pptx preview)
+                                file_text = uploaded_file.read().decode("utf-8", errors="ignore")
+                                if file_text.strip():
+                                    extracted_files.append(
+                                        {"filename": uploaded_file.name, "text": file_text}
+                                    )
+                                    st.caption(
+                                        f"✓ Extracted: {uploaded_file.name} ({len(file_text)} chars)"
+                                    )
+                            except Exception as e:
+                                st.caption(f"⚠️ Could not read {uploaded_file.name}: {str(e)[:100]}")
+
+                        if not extracted_files:
+                            st.error("❌ No readable text found in uploaded files.")
+                        else:
+                            # Send to backend
+                            payload = {
+                                "project_id": st.session_state.current_project_id,
+                                "files": extracted_files,
+                            }
+
+                            result = call_backend(
+                                "POST",
+                                api_base,
+                                "/api/learn/from-files",
+                                json.dumps(payload),
+                                timeout=timeout,
+                            )
+
+                            if result.get("status") == "ok":
+                                items_learned = result.get("items_learned", 0)
+                                st.success(
+                                    f"✅ AICMO learned {items_learned} blocks from {len(extracted_files)} file(s)!"
+                                )
+                                st.json(
+                                    {
+                                        "files_processed": len(extracted_files),
+                                        "blocks_learned": items_learned,
+                                    }
+                                )
+                            else:
+                                st.error(
+                                    f"❌ Learning failed: {result.get('detail', 'Unknown error')}"
+                                )
+                    except Exception as exc:
+                        error_msg = str(exc)
+                        st.error(
+                            f"❌ File teaching failed: {error_msg}\n\nMake sure the backend is running and the endpoint /api/learn/from-files is available."
+                        )
 
 # ═══════════════════════════════════════════════════════════════════════
 # EXPORT

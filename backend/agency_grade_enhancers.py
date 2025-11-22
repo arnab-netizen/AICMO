@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Optional
 
@@ -9,6 +10,14 @@ try:
     from openai import OpenAI  # type: ignore
 except ImportError:
     OpenAI = None  # type: ignore
+
+logger = logging.getLogger("aicmo.turbo")
+
+# Phase L integration
+try:
+    from aicmo.memory.engine import augment_prompt_with_memory
+except ImportError:
+    augment_prompt_with_memory = None  # type: ignore
 
 
 def _get_openai_client() -> Optional["OpenAI"]:
@@ -71,6 +80,34 @@ def _call_llm_for_section(
         return ""
 
 
+def _augment_with_phase_l(prompt: str, brief_text: str) -> str:
+    """
+    Optionally augment a TURBO section prompt with Phase L memory.
+    Safe: returns original prompt if Phase L unavailable or empty.
+
+    Args:
+        prompt: The user prompt to potentially augment
+        brief_text: Client brief text for memory retrieval
+
+    Returns:
+        Augmented prompt with learned examples, or original prompt
+    """
+    if augment_prompt_with_memory is None:
+        return prompt
+
+    try:
+        # Use Phase L to find similar examples from past reports
+        return augment_prompt_with_memory(
+            brief_text=brief_text,
+            base_prompt=prompt,
+            limit=5,  # Include up to 5 relevant examples
+        )
+    except Exception as e:
+        # Non-breaking: if Phase L fails, use original prompt
+        logger.debug(f"Phase L augmentation failed (non-critical): {e}")
+        return prompt
+
+
 # =====================================================================
 # MAIN ENTRYPOINT – AICMO TURBO
 # =====================================================================
@@ -86,6 +123,7 @@ def apply_agency_grade_enhancements(brief, report) -> None:
     Safe:
       - If OpenAI not available or errors → does nothing.
       - Base report remains valid JSON.
+      - Phase L memory integration is automatic and non-breaking.
     """
     client = _get_openai_client()
     if client is None:
@@ -93,6 +131,10 @@ def apply_agency_grade_enhancements(brief, report) -> None:
 
     brief_text = _brief_to_text(brief)
     report_text = _report_to_text(report)
+
+    # Phase L: Augment brief context with learned examples from past reports
+    # This prepends relevant examples to the brief, enriching all TURBO section generation
+    brief_text = _augment_with_phase_l(brief_text, brief_text)
 
     # 1) Outcome forecast
     _add_outcome_forecast_section(client, brief, report, brief_text, report_text)
