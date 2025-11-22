@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import dataclasses
 import datetime as dt
+import hashlib
 import json
+import logging
 import os
 import sqlite3
 from pathlib import Path
@@ -17,8 +19,16 @@ from openai import OpenAI
 # Config
 # -------------------------------------------------------------------
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_DB_PATH = os.getenv("AICMO_MEMORY_DB", "db/aicmo_memory.db")
 DEFAULT_EMBEDDING_MODEL = os.getenv("AICMO_EMBEDDING_MODEL", "text-embedding-3-small")
+
+USE_FAKE_EMBEDDINGS = os.getenv("AICMO_FAKE_EMBEDDINGS", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
 
 def _get_client() -> OpenAI:
@@ -82,22 +92,58 @@ def _get_conn(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
 # -------------------------------------------------------------------
 
 
+def _fake_embed_texts(texts: Sequence[str], dim: int = 32) -> List[List[float]]:
+    """
+    Deterministic, offline 'fake' embeddings for dev mode.
+
+    Uses SHA-256 hash of text to generate a fixed-length vector in [0, 1].
+    This is NOT semantically meaningful like real embeddings, but:
+
+    - It is deterministic across runs.
+    - Similar texts often share hash prefix bits.
+    - It allows you to test Phase L without calling OpenAI.
+    """
+    vectors: List[List[float]] = []
+    for text in texts:
+        h = hashlib.sha256(text.encode("utf-8")).digest()
+        # Expand/repeat digest to requested dimension
+        raw_bytes = (h * ((dim // len(h)) + 1))[:dim]
+        vec = [b / 255.0 for b in raw_bytes]
+        vectors.append(vec)
+    return vectors
+
+
 def _embed_texts(
     texts: Sequence[str],
     model: str = DEFAULT_EMBEDDING_MODEL,
 ) -> List[List[float]]:
     """
     Call OpenAI embeddings API once for a batch of texts.
+
+    In dev or when quotas are hit, falls back to local deterministic
+    fake embeddings so Phase L can still be exercised.
     """
     if not texts:
         return []
 
-    client = _get_client()
-    resp = client.embeddings.create(
-        model=model,
-        input=list(texts),
-    )
-    return [d.embedding for d in resp.data]
+    # Dev / offline mode: never call OpenAI
+    if USE_FAKE_EMBEDDINGS:
+        logger.info("AICMO_MEMORY: Using fake embeddings (AICMO_FAKE_EMBEDDINGS=1).")
+        return _fake_embed_texts(texts)
+
+    try:
+        client = _get_client()
+        resp = client.embeddings.create(
+            model=model,
+            input=list(texts),
+        )
+        return [d.embedding for d in resp.data]
+    except Exception as exc:
+        logger.warning(
+            "AICMO_MEMORY: Embedding call failed (%s). Falling back to fake embeddings.",
+            exc,
+        )
+        return _fake_embed_texts(texts)
 
 
 # -------------------------------------------------------------------
