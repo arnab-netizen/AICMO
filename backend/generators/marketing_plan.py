@@ -8,6 +8,7 @@ from aicmo.io.client_reports import (
     StrategyPillar,
 )
 from backend.dependencies import get_llm
+from backend.services.learning import augment_with_memory_for_brief
 
 
 async def generate_marketing_plan(brief: ClientInputBrief) -> MarketingPlanView:
@@ -72,6 +73,9 @@ IMPORTANT:
 - All text should feel senior-level strategic
 
 Return well-formatted markdown sections."""
+
+    # Phase L: Augment prompt with learned patterns from memory
+    prompt = augment_with_memory_for_brief(brief, prompt)
 
     text = await llm.generate(prompt, temperature=0.75, max_tokens=3000)
 

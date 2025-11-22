@@ -63,6 +63,7 @@ from backend.templates import (
 )
 from backend.pdf_utils import text_to_pdf_bytes
 from backend.routers.health import router as health_router
+from backend.api.routes_learn import router as learn_router
 
 
 class TemplateFormat(str, Enum):
@@ -92,6 +93,7 @@ class GenerateRequest(BaseModel):
 
 app = FastAPI(title="AICMO API")
 app.include_router(health_router, tags=["health"])
+app.include_router(learn_router, tags=["learn"])
 
 
 # =====================
