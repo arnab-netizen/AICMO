@@ -20,6 +20,7 @@ from aicmo.io.client_reports import (
     AICMOOutputReport,
     generate_output_report_markdown,
 )
+from aicmo.quality.validators import validate_report, has_blocking_issues
 from backend.pdf_utils import text_to_pdf_bytes
 from backend.placeholder_utils import report_has_placeholders, format_placeholder_warning
 
@@ -30,6 +31,51 @@ class ExportError(Exception):
     """Base exception for export failures."""
 
     pass
+
+
+def _validate_report_for_export(
+    report: AICMOOutputReport,
+) -> Union[None, Dict[str, str]]:
+    """
+    Validate report against agency-grade standards before exporting to client.
+
+    Returns None if valid, error dict if blocking issues found.
+
+    This is the unified validation entry point that combines both:
+    - Old placeholder_utils checks (deprecated but kept for compatibility)
+    - New aicmo.quality.validators checks (comprehensive standard)
+
+    Design: Report must pass BOTH checks to be export-ready.
+    """
+    # First check: new comprehensive validation
+    validation_issues = validate_report(report)
+    if has_blocking_issues(validation_issues):
+        errors = [i for i in validation_issues if i.severity == "error"]
+        error_details = "\n".join(
+            [f"• {i.section}: {i.message}" for i in errors[:5]]
+        )  # Show first 5
+        logger.warning(f"Export blocked by validation: {len(errors)} error(s) found")
+        return {
+            "error": True,
+            "message": (
+                f"Export blocked: Report validation failed with {len(errors)} issue(s):\n{error_details}"
+            ),
+            "validation_errors": [{"section": i.section, "message": i.message} for i in errors],
+            "blocked_by": "agency_grade_validation",
+        }
+
+    # Second check: legacy placeholder detection (backward compatibility)
+    placeholder_sections = report_has_placeholders(report)
+    if placeholder_sections:
+        msg = format_placeholder_warning(placeholder_sections)
+        logger.warning(f"Export blocked by legacy placeholder check: {msg}")
+        return {
+            "error": True,
+            "message": f"Export blocked: {msg}",
+            "blocked_by": "legacy_placeholder_detection",
+        }
+
+    return None
 
 
 def safe_export_pdf(
@@ -131,13 +177,13 @@ def safe_export_pptx(
     Args:
         brief: Client input brief.
         output: AICMO output report.
-        check_placeholders: If True, check report for placeholders before export.
+        check_placeholders: If True, validate report quality before export.
 
     Returns:
         StreamingResponse with PPTX content on success.
         Dict with error details on failure.
 
-    Design: Validates input, checks placeholders, attempts PPTX generation, returns graceful error if needed.
+    Design: Validates input, runs agency-grade checks, attempts PPTX generation, returns graceful error if needed.
     """
     try:
         try:
@@ -159,17 +205,12 @@ def safe_export_pptx(
                 "export_type": "pptx",
             }
 
-        # Check for placeholders in the output report
+        # Run agency-grade validation if requested
         if check_placeholders:
-            placeholder_sections = report_has_placeholders(output)
-            if placeholder_sections:
-                msg = format_placeholder_warning(placeholder_sections)
-                logger.warning(f"PPTX export blocked: {msg}")
-                return {
-                    "error": True,
-                    "message": f"Export blocked: {msg}",
-                    "export_type": "pptx",
-                }
+            validation_error = _validate_report_for_export(output)
+            if validation_error:
+                logger.warning(f"PPTX export blocked: {validation_error.get('blocked_by')}")
+                return validation_error
 
         mp = output.marketing_plan
         cb = output.campaign_blueprint
@@ -301,17 +342,12 @@ def safe_export_zip(
                 "export_type": "zip",
             }
 
-        # Check for placeholders in the output report
+        # Run agency-grade validation if requested
         if check_placeholders:
-            placeholder_sections = report_has_placeholders(output)
-            if placeholder_sections:
-                msg = format_placeholder_warning(placeholder_sections)
-                logger.warning(f"ZIP export blocked: {msg}")
-                return {
-                    "error": True,
-                    "message": f"Export blocked: {msg}",
-                    "export_type": "zip",
-                }
+            validation_error = _validate_report_for_export(output)
+            if validation_error:
+                logger.warning(f"ZIP export blocked: {validation_error.get('blocked_by')}")
+                return validation_error
 
         # Generate markdown
         try:

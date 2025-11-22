@@ -24,10 +24,13 @@ from aicmo.io.client_reports import (
     OperationsBrief,
     StrategyExtrasBrief,
     MarketingPlanView,
+    StrategyPillar,
     CampaignBlueprintView,
     CampaignObjectiveView,
     AudiencePersonaView,
     SocialCalendarView,
+    CalendarPostView,
+    ActionPlan,
 )
 
 
@@ -54,24 +57,44 @@ def minimal_brief():
 
 @pytest.fixture
 def minimal_output():
-    """Create a minimal valid output report."""
-    from datetime import date
+    """Create a minimal valid output report that passes agency-grade validation."""
+    from datetime import date, timedelta
 
     return AICMOOutputReport(
         marketing_plan=MarketingPlanView(
-            executive_summary="Test summary",
-            situation_analysis="Test analysis",
-            strategy="Test strategy",
+            executive_summary="Strategic overview of the marketing approach",
+            situation_analysis="Market analysis and positioning",
+            strategy="Comprehensive strategy statement",
+            pillars=[
+                StrategyPillar(name="Pillar One", description="First strategic focus area"),
+                StrategyPillar(name="Pillar Two", description="Second strategic focus area"),
+                StrategyPillar(name="Pillar Three", description="Third strategic focus area"),
+            ],
         ),
         campaign_blueprint=CampaignBlueprintView(
-            big_idea="Test idea",
+            big_idea="Compelling campaign concept",
             objective=CampaignObjectiveView(primary="awareness"),
             audience_persona=AudiencePersonaView(name="Test", description="Test"),
         ),
         social_calendar=SocialCalendarView(
             start_date=date.today(),
-            end_date=date.today(),
-            posts=[],
+            end_date=date.today() + timedelta(days=30),
+            posts=[
+                CalendarPostView(
+                    date=date.today() + timedelta(days=i),
+                    platform="Instagram",
+                    theme="Theme",
+                    hook=f"Hook for day {i+1}",
+                    cta="Learn more",
+                    asset_type="carousel",
+                )
+                for i in range(7)
+            ],
+        ),
+        action_plan=ActionPlan(
+            quick_wins=["Action 1"],
+            next_10_days=["Action 2"],
+            next_30_days=["Action 3", "Action 4", "Action 5"],
         ),
     )
 

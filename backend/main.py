@@ -68,6 +68,12 @@ from backend.routers.health import router as health_router
 from backend.api.routes_learn import router as learn_router
 
 # Configure structured logging
+from aicmo.logging import configure_logging, get_logger
+
+configure_logging(level=os.getenv("LOG_LEVEL", "INFO"))
+logger = get_logger(__name__)
+
+# Configure structured logging
 logger = logging.getLogger("aicmo")
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
