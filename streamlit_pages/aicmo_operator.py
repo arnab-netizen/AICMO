@@ -1,12 +1,13 @@
 import io
 import json
 import os
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 import streamlit as st
 from openai import OpenAI
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine
 
 
 # Try to import humanization wrapper for post-processing
@@ -144,35 +145,136 @@ REFINEMENT_MODES: Dict[str, Dict[str, Any]] = {
 
 
 # -------------------------------------------------
-# Simple learn-store
+# Database (Neon via DATABASE_URL / DB_URL)
 # -------------------------------------------------
-def _get_learn_store_path() -> Path:
-    base = Path(os.environ.get("AICMO_DATA_DIR", ".aicmo"))
-    base.mkdir(parents=True, exist_ok=True)
-    return base / "learn_store.jsonl"
+DB_URL = os.getenv("DB_URL") or os.getenv("DATABASE_URL")
 
 
+@st.cache_resource
+def get_engine() -> Engine:
+    """
+    Return a cached SQLAlchemy engine for the configured DB.
+    Uses Neon when DATABASE_URL points to a Neon Postgres DSN.
+    """
+    if not DB_URL:
+        raise RuntimeError("No DB_URL/DATABASE_URL set for AICMO persistence.")
+    return create_engine(DB_URL, pool_pre_ping=True, future=True)
+
+
+def ensure_learn_table() -> None:
+    """
+    Create the learn-items table if it doesn't exist.
+    This is idempotent and safe to call multiple times.
+    """
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS aicmo_learn_items (
+                    id SERIAL PRIMARY KEY,
+                    kind TEXT NOT NULL,
+                    filename TEXT,
+                    size_bytes BIGINT,
+                    notes TEXT,
+                    tags JSONB,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+                """
+            )
+        )
+
+
+# -------------------------------------------------
+# Learn-store backed by Neon (Postgres)
+# -------------------------------------------------
 def load_learn_items() -> List[Dict[str, Any]]:
-    path = _get_learn_store_path()
-    if not path.exists():
-        return []
-    items: List[Dict[str, Any]] = []
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                items.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-    return items
+    """
+    Load all learn items from Neon.
+    Returns a list of dicts:
+    {
+        "kind": "good" | "bad",
+        "filename": str | None,
+        "size_bytes": int | None,
+        "notes": str,
+        "tags": list[str],
+        "created_at": ISO timestamp | None
+    }
+    """
+    ensure_learn_table()
+    engine = get_engine()
+    with engine.begin() as conn:
+        rows = conn.execute(
+            text(
+                """
+                SELECT
+                    kind,
+                    filename,
+                    size_bytes,
+                    notes,
+                    tags,
+                    created_at
+                FROM aicmo_learn_items
+                ORDER BY created_at DESC
+                """
+            )
+        ).mappings()
+
+        items: List[Dict[str, Any]] = []
+        for r in rows:
+            tags = r.get("tags") or []
+            # tags may already be a list if SQLAlchemy decodes jsonb, or a JSON string
+            if isinstance(tags, str):
+                try:
+                    tags = json.loads(tags)
+                except json.JSONDecodeError:
+                    tags = []
+
+            created_at = r.get("created_at")
+            items.append(
+                {
+                    "kind": r.get("kind"),
+                    "filename": r.get("filename"),
+                    "size_bytes": r.get("size_bytes"),
+                    "notes": r.get("notes") or "",
+                    "tags": tags,
+                    "created_at": created_at.isoformat() if created_at else None,
+                }
+            )
+        return items
 
 
 def append_learn_item(item: Dict[str, Any]) -> None:
-    path = _get_learn_store_path()
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(item, ensure_ascii=False) + "\n")
+    """
+    Insert a learn item into Neon.
+    `item` is expected to have: kind, filename, size_bytes, notes, tags.
+    """
+    ensure_learn_table()
+    engine = get_engine()
+
+    tags = item.get("tags") or []
+    if not isinstance(tags, (list, dict)):
+        # defensive: if someone passes a string, wrap in list
+        tags = [str(tags)]
+
+    payload = {
+        "kind": item.get("kind") or "good",
+        "filename": item.get("filename"),
+        "size_bytes": int(item.get("size_bytes") or 0),
+        "notes": item.get("notes") or "",
+        "tags": json.dumps(tags),
+    }
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                INSERT INTO aicmo_learn_items (kind, filename, size_bytes, notes, tags)
+                VALUES (:kind, :filename, :size_bytes, :notes, :tags::jsonb)
+                """
+            ),
+            payload,
+        )
 
 
 # -------------------------------------------------
