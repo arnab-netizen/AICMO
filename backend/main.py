@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import io
 import json
+import logging
 import os
-import zipfile
 from datetime import date, timedelta
 from enum import Enum
 from typing import Optional
@@ -23,6 +22,7 @@ from aicmo.presets.industry_presets import list_available_industries
 
 # Phase L: Vector-based memory learning
 from backend.services.learning import learn_from_report
+from backend.export_utils import safe_export_pdf, safe_export_pptx, safe_export_zip
 
 from aicmo.io.client_reports import (
     ClientInputBrief,
@@ -48,7 +48,6 @@ from aicmo.io.client_reports import (
     CTAVariant,
     OfferAngle,
     HookInsight,
-    generate_output_report_markdown,
 )
 from backend.schemas import (
     ClientIntakeForm,
@@ -67,6 +66,12 @@ from backend.templates import (
 from backend.pdf_utils import text_to_pdf_bytes
 from backend.routers.health import router as health_router
 from backend.api.routes_learn import router as learn_router
+
+# Configure structured logging
+logger = logging.getLogger("aicmo")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 
 
 class TemplateFormat(str, Enum):
@@ -671,7 +676,7 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
             # Update with LLM-generated marketing plan
             base_output.marketing_plan = marketing_plan
         except Exception as e:
-            print(f"[AICMO] LLM marketing plan generation failed, using stub: {e}")
+            logger.warning(f"LLM marketing plan generation failed, using stub: {e}", exc_info=False)
             base_output = _generate_stub_output(req)
     else:
         # Default: offline & deterministic (current behaviour)
@@ -685,7 +690,7 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
                 brief=req.brief, output=base_output.model_dump(), notes="Auto-recorded stub output"
             )
         except Exception as e:
-            print(f"[AICMO] Learning recording failed (non-critical): {e}")
+            logger.debug(f"Learning recording failed (non-critical): {e}")
 
         # TURBO: Apply agency-grade enhancements if requested and enabled
         turbo_enabled = os.getenv("AICMO_TURBO_ENABLED", "1") == "1"
@@ -693,7 +698,7 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
             try:
                 apply_agency_grade_enhancements(req.brief, base_output)
             except Exception as e:
-                print(f"[AICMO] Agency-grade enhancements failed (non-critical): {e}")
+                logger.debug(f"Agency-grade enhancements failed (non-critical): {e}")
 
         # Phase L: Auto-learn from this final report
         try:
@@ -703,7 +708,7 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
                 tags=["auto_learn", "final_report"],
             )
         except Exception as e:
-            print(f"[AICMO] Auto-learning failed (non-critical): {e}")
+            logger.debug(f"Auto-learning failed (non-critical): {e}")
 
         return base_output
 
@@ -725,7 +730,7 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
             try:
                 apply_agency_grade_enhancements(req.brief, enhanced_output)
             except Exception as e:
-                print(f"[AICMO] Agency-grade enhancements failed (non-critical): {e}")
+                logger.debug(f"Agency-grade enhancements failed (non-critical): {e}")
 
         # Phase 5: Auto-record this enhanced output as a learning example
         try:
@@ -735,7 +740,7 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
                 notes=f"LLM-enhanced output (industry: {req.industry_key or 'none'})",
             )
         except Exception as e:
-            print(f"[AICMO] Learning recording failed (non-critical): {e}")
+            logger.debug(f"Learning recording failed (non-critical): {e}")
 
         # Phase L: Auto-learn from this final report
         try:
@@ -745,12 +750,12 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
                 tags=["auto_learn", "final_report", "llm_enhanced"],
             )
         except Exception as e:
-            print(f"[AICMO] Auto-learning failed (non-critical): {e}")
+            logger.debug(f"Auto-learning failed (non-critical): {e}")
 
         return enhanced_output
     except RuntimeError as e:
         # LLM SDK missing etc. – log and fall back quietly
-        print(f"[AICMO] LLM disabled or not installed: {e}")
+        logger.info(f"LLM disabled or not installed: {e}")
 
         # TURBO: Apply agency-grade enhancements if requested and enabled (even on fallback)
         turbo_enabled = os.getenv("AICMO_TURBO_ENABLED", "1") == "1"
@@ -758,7 +763,7 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
             try:
                 apply_agency_grade_enhancements(req.brief, base_output)
             except Exception as e:
-                print(f"[AICMO] Agency-grade enhancements failed (non-critical): {e}")
+                logger.debug(f"Agency-grade enhancements failed (non-critical): {e}")
 
         # Phase L: Auto-learn from this final report (even on fallback)
         try:
@@ -768,12 +773,12 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
                 tags=["auto_learn", "final_report", "llm_fallback"],
             )
         except Exception as e:
-            print(f"[AICMO] Auto-learning failed (non-critical): {e}")
+            logger.debug(f"Auto-learning failed (non-critical): {e}")
 
         return base_output
     except Exception as e:
         # Any unexpected LLM error – do NOT break operator flow
-        print(f"[AICMO] LLM enhancement failed, falling back to stub: {e}")
+        logger.error(f"LLM enhancement failed, falling back to stub: {e}", exc_info=True)
 
         # TURBO: Apply agency-grade enhancements if requested and enabled (even on fallback)
         turbo_enabled = os.getenv("AICMO_TURBO_ENABLED", "1") == "1"
@@ -842,7 +847,7 @@ async def aicmo_revise(
             brief=brief, output=revised.model_dump(), notes="Auto-recorded revised output"
         )
     except Exception as e:
-        print(f"[AICMO] Learning recording failed (non-critical): {e}")
+        logger.debug(f"Learning recording failed (non-critical): {e}")
 
     return revised
 
@@ -850,147 +855,93 @@ async def aicmo_revise(
 @app.post("/aicmo/export/pdf")
 def aicmo_export_pdf(payload: dict):
     """
-    Convert markdown (from Streamlit) to a PDF.
+    Convert markdown to PDF with safe error handling.
+
     Body: { "markdown": "..." }
+
+    Returns:
+        StreamingResponse with PDF on success.
+        JSONResponse with error details on failure.
     """
     markdown = payload.get("markdown") or ""
-    if not markdown.strip():
-        raise HTTPException(status_code=400, detail="Markdown content is empty")
+    result = safe_export_pdf(markdown)
 
-    pdf_bytes = text_to_pdf_bytes(markdown)
-    return StreamingResponse(
-        content=iter([pdf_bytes]),
-        media_type="application/pdf",
-        headers={"Content-Disposition": 'attachment; filename="aicmo_report.pdf"'},
-    )
+    # If result is a dict, it's an error – return as JSON
+    if isinstance(result, dict):
+        logger.warning(f"PDF export failed: {result}")
+        return JSONResponse(status_code=400, content=result)
+
+    # Otherwise, it's a StreamingResponse – return it
+    return result
 
 
 @app.post("/aicmo/export/pptx")
 def aicmo_export_pptx(payload: dict):
     """
-    Very simple PPTX generator.
+    Convert brief + output to PPTX with safe error handling.
+
     Body: { "brief": {...}, "output": {...} }
+
+    Returns:
+        StreamingResponse with PPTX on success.
+        JSONResponse with error details on failure.
     """
     try:
-        from pptx import Presentation
-    except ImportError:
-        raise HTTPException(
-            status_code=500,
-            detail="python-pptx not installed. Run: pip install python-pptx",
+        brief = ClientInputBrief.model_validate(payload["brief"])
+        output = AICMOOutputReport.model_validate(payload["output"])
+    except Exception as e:
+        logger.error(f"PPTX export: invalid input validation: {e}")
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": True,
+                "message": "Invalid brief or output format.",
+                "export_type": "pptx",
+            },
         )
 
-    brief = ClientInputBrief.model_validate(payload["brief"])
-    output = AICMOOutputReport.model_validate(payload["output"])
+    result = safe_export_pptx(brief, output)
 
-    prs = Presentation()
+    # If result is a dict, it's an error – return as JSON
+    if isinstance(result, dict):
+        logger.warning(f"PPTX export failed: {result}")
+        return JSONResponse(status_code=400, content=result)
 
-    # Title slide
-    slide = prs.slides.add_slide(prs.slide_layouts[0])
-    slide.shapes.title.text = f"AICMO Report – {brief.brand.brand_name}"
-    subtitle = slide.placeholders[1]
-    subtitle.text = "Generated by AICMO"
-
-    # Executive summary slide
-    mp = output.marketing_plan
-    slide = prs.slides.add_slide(prs.slide_layouts[1])
-    slide.shapes.title.text = "Executive Summary"
-    body = slide.placeholders[1].text_frame
-    for line in mp.executive_summary.splitlines():
-        if not body.text:
-            body.text = line
-        else:
-            body.add_paragraph().text = line
-
-    # Big idea slide
-    cb = output.campaign_blueprint
-    slide = prs.slides.add_slide(prs.slide_layouts[1])
-    slide.shapes.title.text = "Campaign Big Idea"
-    body = slide.placeholders[1].text_frame
-    body.text = cb.big_idea
-
-    buf = io.BytesIO()
-    prs.save(buf)
-    buf.seek(0)
-
-    return StreamingResponse(
-        content=buf,
-        media_type=("application/vnd.openxmlformats-officedocument." "presentationml.presentation"),
-        headers={"Content-Disposition": 'attachment; filename="aicmo_report.pptx"'},
-    )
+    # Otherwise, it's a StreamingResponse – return it
+    return result
 
 
 @app.post("/aicmo/export/zip")
 def aicmo_export_zip(payload: dict):
     """
-    Export a ZIP with:
-      - 01_Strategy/report.md
-      - 01_Strategy/report.pdf
-      - 01_Strategy/persona_cards.md
-      - 02_Creatives/hooks.txt, captions.txt, scripts.txt, email_subject_lines.txt,
-        cta_library.txt, offer_angles.txt
+    Export a ZIP with report, personas, creatives with safe error handling.
+
+    Body: { "brief": {...}, "output": {...} }
+
+    Returns:
+        StreamingResponse with ZIP on success.
+        JSONResponse with error details on failure.
     """
-    brief = ClientInputBrief.model_validate(payload["brief"])
-    output = AICMOOutputReport.model_validate(payload["output"])
+    try:
+        brief = ClientInputBrief.model_validate(payload["brief"])
+        output = AICMOOutputReport.model_validate(payload["output"])
+    except Exception as e:
+        logger.error(f"ZIP export: invalid input validation: {e}")
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": True,
+                "message": "Invalid brief or output format.",
+                "export_type": "zip",
+            },
+        )
 
-    report_md = generate_output_report_markdown(brief, output)
-    pdf_bytes = text_to_pdf_bytes(report_md)
+    result = safe_export_zip(brief, output)
 
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        # Core strategy
-        z.writestr("01_Strategy/report.md", report_md)
-        z.writestr("01_Strategy/report.pdf", pdf_bytes)
-        z.writestr("meta/brand_name.txt", brief.brand.brand_name)
+    # If result is a dict, it's an error – return as JSON
+    if isinstance(result, dict):
+        logger.warning(f"ZIP export failed: {result}")
+        return JSONResponse(status_code=400, content=result)
 
-        # Persona cards
-        if output.persona_cards:
-            lines = []
-            for p in output.persona_cards:
-                lines.append(f"# {p.name}")
-                lines.append(f"Demographics: {p.demographics}")
-                lines.append(f"Psychographics: {p.psychographics}")
-                lines.append(f"Pain points: {', '.join(p.pain_points)}")
-                lines.append(f"Triggers: {', '.join(p.triggers)}")
-                lines.append(f"Objections: {', '.join(p.objections)}")
-                lines.append(f"Content preferences: {', '.join(p.content_preferences)}")
-                lines.append(f"Primary platforms: {', '.join(p.primary_platforms)}")
-                lines.append(f"Tone preference: {p.tone_preference}")
-                lines.append("")
-            z.writestr("01_Strategy/persona_cards.md", "\n".join(lines))
-
-        # Creatives multi-format packs
-        if output.creatives:
-            cr = output.creatives
-            if cr.hooks:
-                z.writestr("02_Creatives/hooks.txt", "\n".join(cr.hooks))
-            if cr.captions:
-                z.writestr("02_Creatives/captions.txt", "\n".join(cr.captions))
-            if cr.scripts:
-                z.writestr(
-                    "02_Creatives/scripts.txt",
-                    "\n\n---\n\n".join(cr.scripts),
-                )
-            if cr.email_subject_lines:
-                z.writestr(
-                    "02_Creatives/email_subject_lines.txt",
-                    "\n".join(cr.email_subject_lines),
-                )
-            if cr.cta_library:
-                lines = ["Label | CTA | Context"]
-                for cta in cr.cta_library:
-                    lines.append(f"{cta.label} | {cta.text} | {cta.usage_context}")
-                z.writestr("02_Creatives/cta_library.txt", "\n".join(lines))
-            if cr.offer_angles:
-                lines = []
-                for angle in cr.offer_angles:
-                    lines.append(f"{angle.label}: {angle.description}")
-                    lines.append(f"Example: {angle.example_usage}")
-                    lines.append("")
-                z.writestr("02_Creatives/offer_angles.txt", "\n".join(lines))
-
-    buf.seek(0)
-    return StreamingResponse(
-        content=buf,
-        media_type="application/zip",
-        headers={"Content-Disposition": 'attachment; filename="aicmo_package.zip"'},
-    )
+    # Otherwise, it's a StreamingResponse – return it
+    return result

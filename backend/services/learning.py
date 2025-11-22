@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import List, Optional, Tuple
 
 from aicmo.io.client_reports import ClientInputBrief, AICMOOutputReport
@@ -9,6 +10,24 @@ from aicmo.memory.engine import (
     learn_from_blocks,
     augment_prompt_with_memory,
 )
+
+logger = logging.getLogger("aicmo.learning")
+
+
+# ============================================================
+# SECTION MAPPING: Maps report field names to learning titles
+# ============================================================
+# This defines which sections of AICMOOutputReport to learn.
+# Must match actual field names in AICMOOutputReport (checked at runtime).
+SECTION_MAPPING = [
+    ("Marketing Plan", "marketing_plan"),
+    ("Campaign Blueprint", "campaign_blueprint"),
+    ("Social Calendar", "social_calendar"),
+    ("Performance Review", "performance_review"),
+    ("Creatives", "creatives"),
+    ("Persona Cards", "persona_cards"),
+    ("Action Plan", "action_plan"),
+]
 
 
 def _brief_to_text(brief: ClientInputBrief) -> str:
@@ -61,40 +80,58 @@ def learn_from_report(
 
     Returns:
         Number of blocks stored
+
+    Design:
+        - Uses SECTION_MAPPING to know which fields to extract
+        - Gracefully skips missing or invalid fields (logs warning)
+        - Falls back to full report if no sections found
+        - Non-blocking: errors are logged but don't crash the caller
     """
+    if not report:
+        logger.warning("learn_from_report called with None report")
+        return 0
+
     blocks: List[Tuple[str, str]] = []
 
-    # Possible sections in AICMOOutputReport. Adjust if your structure uses different names.
-    possible_sections = [
-        ("Brand Strategy", "brand_strategy"),
-        ("Audience & Segmentation", "audience"),
-        ("Positioning & Narrative", "positioning"),
-        ("Campaign Blueprint", "campaign_blueprint"),
-        ("Content Strategy", "content_strategy"),
-        ("Social Calendar", "social_calendar"),
-        ("Performance Review", "performance_review"),
-        ("Creative Directions", "creative_directions"),
-        ("Key Messages", "key_messages"),
-    ]
+    # Extract each section defined in SECTION_MAPPING
+    for title, attr_name in SECTION_MAPPING:
+        try:
+            # Check if attribute exists on report
+            if not hasattr(report, attr_name):
+                logger.warning(f"learn_from_report: report missing attribute '{attr_name}'")
+                continue
 
-    for title, attr in possible_sections:
-        if hasattr(report, attr):
-            value = getattr(report, attr)
-            if value:
-                text = str(value).strip()
-                if text:
-                    blocks.append((title, text))
+            # Get the value
+            value = getattr(report, attr_name, None)
+            if value is None:
+                continue  # Skip None values silently
+
+            # Convert to text
+            text = str(value).strip()
+            if text:
+                blocks.append((title, text))
+                logger.debug(f"learn_from_report: extracted {len(text)} chars from '{title}'")
+
+        except Exception as e:
+            # Log but continue – non-blocking
+            logger.warning(f"learn_from_report: error extracting '{attr_name}': {e}")
+            continue
 
     if not blocks:
         # Fallback: store whole report as one block
-        blocks.append(("Full Report", repr(report)))
+        logger.info("learn_from_report: no sections extracted, storing full report")
+        blocks.append(("Full Report", str(report)))
 
-    return learn_from_blocks(
+    # Store in memory engine
+    stored_count = learn_from_blocks(
         kind="report_section",
         blocks=blocks,
         project_id=project_id,
         tags=tags or ["auto_learn"],
     )
+
+    logger.info(f"learn_from_report: stored {stored_count} blocks from {len(blocks)} sections")
+    return stored_count
 
 
 def augment_with_memory_for_brief(
