@@ -19,7 +19,13 @@ from backend.llm_enhance import enhance_with_llm as enhance_with_llm_new
 from backend.generators.marketing_plan import generate_marketing_plan
 from backend.agency_grade_enhancers import apply_agency_grade_enhancements
 from aicmo.presets.industry_presets import list_available_industries
-from aicmo.generators import generate_swot
+from aicmo.generators import (
+    generate_swot,
+    generate_situation_analysis,
+    generate_messaging_pillars,
+    generate_social_calendar,
+    generate_persona,
+)
 
 # Phase L: Vector-based memory learning
 from backend.services.learning import learn_from_report
@@ -29,12 +35,10 @@ from aicmo.io.client_reports import (
     ClientInputBrief,
     AICMOOutputReport,
     MarketingPlanView,
-    StrategyPillar,
     CampaignBlueprintView,
     CampaignObjectiveView,
     AudiencePersonaView,
     SocialCalendarView,
-    CalendarPostView,
     PerformanceReviewView,
     PerfSummaryView,
     CreativesBlock,
@@ -44,7 +48,6 @@ from aicmo.io.client_reports import (
     MessagingPyramid,
     SWOTBlock,
     CompetitorSnapshot,
-    PersonaCard,
     ActionPlan,
     CTAVariant,
     OfferAngle,
@@ -67,6 +70,10 @@ from backend.templates import (
 from backend.pdf_utils import text_to_pdf_bytes
 from backend.routers.health import router as health_router
 from backend.api.routes_learn import router as learn_router
+from backend.services.wow_reports import (
+    apply_wow_template,
+    build_default_placeholders,
+)
 
 # Configure structured logging
 from aicmo.logging import configure_logging, get_logger
@@ -104,6 +111,8 @@ class GenerateRequest(BaseModel):
     industry_key: Optional[str] = None  # Phase 5: Optional industry preset key
     package_preset: Optional[str] = None  # TURBO: package name
     include_agency_grade: bool = False  # TURBO: enable agency-grade enhancements
+    wow_enabled: bool = True  # WOW: Enable WOW template wrapping
+    wow_package_key: Optional[str] = None  # WOW: Package key (e.g., "quick_social_basic")
 
 
 app = FastAPI(title="AICMO API")
@@ -321,34 +330,14 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
             f"over the next {g.timeline or 'period'}. This plan covers strategy, "
             "campaign focus, and channel mix."
         ),
-        situation_analysis=(
-            f"Primary audience: {a.primary_customer}.\n\n"
-            "Market context and competition will be refined in future iterations, "
-            "but the focus is on consistent, value-driven messaging that compounds over time."
-        ),
+        situation_analysis=generate_situation_analysis(req.brief),
         strategy=(
             "Position the brand as the default choice for its niche by combining:\n"
             "- consistent social presence\n"
             "- proof-driven storytelling (testimonials, case studies)\n"
             "- clear, repeated core promises across all touchpoints."
         ),
-        pillars=[
-            StrategyPillar(
-                name="Awareness & Reach",
-                description="Grow top-of-funnel awareness via social, search and collaborations.",
-                kpi_impact="Impressions, reach, profile visits.",
-            ),
-            StrategyPillar(
-                name="Trust & Proof",
-                description="Leverage testimonials, case studies and UGC.",
-                kpi_impact="Saves, shares, reply DMs, conversion intent.",
-            ),
-            StrategyPillar(
-                name="Conversion & Retention",
-                description="Use clear offers, scarcity, and nurture flows to convert and retain.",
-                kpi_impact="Leads, trials, purchases, repeat usage.",
-            ),
-        ],
+        pillars=generate_messaging_pillars(req.brief),
         messaging_pyramid=messaging_pyramid,
         swot=swot,
         competitor_snapshot=competitor_snapshot,
@@ -371,22 +360,8 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
         ),
     )
 
-    # Social calendar (7 days)
-    posts: list[CalendarPostView] = []
-    for i in range(7):
-        d = today + timedelta(days=i)
-        theme = "Brand Story" if i == 0 else ("Social Proof" if i == 2 else "Educational")
-        posts.append(
-            CalendarPostView(
-                date=d,
-                platform="Instagram",
-                theme=theme,
-                hook=f"Hook idea for day {i+1}",
-                cta="Learn more",
-                asset_type="reel" if i % 2 == 0 else "static_post",
-                status="planned",
-            )
-        )
+    # Social calendar (7 days) - brief-driven hooks and CTAs
+    posts = generate_social_calendar(req.brief, start_date=today, days=7)
 
     cal = SocialCalendarView(
         start_date=today,
@@ -406,39 +381,8 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
             )
         )
 
-    # Persona cards
-    persona_cards = [
-        PersonaCard(
-            name="Primary Decision Maker",
-            demographics="Varies by brand; typically 25–45, responsible for buying decisions.",
-            psychographics=(
-                "Values clarity, proof, and predictable outcomes over hype. "
-                "Tired of random experiments and wants a system."
-            ),
-            pain_points=[
-                "Inconsistent marketing results.",
-                "Too many disconnected tactics.",
-                "No clear way to measure progress.",
-            ],
-            triggers=[
-                "Seeing peers enjoy consistent leads.",
-                "Feeling pressure to show results quickly.",
-            ],
-            objections=[
-                "Will this be too much work for my team?",
-                "Will this just be another campaign that fades away?",
-            ],
-            content_preferences=[
-                "Clear, example-driven content.",
-                "Short case studies.",
-                "Before/after narratives.",
-            ],
-            primary_platforms=a.online_hangouts or ["Instagram", "LinkedIn"],
-            tone_preference=(
-                ", ".join(s.brand_adjectives) if s.brand_adjectives else "Clear and confident"
-            ),
-        )
-    ]
+    # Persona cards - brief-driven generation
+    persona_cards = [generate_persona(req.brief)]
 
     # Action plan
     action_plan = ActionPlan(
@@ -647,6 +591,50 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
     return out
 
 
+def _apply_wow_to_output(
+    output: AICMOOutputReport,
+    req: GenerateRequest,
+) -> AICMOOutputReport:
+    """
+    Optional WOW template wrapping.
+
+    If wow_enabled=True and wow_package_key is provided:
+    - Builds placeholder map from brief + output blocks
+    - Applies WOW template
+    - Stores in wow_markdown field
+    - Stores package_key for reference
+
+    Non-breaking: if WOW fails or is disabled, output is returned unchanged.
+    """
+    if not req.wow_enabled or not req.wow_package_key:
+        return output
+
+    try:
+        # Build placeholder map from brief + existing output blocks
+        placeholder_values = build_default_placeholders(
+            brief=req.brief.model_dump() if hasattr(req.brief, "model_dump") else req.brief,
+            base_blocks={},  # Could extend with sections from output if desired
+        )
+
+        # Apply WOW template with safe placeholder replacement
+        wow_markdown = apply_wow_template(
+            package_key=req.wow_package_key,
+            placeholder_values=placeholder_values,
+            strip_unfilled=True,
+        )
+
+        # Store in output
+        output.wow_markdown = wow_markdown
+        output.wow_package_key = req.wow_package_key
+
+        logger.debug(f"WOW template applied: {req.wow_package_key}")
+    except Exception as e:
+        logger.warning(f"WOW template application failed (non-critical): {e}")
+        # Non-breaking: continue without WOW
+
+    return output
+
+
 @app.post("/aicmo/generate", response_model=AICMOOutputReport)
 async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
     """
@@ -706,6 +694,9 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
         except Exception as e:
             logger.debug(f"Auto-learning failed (non-critical): {e}")
 
+        # WOW: Apply optional template wrapping
+        base_output = _apply_wow_to_output(base_output, req)
+
         return base_output
 
     # LLM mode – best-effort polish with industry presets + learning, never breaks the endpoint
@@ -748,6 +739,9 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
         except Exception as e:
             logger.debug(f"Auto-learning failed (non-critical): {e}")
 
+        # WOW: Apply optional template wrapping
+        enhanced_output = _apply_wow_to_output(enhanced_output, req)
+
         return enhanced_output
     except RuntimeError as e:
         # LLM SDK missing etc. – log and fall back quietly
@@ -771,6 +765,9 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
         except Exception as e:
             logger.debug(f"Auto-learning failed (non-critical): {e}")
 
+        # WOW: Apply optional template wrapping
+        base_output = _apply_wow_to_output(base_output, req)
+
         return base_output
     except Exception as e:
         # Any unexpected LLM error – do NOT break operator flow
@@ -793,6 +790,9 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
             )
         except Exception as e:
             print(f"[AICMO] Auto-learning failed (non-critical): {e}")
+
+        # WOW: Apply optional template wrapping
+        base_output = _apply_wow_to_output(base_output, req)
 
         return base_output
 

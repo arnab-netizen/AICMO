@@ -264,6 +264,9 @@ class AICMOOutputReport(BaseModel):
     auto_detected_competitors: Optional[List[Dict]] = None
     # Competitor visual benchmark (auto-detected or user-uploaded)
     competitor_visual_benchmark: Optional[List[Dict]] = None
+    # WOW: Optional markdown wrapped in WOW template
+    wow_markdown: Optional[str] = None
+    wow_package_key: Optional[str] = None
 
 
 # =========================================

@@ -1,0 +1,43 @@
+{
+  "brief": {
+    "brand": {
+      "brand_name": "TechCorp",
+      "website": null,
+      "social_links": [],
+      "industry": "SaaS",
+      "locations": [],
+      "business_type": "B2B",
+      "description": "Project management software"
+    },
+    "audience": {
+      "primary_customer": "Tech-savvy entrepreneurs",
+      "secondary_customer": null,
+      "pain_points": [
+        "Workflow inefficiency",
+        "Team coordination"
+      ],
+      "online_hangouts": []
+    },
+    "goal": {
+      "primary_goal": "Launch new SaaS product",
+      "secondary_goal": null,
+      "timeline": "3 months",
+      "kpis": [
+        "Lead generation",
+        "Brand awareness"
+      ]
+    },
+    "voice": {
+      "tone_of_voice": [
+        "Professional",
+        "Approachable"
+      ],
+      "has_guidelines": false,
+      "guidelines_link": null,
+      "preferred_colors": null,
+      "competitors_like": [],
+      "competitors_dislike": []
+    },
+    "product_service": {
+      "items": [
+        {

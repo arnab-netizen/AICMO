@@ -1,0 +1,24 @@
+{
+  "timestamp": "2025-11-23T05:27:30.458715",
+  "stats": {
+    "total_entries": 4574,
+    "entries_per_project": {
+      "(global)": 4170,
+      "test_project_123": 200,
+      "test-mixed": 48,
+      "test-missing-name": 48,
+      "test-files": 48,
+      "test-missing-text": 24,
+      "test-debug": 24,
+      "e2e-test": 10,
+      "test_client_001": 2
+    },
+    "top_kinds": {
+      "report_section": 4357,
+      "training_pack": 216,
+      "AUDIT_TEST": 1
+    },
+    "max_per_project": 200,
+    "max_total": 5000
+  }
+}

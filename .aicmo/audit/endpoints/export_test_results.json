@@ -1,0 +1,28 @@
+{
+  "timestamp": "2025-11-23T06:17:47.580761",
+  "exports_tested": [
+    {
+      "type": "PDF",
+      "status": "success",
+      "status_code": 200,
+      "content_length": 1536,
+      "content_type": "application/pdf"
+    },
+    {
+      "type": "PPTX",
+      "status": "success",
+      "status_code": 200,
+      "content_length": 39008,
+      "content_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    },
+    {
+      "type": "ZIP",
+      "status": "success",
+      "status_code": 200,
+      "content_length": 15839,
+      "content_type": "application/zip"
+    }
+  ],
+  "errors": [],
+  "note": "Using real payloads from backend test fixtures (Option B)"
+}

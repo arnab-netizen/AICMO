@@ -216,6 +216,19 @@ PACKAGE_PRESETS: Dict[str, Dict[str, bool]] = {
 }
 
 # -------------------------------------------------
+# WOW Templates mapping (dropdown label → internal package key)
+# -------------------------------------------------
+PACKAGE_KEY_BY_LABEL: Dict[str, str] = {
+    "Quick Social Pack (Basic)": "quick_social_basic",
+    "Strategy + Campaign Pack (Standard)": "strategy_campaign_standard",
+    "Full-Funnel Growth Suite (Premium)": "full_funnel_premium",
+    "Launch & GTM Pack": "launch_gtm",
+    "Brand Turnaround Lab": "brand_turnaround",
+    "Retention & CRM Booster": "retention_crm",
+    "Performance Audit & Revamp": "performance_audit",
+}
+
+# -------------------------------------------------
 # Refinement modes
 # -------------------------------------------------
 REFINEMENT_MODES: Dict[str, Dict[str, Any]] = {
@@ -551,11 +564,16 @@ def call_backend_generate(
     refinement_name, refinement_cfg = get_refinement_mode()
     learn_items = load_learn_items()
 
+    # Resolve WOW package key from the selected package label
+    wow_package_key = PACKAGE_KEY_BY_LABEL.get(package_name)
+
     payload: Dict[str, Any] = {
         "stage": stage,
         "client_brief": client_payload,
         "services": services,
         "package_name": package_name,
+        "wow_enabled": bool(wow_package_key),  # Enable WOW if we have a valid key
+        "wow_package_key": wow_package_key,
         "refinement_mode": {
             "name": refinement_name,
             **refinement_cfg,
@@ -766,6 +784,23 @@ def render_client_input_tab() -> None:
 
         st.markdown("##### Service matrix")
         build_services_matrix()
+
+        st.markdown("##### 📘 WOW Package Preview")
+        if pkg_name:
+            st.info(f"**Selected Package:** {pkg_name}")
+            st.markdown(
+                """
+This will generate an agency-grade WOW report with:
+- ✨ Branded template
+- 📅 14/30 day content calendar  
+- 📝 10+ captions
+- 🎬 Reel ideas
+- #️⃣ Hashtag banks
+- 🏆 Competitor benchmark  
+- 📧 Email sequences (select packages)
+- 🎯 Landing page wireframe (premium)
+            """
+            )
 
         st.markdown("##### Refinement mode")
         mode_names = list(REFINEMENT_MODES.keys())

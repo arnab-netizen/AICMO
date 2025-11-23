@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-11-23T05:27:29.514148",
+  "engine_type": "SQLite with OpenAI embeddings",
+  "config_source": "unknown",
+  "db_url": "unknown",
+  "db_path": "db/aicmo_memory.db",
+  "notes": [
+    "Imported from aicmo.memory.engine",
+    "Local DB path: db/aicmo_memory.db",
+    "Local DB exists: 8806400 bytes"
+  ],
+  "embedding_model": "text-embedding-3-small",
+  "using_fake_embeddings": false
+}

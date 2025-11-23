@@ -1,0 +1,25 @@
+{
+  "timestamp": "2025-11-23T06:28:50.856042",
+  "test_marker": "AUDIT_LEARN_REPORT_1763879330",
+  "steps": {
+    "generate_report": {
+      "status": "success",
+      "response_keys": [
+        "marketing_plan",
+        "campaign_blueprint",
+        "social_calendar",
+        "performance_review",
+        "creatives"
+      ]
+    },
+    "learn_from_report": {
+      "status": "failed",
+      "error": "HTTP 422: {\"detail\":[{\"type\":\"missing\",\"loc\":[\"body\",\"report\"],\"msg\":\"Field required\",\"input\":{\"report_data\":{"
+    },
+    "verify_in_memory": {
+      "status": "success",
+      "results_count": 5
+    }
+  },
+  "errors": []
+}

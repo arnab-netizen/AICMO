@@ -9,17 +9,25 @@
 
 These are deterministic, placeholder content pieces that appear in generated reports. All are caught by the export validation layer and blocked from reaching external clients.
 
-### 1. Social Calendar "Hook Ideas"
-- **File**: `backend/main.py`
-- **Lines**: 810-830 (approximately)
-- **Content**: `Hook idea for day 1`, `Hook idea for day 2`, etc.
-- **Severity**: 🔴 CRITICAL CONTENT
-- **Validation Status**: ✅ **Blocked by export pipeline**
-  - Detected by `backend/placeholder_utils.py` (line: "Hook idea for day")
-  - Export validation rejects reports with this phrase
-  - Operators receive error message: "Report contains stub placeholder content"
-- **Why Stubbed**: Social Calendar hooks require brand/product-specific creative input and LLM generation
-- **Next Steps**: Replace with LLM generator (proposed: `generate_social_calendar_hooks()` in `backend/generators/`)
+### 1. Social Calendar "Hook Ideas" ✅ IMPLEMENTED
+- **File**: `aicmo/generators/social_calendar_generator.py`
+- **Status**: ✅ **LLM-driven in LLM/TURBO modes**
+- **Stub Mode**: Honest, brief-based hooks without "Hook idea for day" placeholders
+- **LLM Mode**: Platform-aware hooks generated via Claude/OpenAI
+- **Behavior**:
+  - Generates 7-day social calendar with brief-specific hooks
+  - Each post has date, platform, theme, hook, CTA, asset_type, status
+  - In stub mode: varies hooks by day (Day 1: Brand intro, Day 2: Pain point focus, etc.)
+  - CTAs vary across 7 days (not repeated "Learn more")
+  - Uses brief.audience.pain_points, brief.goal, brief.product_service.usp
+  - Uses brief.assets_constraints.focus_platforms for platform selection
+  - In LLM mode: prompts Claude/OpenAI with brand/audience context
+  - Graceful fallback to stub on any LLM error
+- **No Placeholders**: Verified via 22 comprehensive tests
+- **Testing**: `backend/tests/test_social_calendar_generation.py`
+  - Tests: stub mode (11), main function (5), helpers (2), brief integration (4)
+  - Coverage: no "Hook idea for day", CTA variation, brief context usage, date respect
+- **Integration**: `backend/main.py` line 365 calls `generate_social_calendar(req.brief)`
 
 ### 2. Performance Review Growth Summary
 - **File**: `backend/main.py`
@@ -53,24 +61,40 @@ These are deterministic, placeholder content pieces that appear in generated rep
   - Integration in full reports
 - **Next Steps**: None – SWOT fully implemented as brief-driven generator
 
-### 4. Messaging Pillars (Hardcoded)
-- **File**: `backend/main.py`
-- **Lines**: 690-698
-- **Content**: Same 3 pillars for every brief (hardcoded defaults)
-- **Severity**: 🟡 MEDIUM CONTENT
-- **Validation Status**: ⚠️ **Partially blocked**
-  - Generic pillar names flagged but may not always block
-- **Why Stubbed**: Pillars must be specific to brand/goal
-- **Next Steps**: `generate_messaging_pillars()` using brief context
+### 4. Messaging Pillars ✅ IMPLEMENTED
+- **File**: `aicmo/generators/messaging_pillars_generator.py`
+- **Status**: ✅ **LLM-driven in LLM/TURBO modes**
+- **Stub Mode**: Honest, brief-based pillars without fake claims
+- **LLM Mode**: Brief-specific pillars generated via Claude/OpenAI
+- **Behavior**:
+  - Generates 3 pillars by default (configurable)
+  - Each pillar has name, description, and KPI impact
+  - In stub mode: modest pillars based on audience pain points, USPs, and engagement
+  - In LLM mode: prompts Claude/OpenAI with brand context and returns parsed JSON
+  - Graceful fallback to stub on any LLM error
+- **No Placeholders**: Verified via 13 comprehensive tests
+- **Integration**: `backend/main.py` calls `generate_messaging_pillars(req.brief)`
 
-### 5. Persona Demographics
-- **File**: `backend/main.py`
-- **Lines**: 878
-- **Content**: `"Varies by brand; typically 25–45, responsible for buying decisions."`
-- **Severity**: 🟡 MEDIUM CONTENT
-- **Validation Status**: ⚠️ **Not blocked** (disclaimer text, not core content)
-- **Why Stubbed**: Demographics require actual audience research
-- **Next Steps**: Accept audience input from brief intake form
+### 5. Persona Demographics ✅ IMPLEMENTED
+- **File**: `aicmo/generators/persona_generator.py`
+- **Status**: ✅ **LLM-driven in LLM/TURBO modes**
+- **Stub Mode**: Brief-based personas without "Varies by brand" placeholder text
+- **LLM Mode**: Claude/OpenAI with audience and business context
+- **Behavior**:
+  - Generates primary decision-maker persona from brief context
+  - Derives name based on audience type (engineers, directors, managers, or generic)
+  - Demographics include realistic age ranges (e.g., "38–45") based on business_type
+  - Psychographics align with business goals (adoption, engagement, results-driven, etc.)
+  - Pain points sourced from brief.audience.pain_points
+  - Triggers, objections, and content preferences coherent with audience and industry
+  - Tone preference includes brand adjectives from brief
+  - In stub mode: honest, specific to audience type (B2B vs B2C)
+  - In LLM mode: prompts Claude/OpenAI with brand/audience/goal context
+  - Graceful fallback to stub on any LLM error or failure
+- **No Placeholders**: Verified via 18 comprehensive tests
+  - Coverage: stub generation, no placeholder phrases, business type respect, brief context usage, graceful fallback
+- **Testing**: `backend/tests/test_persona_generation.py` (18 tests)
+- **Integration**: `backend/main.py` line 381 calls `generate_persona(req.brief)`
 
 ### 6. Situation Analysis  
 - **File**: `backend/main.py`
@@ -171,14 +195,14 @@ All user-visible stub content is protected by a multi-layer validation pipeline:
 
 ## Summary Table
 
-| Feature | Location | Severity | Blocked By Validation | Fix Effort | Priority |
-|---------|----------|----------|----------------------|-----------|----------|
-| Social Calendar Hooks | main.py:810-830 | 🔴 Critical | ✅ Yes | 2-3h | HIGH |
-| Performance Review Growth | main.py:845 | 🔴 Critical | ✅ Yes | 2-3h | HIGH |
-| SWOT Analysis | main.py:665-682 | 🟡 Medium | ⚠️ Partial | 3-4h | MEDIUM |
-| Messaging Pillars | main.py:690-698 | 🟡 Medium | ⚠️ Partial | 2-3h | MEDIUM |
-| Persona Demographics | main.py:878 | 🟡 Medium | ❌ No | 1-2h | LOW |
-| Situation Analysis | main.py:705 | 🟡 Medium | ❌ No | 2-3h | LOW |
+| Feature | Location | Status | Tests | Type |
+|---------|----------|--------|-------|------|
+| Social Calendar Hooks | aicmo/generators/social_calendar_generator.py | ✅ IMPLEMENTED | 22/22 | LLM-Driven |
+| Persona Demographics | aicmo/generators/persona_generator.py | ✅ IMPLEMENTED | 18/18 | LLM-Driven |
+| Performance Review Growth | main.py:845 | 🔴 Pending | - | Stub |
+| SWOT Analysis | aicmo/generators/swot_generator.py | ✅ IMPLEMENTED | 16/16 | LLM-Driven |
+| Messaging Pillars | aicmo/generators/messaging_pillars_generator.py | ✅ IMPLEMENTED | 13/13 | LLM-Driven |
+| Situation Analysis | aicmo/generators/situation_analysis_generator.py | ✅ IMPLEMENTED | 11/11 | LLM-Driven |
 
 ---
 

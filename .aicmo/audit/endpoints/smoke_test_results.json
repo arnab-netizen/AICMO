@@ -1,0 +1,109 @@
+{
+  "total_routes": 23,
+  "tested": [
+    {
+      "path": "/docs",
+      "status_code": 200,
+      "response_length": 933,
+      "response_type": "text/html; charset=utf-8"
+    },
+    {
+      "path": "/docs/oauth2-redirect",
+      "status_code": 200,
+      "response_length": 3012,
+      "response_type": "text/html; charset=utf-8"
+    },
+    {
+      "path": "/redoc",
+      "status_code": 200,
+      "response_length": 893,
+      "response_type": "text/html; charset=utf-8"
+    },
+    {
+      "path": "/health",
+      "status_code": 200,
+      "response_length": 11,
+      "response_sample": "{'ok': True}"
+    },
+    {
+      "path": "/health/db",
+      "status_code": 200,
+      "response_length": 14,
+      "response_sample": "{'db_ok': True}"
+    },
+    {
+      "path": "/api/learn/debug/summary",
+      "status_code": 200,
+      "response_length": 106,
+      "response_sample": "{'db_path': 'db/aicmo_memory.db', 'total_items': 4573, 'per_kind': {'report_section': 4357, 'training_pack': 216}}"
+    },
+    {
+      "path": "/templates/intake",
+      "status_code": 200,
+      "response_length": 2728,
+      "response_type": "text/plain; charset=utf-8"
+    },
+    {
+      "path": "/aicmo/generate",
+      "status_code": 422,
+      "response_length": 2380
+    },
+    {
+      "path": "/aicmo/industries",
+      "status_code": 200,
+      "response_length": 130,
+      "response_sample": "{'industries': ['b2b_saas', 'ecom_d2c', 'local_service', 'coaching'], 'description': 'Industry presets for content generation guidance'}"
+    }
+  ],
+  "skipped": [
+    {
+      "path": "/api/learn/from-report",
+      "reason": "no known sample payload"
+    },
+    {
+      "path": "/api/learn/from-files",
+      "reason": "no known sample payload"
+    },
+    {
+      "path": "/intake/json",
+      "reason": "no known sample payload"
+    },
+    {
+      "path": "/intake/file",
+      "reason": "no known sample payload"
+    },
+    {
+      "path": "/reports/marketing_plan",
+      "reason": "no known sample payload"
+    },
+    {
+      "path": "/reports/campaign_blueprint",
+      "reason": "no known sample payload"
+    },
+    {
+      "path": "/reports/social_calendar",
+      "reason": "no known sample payload"
+    },
+    {
+      "path": "/reports/performance_review",
+      "reason": "no known sample payload"
+    },
+    {
+      "path": "/aicmo/revise",
+      "reason": "no known sample payload"
+    },
+    {
+      "path": "/aicmo/export/pdf",
+      "reason": "export endpoints need valid report; skipped to avoid artifacts"
+    },
+    {
+      "path": "/aicmo/export/pptx",
+      "reason": "export endpoints need valid report; skipped to avoid artifacts"
+    },
+    {
+      "path": "/aicmo/export/zip",
+      "reason": "export endpoints need valid report; skipped to avoid artifacts"
+    }
+  ],
+  "errored": []
+}

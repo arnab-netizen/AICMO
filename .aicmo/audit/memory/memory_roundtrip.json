@@ -1,0 +1,19 @@
+{
+  "test_timestamp": "2025-11-23T05:27:30.152765",
+  "test_marker": "AUDIT_MEMORY_TEST_1763875650",
+  "write_status": "success",
+  "read_status": "success",
+  "write_details": {
+    "content": "Audit test marker: AUDIT_MEMORY_TEST_1763875650",
+    "blocks_written": 1
+  },
+  "read_details": {
+    "results_count": 5,
+    "first_result": {
+      "title": "Marketing Plan",
+      "kind": "report_section",
+      "text_preview": "executive_summary='NoPresetBrand is aiming to drive Build authority over the next 3 months. This pla"
+    }
+  },
+  "errors": []
+}

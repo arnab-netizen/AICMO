@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "key": "quick_social_basic",
+      "label": "Quick Social Pack (Basic)",
+      "tier": "basic",
+      "sections": [
+        "brand_snapshot",
+        "creative_direction_mini",
+        "content_pillars",
+        "calendar_14_day",
+        "sample_captions_10",
+        "hashtag_bank_40",
+        "reels_5_and_stories",
+        "weekly_growth_checklist"
+      ],
+      "primary_channel_default": "Instagram",
+      "wow_level": "light"
+    },
+    {
+      "key": "strategy_campaign_standard",
+      "label": "Strategy + Campaign Pack (Standard)",
+      "tier": "standard",
+      "sections": [
+        "brand_snapshot",
+        "insight_core_challenge",
+        "creative_direction_full",
+        "competitor_benchmark",
+        "campaign_framework",
+        "channel_system",
+        "calendar_30_day",
+        "sample_captions_20plus",
+        "reel_concepts_10",
+        "hashtag_bank_90",
+        "kpi_plan"
+      ],
+      "wow_level": "medium"
+    },
+    {
+      "key": "full_funnel_premium",
+      "label": "Full-Funnel Growth Suite (Premium)",
+      "tier": "premium",
+      "sections": [
+        "brand_offer_architecture",
+        "funnel_overview",
+        "funnel_stage_breakdown",
+        "landing_page_wireframe",
+        "email_sequences_welcome",
+        "email_sequences_conversion",
+        "email_sequences_winback",
+        "calendar_full_funnel_30_day",
+        "ad_reel_scripts_15",
+        "cta_library",
+        "hashtag_bank_120",
+        "kpi_dashboard",
+        "optimization_plan"
+      ],
+      "wow_level": "heavy"
+    },
+    {
+      "key": "launch_gtm",
+      "label": "Launch & GTM Pack",
+      "tier": "premium",
+      "sections": [
+        "gtm_snapshot",
+        "positioning_story",
+        "market_landscape",
+        "gtm_framework",
+        "launch_campaign",
+        "influencer_strategy",
+        "launch_calendar_30_day",
+        "launch_assets",
+        "launch_kpis_milestones"
+      ],
+      "wow_level": "high"
+    },
+    {
+      "key": "brand_turnaround",
+      "label": "Brand Turnaround Lab",
+      "tier": "premium",
+      "sections": [
+        "brand_diagnosis",
+        "turnaround_competitor_audit",
+        "root_cause_analysis",
+        "new_positioning_promise",
+        "voice_tone_visual_reset",
+        "reputation_templates",
+        "turnaround_30_day_plan",
+        "turnaround_captions",
+        "turnaround_hashtags",
+        "monitoring_guardrails"
+      ],
+      "wow_level": "high_consulting"
+    },
+    {
+      "key": "retention_crm",
+      "label": "Retention & CRM Booster",
+      "tier": "standard",
+      "sections": [
+        "customer_snapshot",
+        "journey_mapping",
+        "email_flows",
+        "sms_templates",
+        "loyalty_referral",
+        "crm_30_day_calendar",
+        "offer_strategy",
+        "crm_kpi_dashboard"
+      ],
+      "wow_level": "high"
+    },
+    {
+      "key": "performance_audit",
+      "label": "Performance Audit & Revamp",
+      "tier": "standard",
+      "sections": [
+        "account_snapshot",
+        "high_level_findings",
+        "channel_audit",
+        "creative_review",
+        "funnel_review",
+        "priority_fix_list_15",
+        "revamp_30_day_plan",
+        "revamp_creatives",
+        "revamp_kpis"
+      ],
+      "wow_level": "analytical"
+    }
+  ]
+}

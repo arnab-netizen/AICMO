@@ -1,0 +1,9 @@
+{
+  "python_version": "3.12.3 (main, Jun 18 2025, 17:59:45) [GCC 13.3.0]",
+  "platform": "Linux-6.8.0-1030-azure-x86_64-with-glibc2.39",
+  "cwd": "/workspaces/AICMO",
+  "env_keys": [
+    "DATABASE_URL",
+    "PATH"
+  ]
+}

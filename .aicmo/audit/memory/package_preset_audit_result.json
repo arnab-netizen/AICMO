@@ -1,0 +1,75 @@
+{
+  "timestamp": "2025-11-23T06:28:51.211531",
+  "total_presets": 9,
+  "presets_tested": [
+    {
+      "name": "Quick Social Pack (Basic)",
+      "status": "success",
+      "status_code": 200,
+      "preset_flags": {
+        "marketing_plan": false,
+        "campaign_blueprint": false,
+        "social_calendar": true,
+        "performance_review": false,
+        "creatives": true,
+        "include_agency_grade": false
+      },
+      "response_keys": [
+        "marketing_plan",
+        "campaign_blueprint",
+        "social_calendar",
+        "performance_review",
+        "creatives",
+        "persona_cards",
+        "action_plan",
+        "extra_sections",
+        "auto_detected_competitors",
+        "competitor_visual_benchmark"
+      ],
+      "sections_present": [
+        "marketing_plan",
+        "campaign_blueprint",
+        "social_calendar",
+        "creatives",
+        "persona_cards",
+        "action_plan",
+        "extra_sections"
+      ]
+    },
+    {
+      "name": "Strategy + Campaign Pack (Standard)",
+      "status": "success",
+      "status_code": 200,
+      "preset_flags": {
+        "marketing_plan": true,
+        "campaign_blueprint": true,
+        "social_calendar": true,
+        "performance_review": false,
+        "creatives": true,
+        "include_agency_grade": false
+      },
+      "response_keys": [
+        "marketing_plan",
+        "campaign_blueprint",
+        "social_calendar",
+        "performance_review",
+        "creatives",
+        "persona_cards",
+        "action_plan",
+        "extra_sections",
+        "auto_detected_competitors",
+        "competitor_visual_benchmark"
+      ],
+      "sections_present": [
+        "marketing_plan",
+        "campaign_blueprint",
+        "social_calendar",
+        "creatives",
+        "persona_cards",
+        "action_plan",
+        "extra_sections"
+      ]
+    }
+  ],
+  "errors": []
+}

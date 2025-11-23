@@ -1,0 +1,13 @@
+ M aicmo/generators/__init__.py
+ M backend/main.py
+ M db/aicmo_memory.db
+ M docs/STUB_FEATURE_REGISTER.md
+?? .aicmo/audit/
+?? aicmo/generators/messaging_pillars_generator.py
+?? aicmo/generators/persona_generator.py
+?? aicmo/generators/situation_analysis_generator.py
+?? aicmo/generators/social_calendar_generator.py
+?? backend/tests/test_messaging_pillars_generation.py
+?? backend/tests/test_persona_generation.py
+?? backend/tests/test_situation_analysis_generation.py
+?? backend/tests/test_social_calendar_generation.py
