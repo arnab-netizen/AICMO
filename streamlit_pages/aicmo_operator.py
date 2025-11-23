@@ -978,13 +978,14 @@ def render_final_output_tab() -> None:
 def render_learn_tab() -> None:
     st.subheader("4️⃣ Learn – Teach AICMO Using Gold-Standard Reports")
 
-    # DEBUG: Show memory DB status
+    # DEBUG: Show memory DB status (wrapped in try-except to avoid import errors on Cloud)
     import os
-    from aicmo.memory.engine import get_memory_stats
 
     st.info(f"**AICMO_MEMORY_DB seen by app:** `{os.getenv('AICMO_MEMORY_DB')!r}`")
 
     try:
+        from aicmo.memory.engine import get_memory_stats
+
         stats = get_memory_stats()
         total_items = stats.get("total_entries", 0)
         st.write(f"📚 **Total learned items:** {total_items}")
