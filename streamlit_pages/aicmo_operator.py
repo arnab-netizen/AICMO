@@ -1126,7 +1126,6 @@ def render_learn_tab() -> None:
                     st.error(f"Error processing ZIP: {str(e)}")
 
     st.markdown("---")
-    st.markdown("#### Section A – Good / gold-standard examples")
 
     col_a, col_b = st.columns(2, gap="large")
 
