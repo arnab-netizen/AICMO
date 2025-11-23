@@ -21,6 +21,11 @@ from backend.services.learning import learn_from_report
 logger = logging.getLogger("aicmo.learn")
 router = APIRouter(prefix="/api/learn", tags=["learn"])
 
+# Directory where uploaded training ZIPs are archived.
+# On PaaS like Render, /tmp is always writable.
+LEARNING_ARCHIVE_ROOT = Path(os.getenv("AICMO_LEARNING_ARCHIVE_DIR", "/tmp/aicmo_learning"))
+LEARNING_ARCHIVE_ROOT.mkdir(parents=True, exist_ok=True)
+
 
 class LearnFromReportRequest(BaseModel):
     """Request to learn from a completed report."""
@@ -270,13 +275,10 @@ async def learn_from_zip(
 
         logger.info(f"learn_from_zip: extracted ZIP to {temp_dir}")
 
-        # Archive copy to data/learning for audit trail
-        learning_dir = Path("/workspaces/AICMO/data/learning")
-        learning_dir.mkdir(parents=True, exist_ok=True)
-
+        # Archive copy for audit trail
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         basename = Path(file.filename).stem
-        archived_zip = learning_dir / f"{basename}_{timestamp}.zip"
+        archived_zip = LEARNING_ARCHIVE_ROOT / f"{basename}_{timestamp}.zip"
         shutil.copy2(zip_path, archived_zip)
         logger.info(f"learn_from_zip: archived copy to {archived_zip}")
 
