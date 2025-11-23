@@ -170,7 +170,7 @@ PACKAGE_PRESETS: Dict[str, Dict[str, bool]] = {
         "social_calendar": True,
         "performance_review": False,
         "creatives": True,
-        "include_agency_grade": False,
+        "include_agency_grade": True,
     },
     "Full-Funnel Growth Suite (Premium)": {
         "marketing_plan": True,
@@ -978,25 +978,45 @@ def render_final_output_tab() -> None:
                 else:
                     with st.spinner("Generating PDF report…"):
                         try:
-                            # Ensure PDF metadata is tracked for the report
-                            ensure_pdf_for_report(
-                                report_id=st.session_state.get("report_id", "aicmo_report"),
-                                markdown=st.session_state["final_report"],
-                                meta={
-                                    "title": st.session_state.get("client_brief_meta", {}).get(
-                                        "brand_name", "AICMO Report"
-                                    ),
-                                    "report_type": "Final Output",
-                                },
-                            )
+                            # Try backend PDF export first
+                            base_url = os.environ.get("AICMO_BACKEND_URL")
+                            pdf_bytes = None
 
-                            # For now, we'll generate simple PDF bytes from markdown
-                            # In production, integrate with your PDF library
-                            pdf_bytes = st.session_state.get("_pdf_bytes")
+                            if base_url:
+                                try:
+                                    # Call backend PDF export endpoint
+                                    resp = requests.post(
+                                        base_url.rstrip("/") + "/aicmo/export/pdf",
+                                        json={"markdown": st.session_state["final_report"]},
+                                        timeout=60,
+                                    )
+                                    resp.raise_for_status()
+
+                                    # ✅ Use resp.content for binary PDF data (not resp.text)
+                                    pdf_bytes = resp.content
+
+                                    # Optionally track PDF metadata
+                                    if ensure_pdf_for_report:
+                                        ensure_pdf_for_report(
+                                            report_id=st.session_state.get(
+                                                "report_id", "aicmo_report"
+                                            ),
+                                            markdown=st.session_state["final_report"],
+                                            meta={
+                                                "title": st.session_state.get(
+                                                    "client_brief_meta", {}
+                                                ).get("brand_name", "AICMO Report"),
+                                                "report_type": "Final Output",
+                                            },
+                                        )
+
+                                except Exception as e:
+                                    st.warning(f"Backend PDF export failed, using fallback: {e}")
+                                    pdf_bytes = None
+
+                            # Fallback: convert markdown to text for PDF if backend fails
                             if not pdf_bytes:
-                                # Fallback: convert markdown to text for PDF
                                 pdf_text = st.session_state["final_report"].encode("utf-8")
-                                st.session_state["_pdf_bytes"] = pdf_text
                                 pdf_bytes = pdf_text
 
                             if pdf_bytes:

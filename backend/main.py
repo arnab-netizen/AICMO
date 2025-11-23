@@ -55,6 +55,7 @@ from aicmo.io.client_reports import (
     CTAVariant,
     OfferAngle,
     HookInsight,
+    generate_output_report_markdown,
 )
 from backend.schemas import (
     ClientIntakeForm,
@@ -114,6 +115,7 @@ class GenerateRequest(BaseModel):
     industry_key: Optional[str] = None  # Phase 5: Optional industry preset key
     package_preset: Optional[str] = None  # TURBO: package name
     include_agency_grade: bool = False  # TURBO: enable agency-grade enhancements
+    use_learning: bool = False  # Phase L: enable learning context retrieval and injection
     wow_enabled: bool = True  # WOW: Enable WOW template wrapping
     wow_package_key: Optional[str] = None  # WOW: Package key (e.g., "quick_social_basic")
 
@@ -899,6 +901,102 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
         base_output = _apply_wow_to_output(base_output, req)
 
         return base_output
+
+
+@app.post("/api/aicmo/generate_report")
+async def api_aicmo_generate_report(payload: dict) -> dict:
+    """
+    Streamlit-compatible wrapper endpoint for /aicmo/generate.
+
+    Converts Streamlit's payload structure to GenerateRequest and calls the core endpoint.
+    Expected Streamlit payload format:
+    {
+        "stage": "draft|refine|final",
+        "client_brief": {...dict with client metadata...},
+        "services": {...dict with include_agency_grade, wow_enabled, etc...},
+        "package_name": "Strategy + Campaign Pack (Standard)",
+        "wow_enabled": bool,
+        "wow_package_key": str or None,
+        "refinement_mode": {...},
+        "feedback": str,
+        "previous_draft": str,
+        "learn_items": [...],
+        "use_learning": bool,
+        "industry_key": str or None,
+    }
+
+    Returns:
+    {
+        "report_markdown": "...markdown content...",
+        "status": "success"
+    }
+    """
+    try:
+        # Extract client brief dict
+        client_brief_dict = payload.get("client_brief", {})
+
+        # Convert dict to ClientInputBrief model
+        brief = ClientInputBrief(
+            client_name=client_brief_dict.get("client_name"),
+            brand_name=client_brief_dict.get("brand_name"),
+            product_service=client_brief_dict.get("product_service"),
+            industry=client_brief_dict.get("industry"),
+            geography=client_brief_dict.get("geography"),
+            objectives=client_brief_dict.get("objectives"),
+            budget=client_brief_dict.get("budget"),
+            timeline=client_brief_dict.get("timeline"),
+            constraints=client_brief_dict.get("constraints"),
+        )
+
+        # Extract services dict
+        services = payload.get("services", {})
+        include_agency_grade = services.get("include_agency_grade", False)
+
+        # Extract use_learning flag
+        use_learning = payload.get("use_learning", False)
+
+        # Extract wow settings
+        wow_enabled = payload.get("wow_enabled", False)
+        wow_package_key = payload.get("wow_package_key")
+
+        # Extract industry key
+        industry_key = payload.get("industry_key")
+
+        # Build GenerateRequest
+        gen_req = GenerateRequest(
+            brief=brief,
+            generate_marketing_plan=services.get("marketing_plan", True),
+            generate_campaign_blueprint=services.get("campaign_blueprint", True),
+            generate_social_calendar=services.get("social_calendar", True),
+            generate_performance_review=services.get("performance_review", False),
+            generate_creatives=services.get("creatives", True),
+            package_preset=payload.get("package_name"),
+            include_agency_grade=include_agency_grade,
+            use_learning=use_learning,
+            wow_enabled=wow_enabled,
+            wow_package_key=wow_package_key,
+            industry_key=industry_key,
+        )
+
+        # Call the core /aicmo/generate endpoint
+        report = await aicmo_generate(gen_req)
+
+        # Convert output to markdown
+        report_markdown = generate_output_report_markdown(brief, report)
+
+        logger.info(
+            f"✅ [API WRAPPER] generate_report call successful. "
+            f"include_agency_grade={include_agency_grade}, use_learning={use_learning}"
+        )
+
+        return {
+            "report_markdown": report_markdown,
+            "status": "success",
+        }
+
+    except Exception as e:
+        logger.error(f"❌ [API WRAPPER] generate_report failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Report generation failed: {str(e)}")
 
 
 @app.get("/aicmo/industries")
