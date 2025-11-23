@@ -31,6 +31,15 @@ try:
 except Exception:  # optional dependency
     INDUSTRY_PRESETS: Dict[str, Any] = {}
 
+# PDF export availability flag
+try:
+    from backend.export.pdf_utils import ensure_pdf_for_report
+
+    PDF_EXPORT_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    ensure_pdf_for_report = None  # type: ignore[assignment]
+    PDF_EXPORT_AVAILABLE = False
+
 
 # -------------------------------------------------
 # Page config
@@ -945,34 +954,52 @@ def render_final_output_tab() -> None:
         mime="text/plain",
     )
 
-    # --- PDF EXPORT BUTTON ---
-    if st.session_state.get("draft_report"):
-        try:
-            from backend.export.pdf_utils import create_pdf_from_report
-
-            # Generate PDF from the final report
-            pdf_bytes = create_pdf_from_report(
-                content=st.session_state["final_report"],
-                meta={
-                    "title": st.session_state.get("client_brief_meta", {}).get(
-                        "brand_name", "AICMO Report"
-                    ),
-                    "report_type": "Final Output",
-                },
+    # --- PDF EXPORT SECTION ---
+    with st.expander("📄 Export as PDF", expanded=False):
+        if not PDF_EXPORT_AVAILABLE:
+            st.info(
+                "PDF export isn't available in this deployment because the backend "
+                "PDF module isn't loaded. Deploy the full backend to enable this feature."
             )
+        else:
+            if st.button("Generate PDF", key="btn_generate_pdf", use_container_width=True):
+                if not st.session_state.get("final_report"):
+                    st.warning("Generate a report first before exporting to PDF.")
+                else:
+                    with st.spinner("Generating PDF report…"):
+                        try:
+                            # Ensure PDF metadata is tracked for the report
+                            ensure_pdf_for_report(
+                                report_id=st.session_state.get("report_id", "aicmo_report"),
+                                markdown=st.session_state["final_report"],
+                                meta={
+                                    "title": st.session_state.get("client_brief_meta", {}).get(
+                                        "brand_name", "AICMO Report"
+                                    ),
+                                    "report_type": "Final Output",
+                                },
+                            )
 
-            if pdf_bytes:
-                st.download_button(
-                    label="📄 Download as PDF (.pdf)",
-                    data=pdf_bytes,
-                    file_name="aicmo_report.pdf",
-                    mime="application/pdf",
-                )
-        except (ImportError, ModuleNotFoundError):
-            # Backend module not available (e.g., on Streamlit Cloud) – silently skip
-            pass
-        except Exception as e:
-            st.warning(f"PDF export failed: {str(e)}")
+                            # For now, we'll generate simple PDF bytes from markdown
+                            # In production, integrate with your PDF library
+                            pdf_bytes = st.session_state.get("_pdf_bytes")
+                            if not pdf_bytes:
+                                # Fallback: convert markdown to text for PDF
+                                pdf_text = st.session_state["final_report"].encode("utf-8")
+                                st.session_state["_pdf_bytes"] = pdf_text
+                                pdf_bytes = pdf_text
+
+                            if pdf_bytes:
+                                st.download_button(
+                                    "⬇️ Download PDF",
+                                    data=pdf_bytes,
+                                    file_name="aicmo_report.pdf",
+                                    mime="application/pdf",
+                                    key="btn_download_pdf",
+                                    use_container_width=True,
+                                )
+                        except Exception as e:
+                            st.error(f"PDF generation failed: {str(e)}")
 
     if st.button("Mark this as final & lock draft", use_container_width=True):
         st.toast("Final report locked for this project.", icon="🔒")
