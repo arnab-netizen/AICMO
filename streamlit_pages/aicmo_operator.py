@@ -3,6 +3,7 @@ import json
 import os
 import re
 import sys
+import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
@@ -1043,6 +1044,89 @@ def render_learn_tab() -> None:
         "calendars, and audits. These are not sent to clients; they are only used as "
         "learning references to shape future outputs."
     )
+
+    # ZIP upload section for bulk training
+    st.markdown("---")
+    st.markdown("#### Bulk Training – Upload ZIP Archive")
+    st.markdown(
+        "Upload a ZIP file containing multiple training documents (.txt, .md, .pdf) "
+        "to quickly train AICMO on best practices. The system will extract, process, "
+        "and archive your files for audit trail."
+    )
+
+    col_zip_upload, col_zip_info = st.columns([3, 2])
+
+    with col_zip_upload:
+        training_zip = st.file_uploader(
+            "Select a ZIP file containing training documents",
+            type=["zip"],
+            key="learn_zip_file",
+        )
+
+    with col_zip_info:
+        st.info(
+            "**Supported formats:** .txt, .md, .pdf\n\n"
+            "Files are organized and archived in `/data/learning/` for audit trail."
+        )
+
+    if training_zip is not None:
+        col_zip_btn, col_zip_spinner = st.columns([1, 3])
+
+        with col_zip_btn:
+            process_zip = st.button(
+                "Train from ZIP",
+                key="process_zip",
+                use_container_width=True,
+                type="primary",
+            )
+
+        if process_zip:
+            with st.spinner("Processing ZIP and training AICMO..."):
+                try:
+                    # Prepare files for POST
+                    files = {
+                        "file": (training_zip.name, training_zip.getvalue(), "application/zip")
+                    }
+
+                    # Get backend URL from environment
+                    backend_url = os.environ.get("BACKEND_URL", "http://localhost:8000")
+
+                    # Send to backend
+                    response = requests.post(
+                        f"{backend_url}/api/learn/from-zip",
+                        files=files,
+                        params={"project_id": st.session_state.get("project_id", "default")},
+                        timeout=60,
+                    )
+
+                    if response.status_code == 200:
+                        result = response.json()
+                        st.success(
+                            f"✅ Training complete!\n\n"
+                            f"**Files processed:** {result['files_processed']}\n"
+                            f"**Blocks learned:** {result['blocks_learned']}\n\n"
+                            f"{result['message']}"
+                        )
+                        # Log the learning event
+                        learn_item = {
+                            "kind": "zip_upload",
+                            "filename": training_zip.name,
+                            "size_bytes": len(training_zip.getvalue()),
+                            "files_processed": result["files_processed"],
+                            "blocks_learned": result["blocks_learned"],
+                            "timestamp": datetime.datetime.now().isoformat(),
+                        }
+                        append_learn_item(learn_item)
+                    else:
+                        error_detail = response.json().get("detail", "Unknown error")
+                        st.error(f"❌ Training failed: {error_detail}")
+                except requests.exceptions.Timeout:
+                    st.error("Training request timed out. ZIP file may be too large.")
+                except Exception as e:
+                    st.error(f"Error processing ZIP: {str(e)}")
+
+    st.markdown("---")
+    st.markdown("#### Section A – Good / gold-standard examples")
 
     col_a, col_b = st.columns(2, gap="large")
 
