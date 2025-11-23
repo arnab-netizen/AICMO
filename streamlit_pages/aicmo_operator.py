@@ -1039,6 +1039,9 @@ def render_final_output_tab() -> None:
 def render_learn_tab() -> None:
     st.subheader("4️⃣ Learn – Teach AICMO Using Gold-Standard Reports")
 
+    # DEBUG MARKER
+    st.error("DEBUG: ZIP-LEARNING BUILD ACTIVE", icon="💾")
+
     st.markdown(
         "Use this area to feed AICMO examples from top agencies: great decks, reports, "
         "calendars, and audits. These are not sent to clients; they are only used as "
@@ -1069,18 +1072,20 @@ def render_learn_tab() -> None:
             "Files are organized and archived in `/data/learning/` for audit trail."
         )
 
-    if training_zip is not None:
-        col_zip_btn, col_zip_spinner = st.columns([1, 3])
+    col_zip_btn, col_zip_spinner = st.columns([1, 3])
 
-        with col_zip_btn:
-            process_zip = st.button(
-                "Train from ZIP",
-                key="process_zip",
-                use_container_width=True,
-                type="primary",
-            )
+    with col_zip_btn:
+        process_zip = st.button(
+            "Train from ZIP",
+            key="process_zip",
+            use_container_width=True,
+            type="primary",
+        )
 
-        if process_zip:
+    if process_zip:
+        if training_zip is None:
+            st.warning("Please attach a ZIP file first.")
+        else:
             with st.spinner("Processing ZIP and training AICMO..."):
                 try:
                     # Prepare files for POST
