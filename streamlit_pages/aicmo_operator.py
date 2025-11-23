@@ -2,13 +2,20 @@ import io
 import json
 import os
 import re
+import sys
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
-import requests
-import streamlit as st
-from openai import OpenAI
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
+# Ensure project root is in PYTHONPATH for imports
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+import requests  # noqa: E402
+import streamlit as st  # noqa: E402
+from openai import OpenAI  # noqa: E402
+from sqlalchemy import create_engine, text  # noqa: E402
+from sqlalchemy.engine import Engine  # noqa: E402
 
 # Try to import creative directions if available
 if TYPE_CHECKING:
