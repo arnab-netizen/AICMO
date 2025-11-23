@@ -7,6 +7,13 @@ import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
+# Load .env early
+from dotenv import load_dotenv
+BASE_DIR = Path(__file__).resolve().parent.parent
+env_path = BASE_DIR / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+
 # Ensure project root is in PYTHONPATH for imports
 project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
@@ -598,7 +605,7 @@ def call_backend_generate(
         "feedback": extra_feedback,
         "previous_draft": st.session_state.get("draft_report") or "",
         "learn_items": learn_items,
-        "use_learning": len(learn_items) > 0,  # ✅ Enable memory engine if training data exists
+        "use_learning": True,  # ✅ Always enable memory engine – backend will use it if items exist
         "industry_key": st.session_state.get("industry_key"),
     }
 
@@ -1047,6 +1054,38 @@ def render_learn_tab() -> None:
         "calendars, and audits. These are not sent to clients; they are only used as "
         "learning references to shape future outputs."
     )
+
+    # 🔹 SHOW REAL MEMORY STATS FROM BACKEND
+    st.markdown("---")
+    st.markdown("#### Backend Learning Statistics")
+    
+    backend_url = os.environ.get("AICMO_BACKEND_URL", os.environ.get("BACKEND_URL", "http://localhost:8000"))
+    
+    with st.expander("Memory Database Stats", expanded=True):
+        try:
+            resp = requests.get(
+                f"{backend_url}/api/learn/debug/summary",
+                timeout=10,
+            )
+            if resp.ok:
+                data = resp.json()
+                total_items = data.get("total_items", 0)
+                per_kind = data.get("per_kind", {})
+                
+                st.metric("Total memory items", total_items)
+                
+                if per_kind:
+                    st.write("**Items per kind:**")
+                    for kind, cnt in per_kind.items():
+                        st.write(f"- {kind}: {cnt}")
+                else:
+                    st.info("No learning items stored yet.")
+            else:
+                st.warning(f"Could not fetch stats: HTTP {resp.status_code}")
+        except requests.exceptions.ConnectionError:
+            st.error("Cannot connect to backend. Is it running? (python -m uvicorn backend.main:app --reload)")
+        except Exception as e:
+            st.warning(f"Error fetching learning stats: {e}")
 
     # ZIP upload section for bulk training
     st.markdown("---")

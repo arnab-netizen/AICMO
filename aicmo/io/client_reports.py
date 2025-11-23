@@ -583,4 +583,16 @@ def generate_output_report_markdown(
                 continue
             md += f"\n## {title}\n\n{body.strip()}\n"
 
-    return md.strip()
+    # ✨ FIX #2 & #5 & #8: Apply quality guardrails and formatting pass (import locally to avoid circular imports)
+    from aicmo.presets.quality_enforcer import enforce_quality
+    from aicmo.generators.output_formatter import format_final_output
+
+    brief_dict = {
+        "brand_name": brief.brand.brand_name,
+        "industry": brief.brand.industry,
+        "objectives": brief.goal.primary_goal,
+    }
+    md = enforce_quality(brief_dict, md.strip())
+    md = format_final_output(md)
+
+    return md

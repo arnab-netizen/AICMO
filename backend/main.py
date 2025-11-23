@@ -7,7 +7,16 @@ import logging
 import os
 from datetime import date, timedelta
 from enum import Enum
+from pathlib import Path
 from typing import Optional
+
+from dotenv import load_dotenv
+
+# Load .env automatically when backend starts
+BASE_DIR = Path(__file__).resolve().parent.parent
+env_path = BASE_DIR / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import PlainTextResponse, JSONResponse, StreamingResponse
@@ -123,6 +132,19 @@ class GenerateRequest(BaseModel):
 app = FastAPI(title="AICMO API")
 app.include_router(health_router, tags=["health"])
 app.include_router(learn_router, tags=["learn"])
+
+
+# ✨ FIX #3: Pre-load training materials at startup
+@app.on_event("startup")
+async def startup_preload_training():
+    """Load training ZIP structure into memory engine at app startup."""
+    try:
+        logger.info("🚀 AICMO startup: Pre-loading training materials...")
+        memory_engine.preload_training_materials()
+        logger.info("✅ Training materials loaded successfully")
+    except Exception as e:
+        logger.error(f"⚠️  Could not pre-load training materials: {e}")
+        # Don't fail startup if training materials aren't available
 
 
 # =====================
