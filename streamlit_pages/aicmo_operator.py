@@ -945,6 +945,32 @@ def render_final_output_tab() -> None:
         mime="text/plain",
     )
 
+    # --- PDF EXPORT BUTTON ---
+    if st.session_state.get("draft_report"):
+        try:
+            from backend.export.pdf_utils import create_pdf_from_report
+
+            # Generate PDF from the final report
+            pdf_bytes = create_pdf_from_report(
+                content=st.session_state["final_report"],
+                meta={
+                    "title": st.session_state.get("client_brief_meta", {}).get(
+                        "brand_name", "AICMO Report"
+                    ),
+                    "report_type": "Final Output",
+                },
+            )
+
+            if pdf_bytes:
+                st.download_button(
+                    label="📄 Download as PDF (.pdf)",
+                    data=pdf_bytes,
+                    file_name="aicmo_report.pdf",
+                    mime="application/pdf",
+                )
+        except Exception as e:
+            st.warning(f"PDF export not available: {str(e)}")
+
     if st.button("Mark this as final & lock draft", use_container_width=True):
         st.toast("Final report locked for this project.", icon="🔒")
 
