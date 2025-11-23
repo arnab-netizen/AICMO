@@ -460,7 +460,7 @@ def init_session_state() -> None:
         "feedback_notes": "",
         "feedback_history": [],
         "last_backend_payload": None,
-        "industry_preset": None,
+        "industry_key": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -598,7 +598,7 @@ def call_backend_generate(
         "previous_draft": st.session_state.get("draft_report") or "",
         "learn_items": learn_items,
         "use_learning": len(learn_items) > 0,  # ✅ Enable memory engine if training data exists
-        "industry_preset": st.session_state.get("industry_preset"),
+        "industry_key": st.session_state.get("industry_key"),
     }
 
     st.session_state["last_backend_payload"] = payload
@@ -781,7 +781,9 @@ def render_client_input_tab() -> None:
                     index=0,
                 )
                 if selected != "None":
-                    st.session_state["industry_preset"] = INDUSTRY_PRESETS[selected]
+                    st.session_state["industry_key"] = selected
+                else:
+                    st.session_state["industry_key"] = None
             else:
                 st.info("No industry presets available in this environment.")
 
