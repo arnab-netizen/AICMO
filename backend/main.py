@@ -32,6 +32,7 @@ from backend.services.learning import learn_from_report
 from backend.export_utils import safe_export_pdf, safe_export_pptx, safe_export_zip
 from aicmo.memory import engine as memory_engine
 from aicmo.presets.framework_fusion import structure_learning_context
+from aicmo.generators.agency_grade_processor import process_report_for_agency_grade
 
 from aicmo.io.client_reports import (
     ClientInputBrief,
@@ -730,15 +731,18 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
             try:
                 apply_agency_grade_enhancements(req.brief, base_output)
 
-                # Inject frameworks if learning context available
-                if learning_context_struct:
-                    logger.info("Phase L: Injecting frameworks into agency-grade output")
-                    # Framework injection could be applied to report sections
-                    # For now, logged as capability
-
-                # Apply language filters
-                logger.info("Phase L: Applying language filters to agency-grade output")
-                # Language filters would be applied to text sections
+                # Phase L: Process for agency-grade (frameworks + language filters)
+                brief_text = str(
+                    req.brief.model_dump() if hasattr(req.brief, "model_dump") else req.brief
+                )
+                base_output = process_report_for_agency_grade(
+                    report=base_output,
+                    brief_text=brief_text,
+                    learning_context_raw=learning_context_raw,
+                    learning_context_struct=learning_context_struct,
+                    include_reasoning_trace=True,  # Internal review only
+                )
+                logger.info("Phase L: Agency-grade processing complete (frameworks + filters)")
 
             except Exception as e:
                 logger.debug(f"Agency-grade enhancements failed (non-critical): {e}")
@@ -795,14 +799,18 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
             try:
                 apply_agency_grade_enhancements(req.brief, enhanced_output)
 
-                # Inject frameworks if learning context available
-                if learning_context_struct:
-                    logger.info("Phase L: Injecting frameworks into LLM-enhanced output")
-                    # Framework injection applied to report sections in production
-
-                # Apply language filters
-                logger.info("Phase L: Applying language filters to LLM output")
-                # Language filters applied to text sections
+                # Phase L: Process for agency-grade (frameworks + language filters)
+                brief_text = str(
+                    req.brief.model_dump() if hasattr(req.brief, "model_dump") else req.brief
+                )
+                enhanced_output = process_report_for_agency_grade(
+                    report=enhanced_output,
+                    brief_text=brief_text,
+                    learning_context_raw=learning_context_raw,
+                    learning_context_struct=learning_context_struct,
+                    include_reasoning_trace=True,  # Internal review only
+                )
+                logger.info("Phase L: Agency-grade processing complete (frameworks + filters)")
 
             except Exception as e:
                 logger.debug(f"Agency-grade enhancements failed (non-critical): {e}")

@@ -524,3 +524,96 @@ def augment_prompt_with_memory(
     context = format_blocks_for_prompt(items)
     logger.info(f"Phase L: Augmented prompt with {len(items)} memory block(s)")
     return f"{context}\n\n---\n\n{base_prompt}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE L INTEGRATION HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def retrieve_relevant_context(
+    prompt_text: str,
+    top_k: int = 20,
+    db_path: str = DEFAULT_DB_PATH,
+) -> str:
+    """
+    Retrieve learned context as formatted text string.
+
+    High-level API for Phase L integration into report generation.
+    Returns the top_k most relevant learned blocks formatted for direct prompt use.
+
+    Args:
+        prompt_text: The prompt/brief text to find similar learned content for
+        top_k: Maximum number of blocks to return (default 20)
+        db_path: Path to SQLite database
+
+    Returns:
+        Formatted text of learned blocks ready for prompt injection, or empty string if none found
+
+    Usage:
+        context = retrieve_relevant_context("client brief text", top_k=20)
+        if context:
+            enhanced_prompt = context + "\\n\\n" + original_prompt
+    """
+    try:
+        items = retrieve_relevant_blocks(
+            query=prompt_text,
+            limit=top_k,
+            min_score=0.1,  # Slightly lower threshold for broader retrieval
+            db_path=db_path,
+        )
+        if not items:
+            return ""
+        return format_blocks_for_prompt(items)
+    except Exception as e:
+        logger.debug(f"retrieve_relevant_context failed: {e}")
+        return ""
+
+
+def count_items(db_path: str = DEFAULT_DB_PATH) -> int:
+    """
+    Count total items in memory database.
+
+    Useful for diagnostics and understanding learning corpus size.
+
+    Args:
+        db_path: Path to SQLite database
+
+    Returns:
+        Number of memory items stored
+
+    Usage:
+        count = count_items()
+        print(f"Memory contains {count} learned items")
+    """
+    try:
+        conn = _get_conn(db_path)
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM memory_items")
+            count = cur.fetchone()[0]
+            return count or 0
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.debug(f"count_items failed: {e}")
+        return 0
+
+
+def get_db_url() -> str:
+    """
+    Get the effective database URL for current environment.
+
+    Returns the configured memory database path/connection string.
+    Useful for debugging and logging which database is active.
+
+    Returns:
+        Database URL or path string
+
+    Usage:
+        db_url = get_db_url()
+        logger.info(f"Using memory database: {db_url}")
+    """
+    import os
+
+    return os.getenv("AICMO_MEMORY_DB", DEFAULT_DB_PATH)
