@@ -980,20 +980,20 @@ def render_learn_tab() -> None:
 
     # DEBUG: Show memory DB status
     import os
-    from aicmo.memory import engine
+    from aicmo.memory.engine import get_memory_stats
 
     st.info(f"**AICMO_MEMORY_DB seen by app:** `{os.getenv('AICMO_MEMORY_DB')!r}`")
 
     try:
-        items = engine.list_all()
-        st.write(f"📚 **Total learned items:** {len(items)}")
+        stats = get_memory_stats()
+        total_items = stats.get("total_entries", 0)
+        st.write(f"📚 **Total learned items:** {total_items}")
 
-        # Show unique sources (files learned from)
-        if items:
-            sources = sorted({item.get("source", "unknown") for item in items})
-            st.write("**Sources I have learned from:**")
-            for s in sources:
-                st.write("•", s)
+        # Show memory stats
+        if stats:
+            for key, value in stats.items():
+                if key != "total_entries":
+                    st.write(f"• {key}: {value}")
     except Exception as e:
         st.warning(f"Memory engine status check failed: {str(e)}")
 
