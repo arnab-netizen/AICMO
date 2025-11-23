@@ -968,8 +968,11 @@ def render_final_output_tab() -> None:
                     file_name="aicmo_report.pdf",
                     mime="application/pdf",
                 )
+        except (ImportError, ModuleNotFoundError):
+            # Backend module not available (e.g., on Streamlit Cloud) – silently skip
+            pass
         except Exception as e:
-            st.warning(f"PDF export not available: {str(e)}")
+            st.warning(f"PDF export failed: {str(e)}")
 
     if st.button("Mark this as final & lock draft", use_container_width=True):
         st.toast("Final report locked for this project.", icon="🔒")
