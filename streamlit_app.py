@@ -10,10 +10,30 @@ client marketing reports. Integrates with backend endpoints:
 """
 
 import json
+import os
 from typing import Any, Dict, Optional
 
 import requests
 import streamlit as st
+
+# ═══════════════════════════════════════════════════════════════════════
+# SECRETS BRIDGE → os.environ
+# ═══════════════════════════════════════════════════════════════════════
+# Streamlit secrets don't automatically populate os.environ.
+# The backend and memory engine look at os.getenv() directly.
+# This bridge ensures secrets are available to all components.
+
+if "AICMO_MEMORY_DB" in st.secrets:
+    os.environ["AICMO_MEMORY_DB"] = st.secrets["AICMO_MEMORY_DB"]
+
+if "AICMO_USE_LLM" in st.secrets:
+    os.environ["AICMO_USE_LLM"] = st.secrets["AICMO_USE_LLM"]
+
+if "OPENAI_API_KEY" in st.secrets:
+    os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+
+if "ANTHROPIC_API_KEY" in st.secrets:
+    os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
 
 # ═══════════════════════════════════════════════════════════════════════
 # PAGE CONFIG & GLOBAL STYLE
