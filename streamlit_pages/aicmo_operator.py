@@ -407,7 +407,7 @@ def append_learn_item(item: Dict[str, Any]) -> None:
             "filename": item.get("filename"),
             "size_bytes": int(item.get("size_bytes") or 0),
             "notes": item.get("notes") or "",
-            "tags": json.dumps(tags),
+            "tags": tags,  # Pass Python list/dict; SQLAlchemy handles JSON conversion
         }
 
         with engine.begin() as conn:
@@ -415,7 +415,7 @@ def append_learn_item(item: Dict[str, Any]) -> None:
                 text(
                     """
                     INSERT INTO aicmo_learn_items (kind, filename, size_bytes, notes, tags)
-                    VALUES (:kind, :filename, :size_bytes, :notes, :tags::jsonb)
+                    VALUES (:kind, :filename, :size_bytes, :notes, :tags)
                     """
                 ),
                 payload,
@@ -977,6 +977,25 @@ def render_final_output_tab() -> None:
 
 def render_learn_tab() -> None:
     st.subheader("4️⃣ Learn – Teach AICMO Using Gold-Standard Reports")
+
+    # DEBUG: Show memory DB status
+    import os
+    from aicmo.memory import engine
+
+    st.info(f"**AICMO_MEMORY_DB seen by app:** `{os.getenv('AICMO_MEMORY_DB')!r}`")
+
+    try:
+        items = engine.list_all()
+        st.write(f"📚 **Total learned items:** {len(items)}")
+
+        # Show unique sources (files learned from)
+        if items:
+            sources = sorted({item.get("source", "unknown") for item in items})
+            st.write("**Sources I have learned from:**")
+            for s in sources:
+                st.write("•", s)
+    except Exception as e:
+        st.warning(f"Memory engine status check failed: {str(e)}")
 
     st.markdown(
         "Use this area to feed AICMO examples from top agencies: great decks, reports, "
