@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 # Load .env early
 from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 env_path = BASE_DIR / ".env"
 if env_path.exists():
@@ -1058,9 +1059,11 @@ def render_learn_tab() -> None:
     # 🔹 SHOW REAL MEMORY STATS FROM BACKEND
     st.markdown("---")
     st.markdown("#### Backend Learning Statistics")
-    
-    backend_url = os.environ.get("AICMO_BACKEND_URL", os.environ.get("BACKEND_URL", "http://localhost:8000"))
-    
+
+    backend_url = os.environ.get(
+        "AICMO_BACKEND_URL", os.environ.get("BACKEND_URL", "http://localhost:8000")
+    )
+
     with st.expander("Memory Database Stats", expanded=True):
         try:
             resp = requests.get(
@@ -1071,9 +1074,9 @@ def render_learn_tab() -> None:
                 data = resp.json()
                 total_items = data.get("total_items", 0)
                 per_kind = data.get("per_kind", {})
-                
+
                 st.metric("Total memory items", total_items)
-                
+
                 if per_kind:
                     st.write("**Items per kind:**")
                     for kind, cnt in per_kind.items():
@@ -1083,7 +1086,9 @@ def render_learn_tab() -> None:
             else:
                 st.warning(f"Could not fetch stats: HTTP {resp.status_code}")
         except requests.exceptions.ConnectionError:
-            st.error("Cannot connect to backend. Is it running? (python -m uvicorn backend.main:app --reload)")
+            st.error(
+                "Cannot connect to backend. Is it running? (python -m uvicorn backend.main:app --reload)"
+            )
         except Exception as e:
             st.warning(f"Error fetching learning stats: {e}")
 
