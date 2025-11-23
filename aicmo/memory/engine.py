@@ -32,6 +32,27 @@ USE_FAKE_EMBEDDINGS = os.getenv("AICMO_FAKE_EMBEDDINGS", "").lower() in (
     "yes",
 )
 
+# ═══════════════════════════════════════════════════════════════════════
+# LEARNING REQUIREMENT: Warn if AICMO_MEMORY_DB is not configured
+# ═══════════════════════════════════════════════════════════════════════
+# AICMO works best with a memory database configured. Without it, the system
+# cannot learn from gold-standard reports. In production, this should be an error.
+if not os.getenv("AICMO_MEMORY_DB"):
+    logger.warning(
+        "⚠️ AICMO Learning Database Not Explicitly Configured\n"
+        "AICMO_MEMORY_DB env var is not set. System will use default: db/aicmo_memory.db\n"
+        "\n"
+        "To use a different location or database, set one of:\n"
+        "  1. Local SQLite: export AICMO_MEMORY_DB='db/aicmo_memory.db'\n"
+        "  2. PostgreSQL:   export AICMO_MEMORY_DB='postgresql+psycopg2://user:pass@host:5432/aicmo'\n"
+        "  3. Neon Cloud:   export AICMO_MEMORY_DB='postgresql+psycopg2://...@neon.tech/aicmo'\n"
+        "\n"
+        "Without proper configuration in production:\n"
+        "  ✗ Learning will NOT persist across deployments\n"
+        "  ✗ Reports may not reflect gold-standard training\n"
+        "  ✗ Output quality may be reduced"
+    )
+
 # Phase L Persistence Guard: Warn if using non-persistent in-memory DB
 if DEFAULT_DB_PATH == ":memory:":
     logger.warning(
@@ -48,6 +69,7 @@ else:
     db_dir = os.path.dirname(DEFAULT_DB_PATH)
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
+    logger.debug(f"Phase L: Using persistent DB at {DEFAULT_DB_PATH}")
     logger.debug(f"Phase L: Using persistent DB at {DEFAULT_DB_PATH}")
 
 

@@ -590,6 +590,7 @@ def call_backend_generate(
         "feedback": extra_feedback,
         "previous_draft": st.session_state.get("draft_report") or "",
         "learn_items": learn_items,
+        "use_learning": len(learn_items) > 0,  # ✅ Enable memory engine if training data exists
         "industry_preset": st.session_state.get("industry_preset"),
     }
 
