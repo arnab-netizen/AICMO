@@ -649,6 +649,14 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
     3. Auto-records output as a learning example (always, non-blocking).
     4. If include_agency_grade=True: applies agency-grade turbo enhancements.
     """
+    # ═══════════════════════════════════════════════════════════════════════
+    # DEBUG: Learning system status
+    # ═══════════════════════════════════════════════════════════════════════
+    if req.model_dump().get("use_learning", False):
+        logger.info("🔥 [LEARNING ENABLED] use_learning flag received from Streamlit")
+    else:
+        logger.info("⚠️  [LEARNING DISABLED] use_learning=False or missing")
+
     # Check if LLM should be used
     use_llm = os.getenv("AICMO_USE_LLM", "0") == "1"
 
@@ -691,8 +699,10 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
                 project_id=None,  # No explicit project ID in this context
                 tags=["auto_learn", "final_report"],
             )
+            logger.info("🔥 [LEARNING RECORDED] Report learned and stored in memory engine")
         except Exception as e:
             logger.debug(f"Auto-learning failed (non-critical): {e}")
+            logger.warning("⚠️  [LEARNING FAILED] Report could not be recorded: %s", str(e))
 
         # WOW: Apply optional template wrapping
         base_output = _apply_wow_to_output(base_output, req)
@@ -736,8 +746,12 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
                 project_id=None,  # No explicit project ID in this context
                 tags=["auto_learn", "final_report", "llm_enhanced"],
             )
+            logger.info(
+                "🔥 [LEARNING RECORDED] LLM-enhanced report learned and stored in memory engine"
+            )
         except Exception as e:
             logger.debug(f"Auto-learning failed (non-critical): {e}")
+            logger.warning("⚠️  [LEARNING FAILED] Report could not be recorded: %s", str(e))
 
         # WOW: Apply optional template wrapping
         enhanced_output = _apply_wow_to_output(enhanced_output, req)
@@ -762,8 +776,12 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
                 project_id=None,
                 tags=["auto_learn", "final_report", "llm_fallback"],
             )
+            logger.info(
+                "🔥 [LEARNING RECORDED] Fallback report learned and stored in memory engine"
+            )
         except Exception as e:
             logger.debug(f"Auto-learning failed (non-critical): {e}")
+            logger.warning("⚠️  [LEARNING FAILED] Report could not be recorded: %s", str(e))
 
         # WOW: Apply optional template wrapping
         base_output = _apply_wow_to_output(base_output, req)
