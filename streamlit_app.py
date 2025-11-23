@@ -731,6 +731,54 @@ elif nav == "Learn & Improve":
                 )
 
         st.markdown("---")
+        st.markdown("#### Bulk Training – Upload ZIP Archive")
+        st.caption(
+            "Upload your full AICMO_Training.zip (with 00–10 folders) to bulk-teach AICMO using "
+            "frameworks, examples, and report libraries."
+        )
+
+        training_zip = st.file_uploader(
+            "Select AICMO training ZIP",
+            type=["zip"],
+            key="training_zip",
+        )
+
+        if training_zip is not None and st.button("Train from ZIP", key="train_from_zip"):
+            with st.spinner("Uploading and training from ZIP…"):
+                try:
+                    # Build multipart upload for backend
+                    files = {
+                        "file": (
+                            training_zip.name,
+                            training_zip.getvalue(),
+                            "application/zip",
+                        )
+                    }
+                    effective_project_id = project_id or "bulk-training"
+
+                    resp = requests.post(
+                        api_base.rstrip("/") + "/api/learn/from-zip",
+                        files=files,
+                        params={"project_id": effective_project_id},
+                        timeout=int(timeout),
+                    )
+
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        st.success(
+                            f"✅ ZIP training complete.\n\n"
+                            f"**Files processed:** {data.get('files_processed', '?')}\n"
+                            f"**Blocks learned:** {data.get('blocks_learned', '?')}\n\n"
+                            f"{data.get('message', '')}"
+                        )
+                    else:
+                        st.error(
+                            f"❌ ZIP training failed: {resp.status_code} – " f"{resp.text[:300]}"
+                        )
+                except Exception as e:
+                    st.error(f"❌ Error while calling /api/learn/from-zip: {e}")
+
+        st.markdown("---")
         st.markdown("#### Add external reference reports (optional)")
         ref_files = st.file_uploader(
             "Upload top-agency reports / decks to use as reference material",
