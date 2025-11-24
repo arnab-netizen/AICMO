@@ -777,61 +777,79 @@ Traffic Sources → Lead Magnet → Nurture → Offer → Post-Purchase → Refe
 
 ---
 
-## 16. Detailed 30-Day Content Calendar
+## 16. Awareness Stage Strategy
+
+{{awareness_strategy}}
+
+---
+
+## 17. Consideration Stage Strategy
+
+{{consideration_strategy}}
+
+---
+
+## 18. Conversion Stage Strategy
+
+{{conversion_strategy}}
+
+---
+
+## 19. Detailed 30-Day Content Calendar
 
 {{detailed_30_day_calendar}}
 
 ---
 
-## 17. Email & CRM Automation Flows
+## 20. Email & CRM Automation Flows
 
 {{email_and_crm_flows}}
 
 ---
 
-## 18. SMS & WhatsApp Strategy
+## 21. SMS & WhatsApp Strategy
 
 {{sms_and_whatsapp_strategy}}
 
 ---
 
-## 19. Paid Advertising Concepts
+## 22. Paid Advertising Concepts
 
 {{ad_concepts}}
 
 ---
 
-## 20. Remarketing & Conversion Strategy
+## 23. Remarketing & Conversion Strategy
 
 {{remarketing_strategy}}
 
 ---
 
-## 21. KPI & Budget Allocation Plan
+## 24. KPI & Budget Allocation Plan
 
 {{kpi_and_budget_plan}}
 
 ---
 
-## 22. Execution Roadmap & Timeline
+## 25. Execution Roadmap & Timeline
 
 {{execution_roadmap}}
 
 ---
 
-## 23. Post-Campaign Analysis Framework
+## 26. Post-Campaign Analysis Framework
 
 {{post_campaign_analysis}}
 
 ---
 
-## 24. Optimization Opportunities
+## 27. Optimization Opportunities
 
 {{optimization_opportunities}}
 
 ---
 
-## 25. Final Summary & Recommended Next Steps
+## 28. Final Summary & Recommended Next Steps
 
 {{final_summary}}
 
