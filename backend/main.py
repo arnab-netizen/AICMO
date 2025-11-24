@@ -8,7 +8,7 @@ import os
 from datetime import date, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict
 
 from dotenv import load_dotenv
 
@@ -296,6 +296,214 @@ def submit_performance_review(report: PerformanceReviewReport):
 # ============================================================
 # DAY 2 – AICMO operator endpoints used by the Streamlit UI
 # ============================================================
+
+
+def _generate_section_content(
+    section_id: str,
+    req: GenerateRequest,
+    mp: MarketingPlanView,
+    cb: CampaignBlueprintView,
+    cal: SocialCalendarView,
+    pr: Optional[PerformanceReviewView],
+    creatives: Optional[CreativesBlock],
+    persona_cards: list,
+    action_plan: Optional[ActionPlan],
+) -> str:
+    """
+    Generate content for a specific section ID based on the package preset.
+
+    Maps section IDs from the preset to actual content generated in the output.
+    This allows WOW templates to reference all 17 sections for strategy_campaign_standard.
+
+    Args:
+        section_id: One of the preset section keys (e.g., "overview", "campaign_objective")
+        req: GenerateRequest with brief and config
+        mp, cb, cal, pr, creatives: Output components
+        persona_cards: List of persona cards
+        action_plan: Action plan component
+
+    Returns:
+        Markdown string for this section
+    """
+    b = req.brief.brand
+    g = req.brief.goal
+    a = req.brief.audience
+    s = req.brief.strategy_extras
+
+    # Map section IDs to content generation
+    section_map = {
+        # Core sections
+        "overview": (
+            f"**Brand:** {b.brand_name}\n\n"
+            f"**Industry:** {b.industry or 'Not specified'}\n\n"
+            f"**Primary Goal:** {g.primary_goal or 'Growth'}\n\n"
+            f"**Timeline:** {g.timeline or 'Not specified'}\n\n"
+            f"This {req.package_preset or 'marketing'} plan provides a comprehensive strategy "
+            "to achieve your business objectives through coordinated marketing activities."
+        ),
+        "campaign_objective": (
+            f"**Primary Objective:** {g.primary_goal or 'Brand awareness and growth'}\n\n"
+            f"**Secondary Objectives:** {g.secondary_goal or 'Lead generation, customer retention'}\n\n"
+            f"**Target Timeline:** {g.timeline or '30-90 days'}\n\n"
+            f"**Success Metrics:** Increased brand awareness, lead volume, and customer engagement "
+            "across key channels."
+        ),
+        "core_campaign_idea": (
+            f"Position {b.brand_name} as the default choice in {b.industry or 'its category'} "
+            "by combining consistent social presence with proof-driven storytelling.\n\n"
+            f"**Key Insight:** {s.success_30_days or 'Customers prefer brands that demonstrate clear, repeatable promises backed by concrete proof.'}\n\n"
+            "**Campaign Narrative:** From random marketing acts to a structured, repeatable system "
+            "that compounds results over time."
+        ),
+        "messaging_framework": (
+            mp.messaging_pyramid.promise
+            if mp.messaging_pyramid
+            else f"{b.brand_name} will achieve tangible movement towards {g.primary_goal} "
+            "through a clear, repeatable marketing system.\n\n"
+        )
+        + (
+            "**Key Messages:**\n"
+            + "\n".join(f"- {msg}" for msg in (mp.messaging_pyramid.key_messages or []))
+            + "\n\n"
+            if mp.messaging_pyramid
+            else ""
+        )
+        + (
+            "**Proof Points:**\n"
+            + "\n".join(f"- {pp}" for pp in (mp.messaging_pyramid.proof_points or []))
+            + "\n\n"
+            if mp.messaging_pyramid
+            else ""
+        )
+        + (
+            "**Brand Values:** " + ", ".join(mp.messaging_pyramid.values or []) + "\n"
+            if mp.messaging_pyramid
+            else ""
+        ),
+        "channel_plan": (
+            "**Primary Channels:** Instagram, LinkedIn, Email\n\n"
+            "**Secondary Channels:** X, YouTube, Paid Ads\n\n"
+            "**Content Strategy:** Reuse 3–5 core ideas across channels with platform-specific "
+            "optimization. Focus on consistency and repetition rather than constant new ideas.\n\n"
+            "**Posting Frequency:** 1 post per day per platform, with 2 reels/videos per week."
+        ),
+        "audience_segments": (
+            f"**Primary Audience:** {a.primary_customer}\n"
+            f"- {a.primary_customer} actively seeking {b.product_service or 'solutions'}\n"
+            f"- Values clarity, proof, and low friction\n\n"
+            f"**Secondary Audience:** {a.secondary_customer or 'Referral sources and advocates'}\n"
+            f"- Decision influencers and advocates\n"
+            f"- Shares and amplifies proof-driven content\n\n"
+            "**Messaging Approach:** Speak to the specific challenges and aspirations of each segment."
+        ),
+        "persona_cards": (
+            "**Core Buyer Persona: The Decision-Maker**\n\n"
+            f"{cb.audience_persona.name or 'Core Buyer'}\n\n"
+            f"{cb.audience_persona.description or 'Actively seeking solutions and wants less friction, more clarity, and trustworthy proof before committing.'}\n\n"
+            "- Pain Points: Time constraints, choice overload, lack of proof\n"
+            "- Desires: Clarity, proven systems, efficiency\n"
+            "- Content Preference: Case studies, testimonials, walkthroughs"
+        ),
+        "creative_direction": (
+            "**Tone & Personality:** "
+            + (
+                ", ".join(s.brand_adjectives)
+                if s.brand_adjectives
+                else "reliable, consistent, growth-focused"
+            )
+            + "\n\n"
+            "**Visual Direction:** Clean, professional, proof-oriented. Use logos, testimonials, "
+            "metrics, and results-oriented imagery.\n\n"
+            "**Key Design Elements:**\n"
+            "- Professional typography with strong visual hierarchy\n"
+            "- Client logos and social proof\n"
+            "- Metrics and results prominently displayed\n"
+            "- Consistent color palette and brand elements"
+        ),
+        "influencer_strategy": (
+            f"**Micro-Influencer Partners:** Thought leaders in {b.industry or 'the industry'} "
+            "with 10k–100k engaged followers.\n\n"
+            "**Co-creation Opportunities:** Case studies, webinar series, shared content campaigns.\n\n"
+            "**Measurement:** Engagement rate (>2%), click-through rate, and lead attribution.\n\n"
+            "**Budget Allocation:** 15–20% of media spend for influencer partnerships."
+        ),
+        "promotions_and_offers": (
+            f"**Primary Offer:** Free consultation or audit to demonstrate the value of "
+            f"{b.brand_name}'s approach.\n\n"
+            "**Secondary Offers:** Email series, webinar, discount for long-term engagement.\n\n"
+            "**Timing:** Launch offers strategically every 2 weeks with countdown timers "
+            "and clear CTAs.\n\n"
+            "**Risk Reversal:** Money-back guarantee or no-commitment trial period."
+        ),
+        "detailed_30_day_calendar": (
+            "**Week 1 (Days 1–7):** Brand story and value positioning\n"
+            "- 3–4 hero posts introducing the core promise\n"
+            "- 2 educational carousel posts about the category\n\n"
+            "**Week 2 (Days 8–14):** Social proof and case studies\n"
+            "- 3–4 case study or testimonial posts\n"
+            "- 2 before/after or transformation posts\n\n"
+            "**Week 3 (Days 15–21):** Channel-specific tactics\n"
+            "- Platform-optimized content variations\n"
+            "- 2 reel/video posts showcasing results\n\n"
+            "**Week 4 (Days 22–30):** Calls to action and lead generation\n"
+            "- 3 direct CTA posts\n"
+            "- Final offer push with countdown timer"
+        ),
+        "email_and_crm_flows": (
+            "**Welcome Series (3 emails):** Introduce value, share proof, invite to offer\n\n"
+            "**Educational Series (5 emails):** Deep-dive into core concepts and solutions\n\n"
+            "**Offer Series (3 emails):** Soft pitch → Medium pitch → Hard pitch with "
+            "deadline countdown\n\n"
+            "**Post-Engagement:** Nurture sequence for non-converters, retargeting after "
+            "30 days of activity"
+        ),
+        "ad_concepts": (
+            "**Awareness Ads:** Problem-aware hooks showing the cost of poor marketing strategy\n\n"
+            "**Consideration Ads:** Feature case studies, results metrics, and proof of effectiveness\n\n"
+            "**Conversion Ads:** Direct CTAs with limited-time offers and urgency elements\n\n"
+            "**Remarketing Ads:** Targeted to page visitors and email openers with "
+            "special retargeting offers"
+        ),
+        "kpi_and_budget_plan": (
+            f"**Primary KPIs:**\n"
+            f"- Awareness: Reach ({g.primary_goal and 'target audience size'} per week)\n"
+            f"- Engagement: Rate (>2% or 500+ interactions per post)\n"
+            f"- Conversion: Leads ({g.primary_goal and 'target weekly leads'})\n\n"
+            f"**Budget Allocation:**\n"
+            f"- Organic/Owned: 40%\n"
+            f"- Paid Social: 35%\n"
+            f"- Email/CRM: 15%\n"
+            f"- Content/Creatives: 10%\n\n"
+            f"**Measurement Cadence:** Weekly reporting, monthly analysis, quarterly optimization"
+        ),
+        "execution_roadmap": (
+            "**Days 1–7:** Finalize messaging, create content bank, set up tracking\n\n"
+            "**Days 8–14:** Launch organic social, email sequences, and first paid campaign\n\n"
+            "**Days 15–21:** Optimize based on engagement data, launch second paid variant\n\n"
+            "**Days 22–30:** Final push with CTAs, collect lead data, prepare monthly report\n\n"
+            "**Month 2+:** Iterate based on performance, double down on winners, "
+            "test new channels"
+        ),
+        "post_campaign_analysis": (
+            "**Performance Review:** Compare KPIs against targets, identify winners and losers\n\n"
+            "**Content Analysis:** Which content themes, formats, and messages drove engagement?\n\n"
+            "**Channel Performance:** ROI by platform, cost per lead, conversion rate\n\n"
+            "**Learnings:** Document what worked, what didn't, and why for next campaign\n\n"
+            "**Recommendations:** Suggest optimization tactics and new opportunities for growth"
+        ),
+        "final_summary": (
+            f"This comprehensive {req.package_preset or 'marketing'} plan positions "
+            f"{b.brand_name} for sustained growth through clear strategy, consistent messaging, "
+            "and data-driven optimization.\n\n"
+            "Success requires commitment to the core narrative, consistent execution across channels, "
+            "and monthly performance reviews to guide adjustments.\n\n"
+            "By following this roadmap, you'll replace random marketing acts with a repeatable system "
+            "that compounds results over time."
+        ),
+    }
+
+    # Return the generated content for this section, or a placeholder if not found
+    return section_map.get(section_id, f"[{section_id} content to be populated]")
 
 
 def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
@@ -609,6 +817,21 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
     else:
         creatives = None
 
+    # Build extra_sections for package-specific presets
+    # This allows WOW templates to reference all sections from the preset
+    extra_sections: Dict[str, str] = {}
+
+    if req.package_preset:
+        preset = PACKAGE_PRESETS.get(req.package_preset)
+        if preset:
+            # Generate content for all sections in the preset
+            for section_id in preset.get("sections", []):
+                # Map section IDs to generated content from existing output blocks
+                section_content = _generate_section_content(
+                    section_id, req, mp, cb, cal, pr, creatives, persona_cards, action_plan
+                )
+                extra_sections[section_id] = section_content
+
     out = AICMOOutputReport(
         marketing_plan=mp,
         campaign_blueprint=cb,
@@ -617,6 +840,7 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
         creatives=creatives,
         persona_cards=persona_cards,
         action_plan=action_plan,
+        extra_sections=extra_sections,
     )
     return out
 
@@ -997,6 +1221,17 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
         # Extract wow settings
         wow_enabled = payload.get("wow_enabled", False)
         wow_package_key = payload.get("wow_package_key")
+
+        # 🔧 TEMPORARY TROUBLESHOOTING: Force WOW bypass for strategy_campaign_standard
+        # to verify if the underlying generator produces a long-form report
+        package_name = payload.get("package_name")
+        if package_name == "Strategy + Campaign Pack (Standard)":
+            # TEMP: Disable WOW to see raw generator output
+            wow_enabled = False
+            wow_package_key = None
+            logger.info(
+                "🔧 [TEMPORARY] WOW disabled for strategy_campaign_standard - testing raw output"
+            )
 
         # Extract industry key
         industry_key = payload.get("industry_key")

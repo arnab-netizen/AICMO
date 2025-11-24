@@ -82,121 +82,109 @@ WOW_TEMPLATES: Dict[str, str] = {
 
 ---
 
-## 1. Brand & Audience Snapshot
+## 1. Campaign Overview
 
-- **Brand:** {{brand_name}}
-- **Category:** {{category}}
-- **Location / Markets:** {{markets}}
-- **Primary Audience:** {{primary_audience}}
-- **Secondary Audience:** {{secondary_audience}}
-- **Current Positioning:** {{current_positioning}}
-- **Desired Positioning:** {{desired_positioning}}
-- **Key Business Objective:** {{business_objective}}
+{{overview}}
 
 ---
 
-## 2. Insight & Core Challenge
+## 2. Campaign Objectives
 
-> What problem are we really solving?
-
-- **Audience Insight:** {{audience_insight}}
-- **Market Insight:** {{market_insight}}
-- **Primary Challenge:** {{primary_challenge}}
-- **Success Looks Like:** {{definition_of_success}}
+{{campaign_objective}}
 
 ---
 
-## 3. Creative & Visual Direction
+## 3. Core Campaign Idea
 
-**Tone & Personality:** {{tone_personality}}
-
-**Visual Direction:**
-- Colors: {{colors_summary}}
-- Fonts: {{fonts_summary}}
-- Photography style: {{photo_style}}
-- References / Mood: {{visual_references}}
+{{core_campaign_idea}}
 
 ---
 
-## 4. Competitor Benchmark (3 Key Competitors)
+## 4. Messaging Framework
 
-{{competitor_benchmark_block}}
-
-> Key white space opportunity: **{{whitespace_opportunity}}**
+{{messaging_framework}}
 
 ---
 
-## 5. Campaign Strategy Framework (e.g., AIDA)
+## 5. Channel Plan
 
-**Attention:** {{strategy_attention}}  
-**Interest:** {{strategy_interest}}  
-**Desire:** {{strategy_desire}}  
-**Action:** {{strategy_action}}
-
-Core Campaign Idea:  
-> **{{big_idea_tagline}}**
-
-Supporting Angles:
-- {{angle_1}}
-- {{angle_2}}
-- {{angle_3}}
+{{channel_plan}}
 
 ---
 
-## 6. Channel & Content System
+## 6. Audience Segments
 
-**Primary Channels:** {{primary_channels}}  
-**Support Channels:** {{support_channels}}
-
-**Content Pillars:**
-{{content_pillars_block}}
+{{audience_segments}}
 
 ---
 
-## 7. 30-Day Campaign Calendar
+## 7. Persona Cards
 
-{{calendar_30_day_table}}
-
----
-
-## 8. Sample Captions & Hooks
-
-**Hero Posts (5):**  
-{{hero_captions_block}}
-
-**Supporting Posts (10):**  
-{{supporting_captions_block}}
-
-**Carousel / Long-form Captions (5):**  
-{{carousel_captions_block}}
+{{persona_cards}}
 
 ---
 
-## 9. Reels & Video Concepts (10)
+## 8. Creative Direction
 
-{{reel_concepts_block}}
-
----
-
-## 10. Hashtag Bank (90 Tags)
-
-- **Brand & Category:** {{hashtags_brand_category}}
-- **Occasion / Campaign:** {{hashtags_occasion}}
-- **Audience & Community:** {{hashtags_audience}}
-- **Tiered mix:** {{hashtags_tier_mix}}
+{{creative_direction}}
 
 ---
 
-## 11. KPIs & Measurement Plan
+## 9. Influencer Strategy
 
-- **Primary KPI(s):** {{primary_kpis}}
-- **Secondary KPI(s):** {{secondary_kpis}}
-- **Checkpoints:** {{checkpoints}}
-- **Reporting Cadence:** {{reporting_cadence}}
+{{influencer_strategy}}
 
 ---
 
-*This Strategy + Campaign Pack gives {{brand_name}} a clear, executable roadmap that aligns creative, channels, and KPIs around {{campaign_name}}.*
+## 10. Promotions & Offers
+
+{{promotions_and_offers}}
+
+---
+
+## 11. Detailed 30-Day Calendar
+
+{{detailed_30_day_calendar}}
+
+---
+
+## 12. Email & CRM Flows
+
+{{email_and_crm_flows}}
+
+---
+
+## 13. Ad Concepts
+
+{{ad_concepts}}
+
+---
+
+## 14. KPI & Budget Plan
+
+{{kpi_and_budget_plan}}
+
+---
+
+## 15. Execution Roadmap
+
+{{execution_roadmap}}
+
+---
+
+## 16. Post-Campaign Analysis
+
+{{post_campaign_analysis}}
+
+---
+
+## 17. Final Summary
+
+{{final_summary}}
+
+---
+
+*This Strategy + Campaign Pack gives {{brand_name}} a comprehensive, executable roadmap that aligns objectives, messaging, channels, creative, and measurement around {{campaign_name}}.*
 """,
     "full_funnel_premium": r"""# {{brand_name}} – Full-Funnel Growth Suite (Premium)
 ### Awareness → Consideration → Conversion → Retention
