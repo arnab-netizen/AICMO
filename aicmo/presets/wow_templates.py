@@ -634,6 +634,452 @@ Traffic Sources → Lead Magnet → Nurture → Offer → Post-Purchase → Refe
 
 *This Performance Audit & Revamp equips {{brand_name}} with a clear, prioritized roadmap to stop waste and scale what works.*
 """,
+    # ============================================================
+    # STRATEGY + CAMPAIGN PACK TEMPLATES (Tier System)
+    # (Basic, Standard, Premium, Enterprise)
+    # Each pack has a dedicated template matching its section count & complexity
+    # ============================================================
+    "strategy_campaign_basic": r"""# {{brand_name}} – Strategy + Campaign Plan (Quick)
+### Fast-Track Campaign Strategy – {{campaign_name}}
+
+---
+
+## 1. Overview
+
+{{overview}}
+
+---
+
+## 2. Core Campaign Idea
+
+{{core_campaign_idea}}
+
+---
+
+## 3. Messaging Framework
+
+{{messaging_framework}}
+
+---
+
+## 4. Audience & Segments
+
+{{audience_segments}}
+
+---
+
+## 5. 30-Day Action Plan
+
+{{detailed_30_day_calendar}}
+
+---
+
+## Final Summary
+
+{{final_summary}}
+
+---
+
+*This quick-turnaround strategy gives {{brand_name}} a clear, executable plan for {{campaign_name}} launch and execution.*
+""",
+    "strategy_campaign_premium": r"""# {{brand_name}} – Strategy + Campaign Plan (Premium)
+### Comprehensive Multi-Channel Campaign Strategy – {{campaign_name}}
+
+---
+
+## 1. Campaign Overview
+
+{{overview}}
+
+---
+
+## 2. Campaign Objective & Success Criteria
+
+{{campaign_objective}}
+
+---
+
+## 3. Core Campaign Idea
+
+{{core_campaign_idea}}
+
+---
+
+## 4. Value Proposition & Positioning
+
+{{value_proposition_map}}
+
+---
+
+## 5. Messaging Framework
+
+{{messaging_framework}}
+
+---
+
+## 6. Channel Plan & Platform Strategy
+
+{{channel_plan}}
+
+---
+
+## 7. Audience Segments & Targeting
+
+{{audience_segments}}
+
+---
+
+## 8. Buyer Personas
+
+{{persona_cards}}
+
+---
+
+## 9. Creative Direction
+
+{{creative_direction}}
+
+---
+
+## 10. Creative Territories & Variations
+
+{{creative_territories}}
+
+---
+
+## 11. Copy Variants & Key Messages
+
+{{copy_variants}}
+
+---
+
+## 12. Influencer & Partnership Strategy
+
+{{influencer_strategy}}
+
+---
+
+## 13. UGC & Community Building
+
+{{ugc_and_community_plan}}
+
+---
+
+## 14. Promotions & Special Offers
+
+{{promotions_and_offers}}
+
+---
+
+## 15. Funnel Breakdown (Awareness → Conversion)
+
+{{funnel_breakdown}}
+
+---
+
+## 16. Detailed 30-Day Content Calendar
+
+{{detailed_30_day_calendar}}
+
+---
+
+## 17. Email & CRM Automation Flows
+
+{{email_and_crm_flows}}
+
+---
+
+## 18. SMS & WhatsApp Strategy
+
+{{sms_and_whatsapp_strategy}}
+
+---
+
+## 19. Paid Advertising Concepts
+
+{{ad_concepts}}
+
+---
+
+## 20. Remarketing & Conversion Strategy
+
+{{remarketing_strategy}}
+
+---
+
+## 21. KPI & Budget Allocation Plan
+
+{{kpi_and_budget_plan}}
+
+---
+
+## 22. Execution Roadmap & Timeline
+
+{{execution_roadmap}}
+
+---
+
+## 23. Post-Campaign Analysis Framework
+
+{{post_campaign_analysis}}
+
+---
+
+## 24. Optimization Opportunities
+
+{{optimization_opportunities}}
+
+---
+
+## 25. Final Summary & Recommended Next Steps
+
+{{final_summary}}
+
+---
+
+*This comprehensive Premium strategy positions {{brand_name}} for significant growth through integrated, multi-channel execution and continuous optimization.*
+""",
+    "strategy_campaign_enterprise": r"""# {{brand_name}} – Strategy + Campaign Plan (Enterprise)
+### Consulting-Grade Strategic Campaign Framework – {{campaign_name}}
+
+---
+
+## 1. Executive Summary
+
+{{overview}}
+
+---
+
+## 2. Industry & Market Landscape
+
+{{industry_landscape}}
+
+---
+
+## 3. Market Analysis & Trends
+
+{{market_analysis}}
+
+---
+
+## 4. Competitive Intelligence & Positioning
+
+{{competitor_analysis}}
+
+---
+
+## 5. Customer Insights & Pain Points
+
+{{customer_insights}}
+
+---
+
+## 6. Campaign Objectives & Success Criteria
+
+{{campaign_objective}}
+
+---
+
+## 7. Core Campaign Idea & Strategic Narrative
+
+{{core_campaign_idea}}
+
+---
+
+## 8. Value Proposition & Brand Promise Mapping
+
+{{value_proposition_map}}
+
+---
+
+## 9. Brand Positioning & Differentiation
+
+{{brand_positioning}}
+
+---
+
+## 10. Messaging Architecture & Framework
+
+{{messaging_framework}}
+
+---
+
+## 11. Integrated Channel Plan
+
+{{channel_plan}}
+
+---
+
+## 12. Audience Segmentation & Targeting Strategy
+
+{{audience_segments}}
+
+---
+
+## 13. Detailed Buyer Personas & Decision Journeys
+
+{{persona_cards}}
+
+---
+
+## 14. Customer Journey Mapping
+
+{{customer_journey_map}}
+
+---
+
+## 15. Creative Direction & Brand Expression
+
+{{creative_direction}}
+
+---
+
+## 16. Creative Territories & Strategic Variations
+
+{{creative_territories}}
+
+---
+
+## 17. Copy Architecture & Message Variants
+
+{{copy_variants}}
+
+---
+
+## 18. Influencer & Strategic Partnership Framework
+
+{{influencer_strategy}}
+
+---
+
+## 19. User-Generated Content & Community Strategy
+
+{{ugc_and_community_plan}}
+
+---
+
+## 20. Promotional & Offer Architecture
+
+{{promotions_and_offers}}
+
+---
+
+## 21. Multi-Stage Funnel Breakdown
+
+{{funnel_breakdown}}
+
+---
+
+## 22. Awareness Stage Strategy & Tactics
+
+{{awareness_strategy}}
+
+---
+
+## 23. Consideration Stage Strategy & Tactics
+
+{{consideration_strategy}}
+
+---
+
+## 24. Conversion Stage Strategy & Tactics
+
+{{conversion_strategy}}
+
+---
+
+## 25. Retention & Expansion Strategy
+
+{{retention_strategy}}
+
+---
+
+## 26. Detailed 30-Day Integrated Calendar
+
+{{detailed_30_day_calendar}}
+
+---
+
+## 27. Email & CRM Automation Architecture
+
+{{email_and_crm_flows}}
+
+---
+
+## 28. SMS & WhatsApp Engagement Strategy
+
+{{sms_and_whatsapp_strategy}}
+
+---
+
+## 29. Paid Media & Advertising Strategy
+
+{{ad_concepts}}
+
+---
+
+## 30. Remarketing & Conversion Optimization
+
+{{remarketing_strategy}}
+
+---
+
+## 31. Measurement Framework & KPI Dashboard
+
+{{measurement_framework}}
+
+---
+
+## 32. Budget Allocation & Financial Planning
+
+{{kpi_and_budget_plan}}
+
+---
+
+## 33. Risk Assessment & Mitigation Strategies
+
+{{risk_assessment}}
+
+---
+
+## 34. Implementation Roadmap & Timeline
+
+{{execution_roadmap}}
+
+---
+
+## 35. Post-Campaign Analysis & Learning Framework
+
+{{post_campaign_analysis}}
+
+---
+
+## 36. Optimization Opportunities & Scale Levers
+
+{{optimization_opportunities}}
+
+---
+
+## 37. Strategic Recommendations & Future Roadmap
+
+{{strategic_recommendations}}
+
+---
+
+## 38. C-Suite Summary & Business Impact
+
+{{cxo_summary}}
+
+---
+
+## 39. Final Summary & Commitment to Execution
+
+{{final_summary}}
+
+---
+
+*This Enterprise-grade strategic campaign plan provides {{brand_name}} with a comprehensive, integrated framework designed for executive decision-making, multi-team coordination, and measurable business impact. Built on industry best practices, customer insights, and competitive intelligence, this strategy ensures alignment across all functions and channels.*
+""",
 }
 
 

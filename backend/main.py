@@ -297,6 +297,726 @@ def submit_performance_review(report: PerformanceReviewReport):
 # DAY 2 – AICMO operator endpoints used by the Streamlit UI
 # ============================================================
 
+# ============================================================
+# SECTION GENERATORS REGISTRY (Layer 2: Dynamic Content Generation)
+# ============================================================
+# Maps section_id -> generator function
+# This enables dynamic section generation for any pack size (Basic, Standard, Premium, Enterprise)
+# Each section_id can be requested independently and generated as needed
+# ============================================================
+
+
+def _gen_overview(
+    req: GenerateRequest,
+    mp: MarketingPlanView,
+    cb: CampaignBlueprintView,
+    **kwargs,
+) -> str:
+    """Generate 'overview' section."""
+    b = req.brief.brand
+    g = req.brief.goal
+    return (
+        f"**Brand:** {b.brand_name}\n\n"
+        f"**Industry:** {b.industry or 'Not specified'}\n\n"
+        f"**Primary Goal:** {g.primary_goal or 'Growth'}\n\n"
+        f"**Timeline:** {g.timeline or 'Not specified'}\n\n"
+        f"This {req.package_preset or 'marketing'} plan provides a comprehensive strategy "
+        "to achieve your business objectives through coordinated marketing activities."
+    )
+
+
+def _gen_campaign_objective(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'campaign_objective' section."""
+    g = req.brief.goal
+    return (
+        f"**Primary Objective:** {g.primary_goal or 'Brand awareness and growth'}\n\n"
+        f"**Secondary Objectives:** {g.secondary_goal or 'Lead generation, customer retention'}\n\n"
+        f"**Target Timeline:** {g.timeline or '30-90 days'}\n\n"
+        f"**Success Metrics:** Increased brand awareness, lead volume, and customer engagement "
+        "across key channels."
+    )
+
+
+def _gen_core_campaign_idea(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'core_campaign_idea' section."""
+    b = req.brief.brand
+    s = req.brief.strategy_extras
+    return (
+        f"Position {b.brand_name} as the default choice in {b.industry or 'its category'} "
+        "by combining consistent social presence with proof-driven storytelling.\n\n"
+        f"**Key Insight:** {s.success_30_days or 'Customers prefer brands that demonstrate clear, repeatable promises backed by concrete proof.'}\n\n"
+        "**Campaign Narrative:** From random marketing acts to a structured, repeatable system "
+        "that compounds results over time."
+    )
+
+
+def _gen_messaging_framework(
+    req: GenerateRequest,
+    mp: MarketingPlanView,
+    **kwargs,
+) -> str:
+    """Generate 'messaging_framework' section."""
+    b = req.brief.brand
+    g = req.brief.goal
+    return (
+        (
+            mp.messaging_pyramid.promise
+            if mp.messaging_pyramid
+            else f"{b.brand_name} will achieve tangible movement towards {g.primary_goal} "
+            "through a clear, repeatable marketing system.\n\n"
+        )
+        + (
+            "**Key Messages:**\n"
+            + "\n".join(f"- {msg}" for msg in (mp.messaging_pyramid.key_messages or []))
+            + "\n\n"
+            if mp.messaging_pyramid
+            else ""
+        )
+        + (
+            "**Proof Points:**\n"
+            + "\n".join(f"- {pp}" for pp in (mp.messaging_pyramid.proof_points or []))
+            + "\n\n"
+            if mp.messaging_pyramid
+            else ""
+        )
+        + (
+            "**Brand Values:** " + ", ".join(mp.messaging_pyramid.values or []) + "\n"
+            if mp.messaging_pyramid
+            else ""
+        )
+    )
+
+
+def _gen_channel_plan(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'channel_plan' section."""
+    return (
+        "**Primary Channels:** Instagram, LinkedIn, Email\n\n"
+        "**Secondary Channels:** X, YouTube, Paid Ads\n\n"
+        "**Content Strategy:** Reuse 3–5 core ideas across channels with platform-specific "
+        "optimization. Focus on consistency and repetition rather than constant new ideas.\n\n"
+        "**Posting Frequency:** 1 post per day per platform, with 2 reels/videos per week."
+    )
+
+
+def _gen_audience_segments(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'audience_segments' section."""
+    b = req.brief.brand
+    a = req.brief.audience
+    return (
+        f"**Primary Audience:** {a.primary_customer}\n"
+        f"- {a.primary_customer} actively seeking {b.product_service or 'solutions'}\n"
+        f"- Values clarity, proof, and low friction\n\n"
+        f"**Secondary Audience:** {a.secondary_customer or 'Referral sources and advocates'}\n"
+        f"- Decision influencers and advocates\n"
+        f"- Shares and amplifies proof-driven content\n\n"
+        "**Messaging Approach:** Speak to the specific challenges and aspirations of each segment."
+    )
+
+
+def _gen_persona_cards(
+    req: GenerateRequest,
+    cb: CampaignBlueprintView,
+    **kwargs,
+) -> str:
+    """Generate 'persona_cards' section."""
+    return (
+        "**Core Buyer Persona: The Decision-Maker**\n\n"
+        f"{cb.audience_persona.name or 'Core Buyer'}\n\n"
+        f"{cb.audience_persona.description or 'Actively seeking solutions and wants less friction, more clarity, and trustworthy proof before committing.'}\n\n"
+        "- Pain Points: Time constraints, choice overload, lack of proof\n"
+        "- Desires: Clarity, proven systems, efficiency\n"
+        "- Content Preference: Case studies, testimonials, walkthroughs"
+    )
+
+
+def _gen_creative_direction(
+    req: GenerateRequest,
+    **kwargs,
+) -> str:
+    """Generate 'creative_direction' section."""
+    s = req.brief.strategy_extras
+    return (
+        "**Tone & Personality:** "
+        + (
+            ", ".join(s.brand_adjectives)
+            if s.brand_adjectives
+            else "reliable, consistent, growth-focused"
+        )
+        + "\n\n"
+        "**Visual Direction:** Clean, professional, proof-oriented. Use logos, testimonials, "
+        "metrics, and results-oriented imagery.\n\n"
+        "**Key Design Elements:**\n"
+        "- Professional typography with strong visual hierarchy\n"
+        "- Client logos and social proof\n"
+        "- Metrics and results prominently displayed\n"
+        "- Consistent color palette and brand elements"
+    )
+
+
+def _gen_influencer_strategy(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'influencer_strategy' section."""
+    b = req.brief.brand
+    return (
+        f"**Micro-Influencer Partners:** Thought leaders in {b.industry or 'the industry'} "
+        "with 10k–100k engaged followers.\n\n"
+        "**Co-creation Opportunities:** Case studies, webinar series, shared content campaigns.\n\n"
+        "**Measurement:** Engagement rate (>2%), click-through rate, and lead attribution.\n\n"
+        "**Budget Allocation:** 15–20% of media spend for influencer partnerships."
+    )
+
+
+def _gen_promotions_and_offers(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'promotions_and_offers' section."""
+    b = req.brief.brand
+    return (
+        f"**Primary Offer:** Free consultation or audit to demonstrate the value of "
+        f"{b.brand_name}'s approach.\n\n"
+        "**Secondary Offers:** Email series, webinar, discount for long-term engagement.\n\n"
+        "**Timing:** Launch offers strategically every 2 weeks with countdown timers "
+        "and clear CTAs.\n\n"
+        "**Risk Reversal:** Money-back guarantee or no-commitment trial period."
+    )
+
+
+def _gen_detailed_30_day_calendar(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'detailed_30_day_calendar' section."""
+    return (
+        "**Week 1 (Days 1–7):** Brand story and value positioning\n"
+        "- 3–4 hero posts introducing the core promise\n"
+        "- 2 educational carousel posts about the category\n\n"
+        "**Week 2 (Days 8–14):** Social proof and case studies\n"
+        "- 3–4 case study or testimonial posts\n"
+        "- 2 before/after or transformation posts\n\n"
+        "**Week 3 (Days 15–21):** Channel-specific tactics\n"
+        "- Platform-optimized content variations\n"
+        "- 2 reel/video posts showcasing results\n\n"
+        "**Week 4 (Days 22–30):** Calls to action and lead generation\n"
+        "- 3 direct CTA posts\n"
+        "- Final offer push with countdown timer"
+    )
+
+
+def _gen_email_and_crm_flows(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'email_and_crm_flows' section."""
+    return (
+        "**Welcome Series (3 emails):** Introduce value, share proof, invite to offer\n\n"
+        "**Educational Series (5 emails):** Deep-dive into core concepts and solutions\n\n"
+        "**Offer Series (3 emails):** Soft pitch → Medium pitch → Hard pitch with "
+        "deadline countdown\n\n"
+        "**Post-Engagement:** Nurture sequence for non-converters, retargeting after "
+        "30 days of activity"
+    )
+
+
+def _gen_ad_concepts(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'ad_concepts' section."""
+    return (
+        "**Awareness Ads:** Problem-aware hooks showing the cost of poor marketing strategy\n\n"
+        "**Consideration Ads:** Feature case studies, results metrics, and proof of effectiveness\n\n"
+        "**Conversion Ads:** Direct CTAs with limited-time offers and urgency elements\n\n"
+        "**Remarketing Ads:** Targeted to page visitors and email openers with "
+        "special retargeting offers"
+    )
+
+
+def _gen_kpi_and_budget_plan(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'kpi_and_budget_plan' section."""
+    g = req.brief.goal
+    return (
+        f"**Primary KPIs:**\n"
+        f"- Awareness: Reach ({g.primary_goal and 'target audience size'} per week)\n"
+        f"- Engagement: Rate (>2% or 500+ interactions per post)\n"
+        f"- Conversion: Leads ({g.primary_goal and 'target weekly leads'})\n\n"
+        f"**Budget Allocation:**\n"
+        f"- Organic/Owned: 40%\n"
+        f"- Paid Social: 35%\n"
+        f"- Email/CRM: 15%\n"
+        f"- Content/Creatives: 10%\n\n"
+        f"**Measurement Cadence:** Weekly reporting, monthly analysis, quarterly optimization"
+    )
+
+
+def _gen_execution_roadmap(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'execution_roadmap' section."""
+    return (
+        "**Days 1–7:** Finalize messaging, create content bank, set up tracking\n\n"
+        "**Days 8–14:** Launch organic social, email sequences, and first paid campaign\n\n"
+        "**Days 15–21:** Optimize based on engagement data, launch second paid variant\n\n"
+        "**Days 22–30:** Final push with CTAs, collect lead data, prepare monthly report\n\n"
+        "**Month 2+:** Iterate based on performance, double down on winners, "
+        "test new channels"
+    )
+
+
+def _gen_post_campaign_analysis(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'post_campaign_analysis' section."""
+    return (
+        "**Performance Review:** Compare KPIs against targets, identify winners and losers\n\n"
+        "**Content Analysis:** Which content themes, formats, and messages drove engagement?\n\n"
+        "**Channel Performance:** ROI by platform, cost per lead, conversion rate\n\n"
+        "**Learnings:** Document what worked, what didn't, and why for next campaign\n\n"
+        "**Recommendations:** Suggest optimization tactics and new opportunities for growth"
+    )
+
+
+def _gen_final_summary(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'final_summary' section."""
+    b = req.brief.brand
+    return (
+        f"This comprehensive {req.package_preset or 'marketing'} plan positions "
+        f"{b.brand_name} for sustained growth through clear strategy, consistent messaging, "
+        "and data-driven optimization.\n\n"
+        "Success requires commitment to the core narrative, consistent execution across channels, "
+        "and monthly performance reviews to guide adjustments.\n\n"
+        "By following this roadmap, you'll replace random marketing acts with a repeatable system "
+        "that compounds results over time."
+    )
+
+
+# ============================================================
+# ADDITIONAL GENERATORS FOR PREMIUM & ENTERPRISE TIERS
+# ============================================================
+
+
+def _gen_campaign_objective(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'campaign_objective' section (duplicate for clarity)."""
+    g = req.brief.goal
+    return (
+        f"**Primary Objective:** {g.primary_goal or 'Brand awareness and growth'}\n\n"
+        f"**Secondary Objectives:** {g.secondary_goal or 'Lead generation, customer retention'}\n\n"
+        f"**Target Timeline:** {g.timeline or '30-90 days'}\n\n"
+        f"**Success Metrics:** Increased brand awareness, lead volume, and customer engagement "
+        "across key channels."
+    )
+
+
+def _gen_value_proposition_map(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'value_proposition_map' section."""
+    b = req.brief.brand
+    return (
+        f"**Primary Value:** Position {b.brand_name} as the default choice through clear, "
+        "repeatable messaging and proof-driven storytelling.\n\n"
+        "**Emotional Value:** Build trust and confidence through transparent, consistent communication.\n\n"
+        "**Functional Value:** Deliver measurable outcomes and results in the stated timeline.\n\n"
+        "**Differentiation:** Unique combination of clarity, consistency, and proof (vs. competitors' scattered approach)."
+    )
+
+
+def _gen_creative_territories(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'creative_territories' section."""
+    return (
+        "**Territory 1: Authority & Proof**\n"
+        "- Showcase case studies, testimonials, metrics, and results\n"
+        "- Tone: Confident, evidence-based, professional\n\n"
+        "**Territory 2: Simplicity & Clarity**\n"
+        "- Highlight the contrast between simple systems vs. chaos\n"
+        "- Tone: Accessible, warm, solution-focused\n\n"
+        "**Territory 3: Growth & Momentum**\n"
+        "- Focus on compounding results and long-term ROI\n"
+        "- Tone: Inspiring, forward-looking, ambitious"
+    )
+
+
+def _gen_copy_variants(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'copy_variants' section."""
+    b = req.brief.brand
+    return (
+        "**Variant A (Rational):**\n"
+        f"'{b.brand_name} replaces random marketing with a clear, repeatable system that "
+        "compounds results over time.'\n\n"
+        "**Variant B (Emotional):**\n"
+        "'Stop feeling lost in your marketing. Start seeing progress.'\n\n"
+        "**Variant C (Provocative):**\n"
+        "' Your competitors are still posting randomly. Here's how to pull ahead.'"
+    )
+
+
+def _gen_funnel_breakdown(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'funnel_breakdown' section."""
+    return (
+        "**Awareness Stage:** Reach ideal buyers through organic and paid social\n"
+        "- Goals: Visibility, engagement, social proof\n"
+        "- Channels: Instagram, LinkedIn, X, YouTube, Paid Ads\n"
+        "- Success metric: Impressions, reach, click-through rate\n\n"
+        "**Consideration Stage:** Nurture with deeper education and proof\n"
+        "- Goals: Trust, confidence, feature education\n"
+        "- Channels: Email, webinars, case studies, product demos\n"
+        "- Success metric: Email open rate, webinar attendance, demo requests\n\n"
+        "**Conversion Stage:** Drive direct action and purchases\n"
+        "- Goals: Sales, leads, commitment\n"
+        "- Channels: Landing pages, sales calls, paid offers\n"
+        "- Success metric: Conversion rate, cost per lead, deal size"
+    )
+
+
+def _gen_awareness_strategy(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'awareness_strategy' section."""
+    return (
+        "**Goal:** Build top-of-mind awareness and initial interest\n\n"
+        "**Tactics:**\n"
+        "- Content that shows the problem (chaos in marketing)\n"
+        "- Social proof (logos, testimonials, metrics)\n"
+        "- Consistent brand presence across channels\n"
+        "- Strategic paid amplification of organic content\n\n"
+        "**Measurement:** Reach, impressions, engagement rate, CTR\n\n"
+        "**Duration:** Ongoing, with monthly optimization cycles"
+    )
+
+
+def _gen_consideration_strategy(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'consideration_strategy' section."""
+    return (
+        "**Goal:** Educate and build confidence through deeper engagement\n\n"
+        "**Tactics:**\n"
+        "- Email nurture series with strategic insights\n"
+        "- Case studies and detailed results\n"
+        "- Webinars and educational content\n"
+        "- Retargeting ads to engaged audiences\n\n"
+        "**Measurement:** Email engagement, time-on-page, video watch rate\n\n"
+        "**Duration:** 7-14 days per prospect in this stage"
+    )
+
+
+def _gen_conversion_strategy(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'conversion_strategy' section."""
+    return (
+        "**Goal:** Drive direct action, sales, or lead commitment\n\n"
+        "**Tactics:**\n"
+        "- Clear CTAs with specific offers\n"
+        "- Time-limited promotions and urgency\n"
+        "- Direct sales conversations\n"
+        "- Landing pages with strong benefit focus\n\n"
+        "**Measurement:** Conversion rate, cost per conversion, lead quality\n\n"
+        "**Duration:** Concentrated push, typically 5-7 days"
+    )
+
+
+def _gen_retention_strategy(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'retention_strategy' section."""
+    return (
+        "**Goal:** Maximize lifetime value and repeat business\n\n"
+        "**Tactics:**\n"
+        "- Onboarding sequences for new customers\n"
+        "- Regular updates and value-adds\n"
+        "- Referral incentives\n"
+        "- Win-back campaigns for lapsed customers\n\n"
+        "**Measurement:** Repeat purchase rate, LTV, churn rate, NPS\n\n"
+        "**Duration:** Ongoing post-purchase"
+    )
+
+
+def _gen_sms_and_whatsapp_strategy(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'sms_and_whatsapp_strategy' section."""
+    return (
+        "**SMS Strategy:**\n"
+        "- Welcome message with immediate value\n"
+        "- Time-sensitive offers and reminders\n"
+        "- Transactional updates\n"
+        "- 2-3 messages per week max (avoid fatigue)\n\n"
+        "**WhatsApp Strategy:**\n"
+        "- More conversational, lower frequency\n"
+        "- Customer support and proactive outreach\n"
+        "- Group messages for community building\n"
+        "- 1-2 messages per week\n\n"
+        "**Compliance:** Clear opt-in/opt-out, respect user preferences"
+    )
+
+
+def _gen_remarketing_strategy(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'remarketing_strategy' section."""
+    return (
+        "**Strategy:** Re-engage users who showed interest but didn't convert\n\n"
+        "**Audiences:**\n"
+        "- Website visitors (no purchase)\n"
+        "- Email openers (but no click)\n"
+        "- Video watchers (>50% watch time)\n"
+        "- Cart abandoners\n\n"
+        "**Messages:**\n"
+        "- Address common objections\n"
+        "- Offer new proof/testimonials\n"
+        "- Limited-time incentives\n"
+        "- Answer FAQs\n\n"
+        "**Frequency:** 2-3 touches per person over 14-21 days"
+    )
+
+
+def _gen_optimization_opportunities(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'optimization_opportunities' section."""
+    return (
+        "**Quick Wins (Implement in Days 1-7):**\n"
+        "- Refresh all bio/profile sections with stronger CTAs\n"
+        "- A/B test 2-3 email subject lines\n"
+        "- Create 3 variations of top-performing post\n\n"
+        "**Medium-term (Implement in Weeks 2-4):**\n"
+        "- Scale paid spend to 2-3 top-performing creatives\n"
+        "- Create new email sequences based on engagement data\n"
+        "- Develop webinar or case study content\n\n"
+        "**Long-term (Implement in Months 2+):**\n"
+        "- Build community or loyalty program\n"
+        "- Develop partnership/influencer collaborations\n"
+        "- Expand to new channels showing promise"
+    )
+
+
+def _gen_industry_landscape(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'industry_landscape' section."""
+    b = req.brief.brand
+    return (
+        f"**Category:** {b.industry or 'Your industry'}\n\n"
+        "**Market Size & Growth:** [Industry-specific metrics]\n\n"
+        "**Key Trends:**\n"
+        "- Shift towards remote-first, digital-native solutions\n"
+        "- Increased emphasis on proof and transparency\n"
+        "- Consolidation of best practices across channels\n\n"
+        "**Technology Shifts:** Automation, personalization, data-driven decision making"
+    )
+
+
+def _gen_market_analysis(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'market_analysis' section."""
+    return (
+        "**Target Market Size:** [Define TAM, SAM, SOM]\n\n"
+        "**Customer Growth Rate:** [Industry-specific growth data]\n\n"
+        "**Economic Factors:**\n"
+        "- Budget availability for marketing solutions\n"
+        "- Confidence in spending for growth initiatives\n"
+        "- ROI expectations and benchmarks\n\n"
+        "**Barriers to Entry:** [Competitive landscape, switching costs, etc.]"
+    )
+
+
+def _gen_competitor_analysis(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'competitor_analysis' section."""
+    return (
+        "**Primary Competitors:** [List 3-5 key competitors]\n\n"
+        "**Competitive Strengths:** [What they do well]\n\n"
+        "**Competitive Weaknesses:** [Gaps and opportunities]\n\n"
+        "**Market Positioning:** [How you're different]\n\n"
+        "**Pricing & Positioning:** [Competitive positioning matrix]"
+    )
+
+
+def _gen_customer_insights(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'customer_insights' section."""
+    return (
+        "**Primary Pain Points:**\n"
+        "- Unclear marketing strategy and fragmented tactics\n"
+        "- Inability to measure ROI effectively\n"
+        "- Resource constraints (time, budget, expertise)\n\n"
+        "**Desired Outcomes:**\n"
+        "- Clear, repeatable marketing system\n"
+        "- Measurable, consistent results\n"
+        "- Reduced time spent on execution\n\n"
+        "**Decision Criteria:**\n"
+        "- Proof of results (case studies, testimonials)\n"
+        "- Clarity of process\n"
+        "- Alignment with business goals"
+    )
+
+
+def _gen_customer_journey_map(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'customer_journey_map' section."""
+    return (
+        "**Stage 1: Awareness (Problem Recognition)**\n"
+        "- Trigger: Frustration with marketing results or lack of strategy\n"
+        "- Touchpoints: Social content, search, word-of-mouth\n"
+        "- Goal: Get on their radar\n\n"
+        "**Stage 2: Consideration (Evaluation)**\n"
+        "- Activities: Website visit, email sign-up, case study download\n"
+        "- Concerns: Will this work for us? Can we afford it?\n"
+        "- Goal: Build confidence and relevance\n\n"
+        "**Stage 3: Decision (Commitment)**\n"
+        "- Activities: Demo, proposal, negotiation\n"
+        "- Concerns: Implementation, support, ROI timeline\n"
+        "- Goal: Close the sale\n\n"
+        "**Stage 4: Retention (Loyalty)**\n"
+        "- Activities: Onboarding, support, results communication\n"
+        "- Goal: Maximize satisfaction and referrals"
+    )
+
+
+def _gen_brand_positioning(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'brand_positioning' section."""
+    b = req.brief.brand
+    return (
+        f"**Brand Position:** {b.brand_name} is the strategic partner for brands that want "
+        "to replace chaos with clarity.\n\n"
+        "**Target Audience:** Mid-market and growth-stage brands seeking predictable, "
+        "repeatable marketing systems.\n\n"
+        "**Key Differentiators:**\n"
+        "- Deep strategic thinking (not just tactics)\n"
+        "- Emphasis on proof and transparency\n"
+        "- Integrated, multi-channel approach\n"
+        "- Clear measurement and optimization\n\n"
+        "**Brand Promise:** Consistent, measurable growth through clear strategy and repeatable execution."
+    )
+
+
+def _gen_measurement_framework(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'measurement_framework' section."""
+    return (
+        "**Tier 1 Metrics (Strategic):**\n"
+        "- Business impact (revenue, LTV, market share)\n"
+        "- Brand health (awareness, preference, NPS)\n\n"
+        "**Tier 2 Metrics (Campaign):**\n"
+        "- Conversion rate, cost per acquisition, ROAS\n"
+        "- Channel performance and contribution\n\n"
+        "**Tier 3 Metrics (Tactical):**\n"
+        "- Engagement rate, click-through rate, email open rate\n"
+        "- Content performance by type and topic\n\n"
+        "**Reporting Cadence:**\n"
+        "- Weekly: Tactical metrics and quick wins\n"
+        "- Monthly: Campaign performance and optimization\n"
+        "- Quarterly: Strategic impact and ROI"
+    )
+
+
+def _gen_risk_assessment(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'risk_assessment' section."""
+    return (
+        "**Market Risk:** Competitive pressure, market saturation\n"
+        "- Mitigation: Clear differentiation, continuous innovation\n\n"
+        "**Execution Risk:** Team capability, resource constraints\n"
+        "- Mitigation: Clear processes, training, dedicated support\n\n"
+        "**Messaging Risk:** Market may not resonate with positioning\n"
+        "- Mitigation: A/B testing, customer feedback loops, rapid iteration\n\n"
+        "**Economic Risk:** Budget cuts, reduced marketing spend\n"
+        "- Mitigation: Demonstrate ROI, focus on efficient channels, build long-term contracts"
+    )
+
+
+def _gen_strategic_recommendations(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'strategic_recommendations' section."""
+    return (
+        "**Immediate Actions (Next 30 Days):**\n"
+        "1. Launch integrated campaign with core messaging\n"
+        "2. Build customer testimonial and case study bank\n"
+        "3. Establish weekly reporting dashboard\n\n"
+        "**6-Month Objectives:**\n"
+        "1. Achieve market leadership in category awareness\n"
+        "2. Build referral engine (30%+ of new business)\n"
+        "3. Establish thought leadership through content\n\n"
+        "**12-Month Vision:**\n"
+        "1. Become default choice in category\n"
+        "2. Build predictable, scalable marketing system\n"
+        "3. Achieve 3x ROI on marketing investment"
+    )
+
+
+def _gen_cxo_summary(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'cxo_summary' section (C-suite/executive summary)."""
+    b = req.brief.brand
+    g = req.brief.goal
+    return (
+        "**Executive Overview**\n\n"
+        f"This strategic campaign plan positions {b.brand_name} to achieve {g.primary_goal or 'significant growth'} "
+        "through integrated, data-driven marketing execution.\n\n"
+        "**Business Impact:**\n"
+        "- Expected revenue impact: [TBD based on campaign performance]\n"
+        "- Timeline to profitability: 90+ days\n"
+        "- Risk level: Low (proven methodology, clear execution)\n\n"
+        "**Investment Required:** [Budget allocation for full execution]\n\n"
+        "**Success Indicators:**\n"
+        "- Week 1-2: Campaign launch and initial engagement\n"
+        "- Week 3-4: Lead generation and conversion signals\n"
+        "- Month 2-3: Revenue impact and ROI visibility\n\n"
+        "**Recommendation:** Proceed with full implementation with dedicated resources and monthly optimization reviews."
+    )
+
+
+# Register all section generators
+SECTION_GENERATORS: dict[str, callable] = {
+    "overview": _gen_overview,
+    "campaign_objective": _gen_campaign_objective,
+    "core_campaign_idea": _gen_core_campaign_idea,
+    "messaging_framework": _gen_messaging_framework,
+    "value_proposition_map": _gen_value_proposition_map,
+    "channel_plan": _gen_channel_plan,
+    "audience_segments": _gen_audience_segments,
+    "persona_cards": _gen_persona_cards,
+    "creative_direction": _gen_creative_direction,
+    "creative_territories": _gen_creative_territories,
+    "copy_variants": _gen_copy_variants,
+    "influencer_strategy": _gen_influencer_strategy,
+    "promotions_and_offers": _gen_promotions_and_offers,
+    "funnel_breakdown": _gen_funnel_breakdown,
+    "awareness_strategy": _gen_awareness_strategy,
+    "consideration_strategy": _gen_consideration_strategy,
+    "conversion_strategy": _gen_conversion_strategy,
+    "retention_strategy": _gen_retention_strategy,
+    "detailed_30_day_calendar": _gen_detailed_30_day_calendar,
+    "email_and_crm_flows": _gen_email_and_crm_flows,
+    "sms_and_whatsapp_strategy": _gen_sms_and_whatsapp_strategy,
+    "ad_concepts": _gen_ad_concepts,
+    "remarketing_strategy": _gen_remarketing_strategy,
+    "kpi_and_budget_plan": _gen_kpi_and_budget_plan,
+    "execution_roadmap": _gen_execution_roadmap,
+    "post_campaign_analysis": _gen_post_campaign_analysis,
+    "optimization_opportunities": _gen_optimization_opportunities,
+    "industry_landscape": _gen_industry_landscape,
+    "market_analysis": _gen_market_analysis,
+    "competitor_analysis": _gen_competitor_analysis,
+    "customer_insights": _gen_customer_insights,
+    "customer_journey_map": _gen_customer_journey_map,
+    "brand_positioning": _gen_brand_positioning,
+    "measurement_framework": _gen_measurement_framework,
+    "risk_assessment": _gen_risk_assessment,
+    "strategic_recommendations": _gen_strategic_recommendations,
+    "cxo_summary": _gen_cxo_summary,
+    "ugc_and_community_plan": _gen_promotions_and_offers,  # Reuse promotions for now
+    "final_summary": _gen_final_summary,
+}
+
+
+def generate_sections(
+    section_ids: list[str],
+    req: GenerateRequest,
+    mp: MarketingPlanView,
+    cb: CampaignBlueprintView,
+    cal: SocialCalendarView,
+    pr: Optional[PerformanceReviewView] = None,
+    creatives: Optional[CreativesBlock] = None,
+    action_plan: Optional[ActionPlan] = None,
+) -> dict[str, str]:
+    """
+    Generate content for a specific list of section IDs.
+
+    This is the core Layer 2 function - it takes a list of requested section_ids
+    and returns only those sections' content. Works for any pack size (Basic, Standard, Premium, Enterprise).
+
+    Args:
+        section_ids: List of section IDs to generate (e.g., ["overview", "persona_cards"])
+        req: GenerateRequest with brief and config
+        mp, cb, cal, pr, creatives, action_plan: Output components
+
+    Returns:
+        Dict mapping section_id -> content (markdown string)
+    """
+    results = {}
+    context = {
+        "req": req,
+        "mp": mp,
+        "cb": cb,
+        "cal": cal,
+        "pr": pr,
+        "creatives": creatives,
+        "action_plan": action_plan,
+    }
+
+    for section_id in section_ids:
+        generator_fn = SECTION_GENERATORS.get(section_id)
+        if generator_fn:
+            try:
+                results[section_id] = generator_fn(**context)
+            except Exception as e:
+                # Graceful fallback if generator fails
+                results[section_id] = f"[Error generating {section_id}: {str(e)}]"
+        else:
+            # Section not yet implemented
+            results[section_id] = f"[{section_id} - not yet implemented]"
+
+    return results
+
 
 def _generate_section_content(
     section_id: str,
@@ -824,13 +1544,21 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
     if req.package_preset:
         preset = PACKAGE_PRESETS.get(req.package_preset)
         if preset:
-            # Generate content for all sections in the preset
-            for section_id in preset.get("sections", []):
-                # Map section IDs to generated content from existing output blocks
-                section_content = _generate_section_content(
-                    section_id, req, mp, cb, cal, pr, creatives, persona_cards, action_plan
-                )
-                extra_sections[section_id] = section_content
+            # Get the section_ids list from the preset
+            section_ids = preset.get("sections", [])
+
+            # Use the generalized generate_sections() function
+            # This is pack-agnostic and works for any preset (Basic, Standard, Premium, Enterprise)
+            extra_sections = generate_sections(
+                section_ids=section_ids,
+                req=req,
+                mp=mp,
+                cb=cb,
+                cal=cal,
+                pr=pr,
+                creatives=creatives,
+                action_plan=action_plan,
+            )
 
     out = AICMOOutputReport(
         marketing_plan=mp,

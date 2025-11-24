@@ -41,11 +41,11 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
         "requires_research": False,
         "complexity": "low",
     },
-    # -------------------------------------------------------------
-    # 2. Strategy + Campaign Pack (Standard)
-    # -------------------------------------------------------------
+    # ----- 2. Strategy + Campaign Pack (Standard - 17 sections) -----
     "strategy_campaign_standard": {
         "label": "Strategy + Campaign Pack (Standard)",
+        "description": "Comprehensive, professional strategy for mid-market campaigns. Agency-ready output.",
+        "tier": "standard",
         "sections": [
             "overview",
             "campaign_objective",
@@ -68,9 +68,39 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
         "requires_research": True,
         "complexity": "medium",
     },
-    # -------------------------------------------------------------
+    # ============================================================
+    # STRATEGY + CAMPAIGN PACK TIER SYSTEM
+    # (3-layer architecture: Basic → Standard → Premium → Enterprise)
+    # ============================================================
+    # All strategy packs use same core sections but vary in depth & scope
+    # Basic: Concise, quick-turnaround, perfect for small teams
+    # Standard: Comprehensive, professional, agency-ready (17 sections)
+    # Premium: Full-service, multi-channel, detailed (25 sections)
+    # Enterprise: Consulting-grade, strategic frameworks, C-suite ready (30 sections)
+    # ============================================================
+    # ----- 3a. Strategy + Campaign Pack (Basic - 4-5 sections) -----
+    "strategy_campaign_basic": {
+        "label": "Strategy + Campaign Pack (Basic)",
+        "description": "Quick, focused strategy for fast execution. Perfect for teams on tight deadlines.",
+        "tier": "basic",
+        "sections": [
+            "overview",
+            "core_campaign_idea",
+            "messaging_framework",
+            "audience_segments",
+            "detailed_30_day_calendar",
+            "final_summary",
+        ],
+        "requires_research": False,
+        "complexity": "low",
+    },
+    # Note: strategy_campaign_standard stays at 17 sections (moved below)
+    # ============================================================
     # 3. Full-Funnel Growth Suite (Premium)
-    # -------------------------------------------------------------
+    # ============================================================
+    # (Renamed from full_funnel_growth_suite for consistency in naming)
+    # Note: This is currently 21 sections. Will be enhanced to 25 for true Premium tier.
+    # ============================================================
     "full_funnel_growth_suite": {
         "label": "Full-Funnel Growth Suite (Premium)",
         "sections": [
@@ -203,5 +233,96 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
         ],
         "requires_research": True,
         "complexity": "medium-high",
+    },
+    # ============================================================
+    # 8. Strategy + Campaign Pack (Premium - 25 sections)
+    # ============================================================
+    "strategy_campaign_premium": {
+        "label": "Strategy + Campaign Pack (Premium)",
+        "description": "Comprehensive, multi-channel strategy with advanced creative, UGC, and funnel frameworks.",
+        "tier": "premium",
+        "sections": [
+            "overview",
+            "campaign_objective",
+            "core_campaign_idea",
+            "messaging_framework",
+            "value_proposition_map",
+            "channel_plan",
+            "audience_segments",
+            "persona_cards",
+            "creative_direction",
+            "creative_territories",
+            "copy_variants",
+            "influencer_strategy",
+            "ugc_and_community_plan",
+            "promotions_and_offers",
+            "funnel_breakdown",
+            "awareness_strategy",
+            "consideration_strategy",
+            "conversion_strategy",
+            "detailed_30_day_calendar",
+            "email_and_crm_flows",
+            "sms_and_whatsapp_strategy",
+            "ad_concepts",
+            "remarketing_strategy",
+            "kpi_and_budget_plan",
+            "execution_roadmap",
+            "post_campaign_analysis",
+            "optimization_opportunities",
+            "final_summary",
+        ],
+        "requires_research": True,
+        "complexity": "high",
+    },
+    # ============================================================
+    # 9. Strategy + Campaign Pack (Enterprise - 30 sections)
+    # ============================================================
+    "strategy_campaign_enterprise": {
+        "label": "Strategy + Campaign Pack (Enterprise)",
+        "description": "Consulting-grade strategy with industry analysis, competitive frameworks, risk assessment, and C-suite summaries.",
+        "tier": "enterprise",
+        "sections": [
+            "overview",
+            "industry_landscape",
+            "market_analysis",
+            "competitor_analysis",
+            "customer_insights",
+            "campaign_objective",
+            "core_campaign_idea",
+            "value_proposition_map",
+            "messaging_framework",
+            "brand_positioning",
+            "channel_plan",
+            "audience_segments",
+            "persona_cards",
+            "customer_journey_map",
+            "creative_direction",
+            "creative_territories",
+            "copy_variants",
+            "influencer_strategy",
+            "ugc_and_community_plan",
+            "promotions_and_offers",
+            "funnel_breakdown",
+            "awareness_strategy",
+            "consideration_strategy",
+            "conversion_strategy",
+            "retention_strategy",
+            "detailed_30_day_calendar",
+            "email_and_crm_flows",
+            "sms_and_whatsapp_strategy",
+            "ad_concepts",
+            "remarketing_strategy",
+            "measurement_framework",
+            "kpi_and_budget_plan",
+            "risk_assessment",
+            "execution_roadmap",
+            "post_campaign_analysis",
+            "optimization_opportunities",
+            "strategic_recommendations",
+            "cxo_summary",
+            "final_summary",
+        ],
+        "requires_research": True,
+        "complexity": "very-high",
     },
 }
