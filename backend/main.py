@@ -18,17 +18,20 @@ env_path = BASE_DIR / ".env"
 if env_path.exists():
     load_dotenv(env_path)
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
-from fastapi.responses import PlainTextResponse, JSONResponse, StreamingResponse
-from pydantic import BaseModel
+# noqa: E402 - imports after load_dotenv are intentional (FastAPI pattern)
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form  # noqa: E402
+from fastapi.responses import PlainTextResponse, JSONResponse, StreamingResponse  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
 
 # Phase 5: Learning store + industry presets + LLM enhancement
-from backend.learning_usage import record_learning_from_output
-from backend.llm_enhance import enhance_with_llm as enhance_with_llm_new
-from backend.generators.marketing_plan import generate_marketing_plan
-from backend.agency_grade_enhancers import apply_agency_grade_enhancements
-from aicmo.presets.industry_presets import list_available_industries
-from aicmo.generators import (
+from backend.learning_usage import record_learning_from_output  # noqa: E402
+from backend.llm_enhance import enhance_with_llm as enhance_with_llm_new  # noqa: E402
+from backend.generators.marketing_plan import generate_marketing_plan  # noqa: E402
+from backend.agency_grade_enhancers import apply_agency_grade_enhancements  # noqa: E402
+from backend.export_utils import safe_export_pdf, safe_export_pptx, safe_export_zip  # noqa: E402
+from backend.pdf_renderer import render_pdf_from_context, sections_to_html_list  # noqa: E402
+from aicmo.presets.industry_presets import list_available_industries  # noqa: E402
+from aicmo.generators import (  # noqa: E402
     generate_swot,
     generate_situation_analysis,
     generate_messaging_pillars,
@@ -37,13 +40,12 @@ from aicmo.generators import (
 )
 
 # Phase L: Vector-based memory learning
-from backend.services.learning import learn_from_report
-from backend.export_utils import safe_export_pdf, safe_export_pptx, safe_export_zip
-from aicmo.memory import engine as memory_engine
-from aicmo.presets.framework_fusion import structure_learning_context
-from aicmo.generators.agency_grade_processor import process_report_for_agency_grade
+from backend.services.learning import learn_from_report  # noqa: E402
+from aicmo.memory import engine as memory_engine  # noqa: E402
+from aicmo.presets.framework_fusion import structure_learning_context  # noqa: E402
+from aicmo.generators.agency_grade_processor import process_report_for_agency_grade  # noqa: E402
 
-from aicmo.io.client_reports import (
+from aicmo.io.client_reports import (  # noqa: E402
     ClientInputBrief,
     AICMOOutputReport,
     MarketingPlanView,
@@ -66,33 +68,31 @@ from aicmo.io.client_reports import (
     HookInsight,
     generate_output_report_markdown,
 )
-from backend.schemas import (
+from backend.schemas import (  # noqa: E402
     ClientIntakeForm,
     MarketingPlanReport,
     CampaignBlueprintReport,
     SocialCalendarReport,
     PerformanceReviewReport,
 )
-from backend.templates import (
+from backend.templates import (  # noqa: E402
     generate_client_intake_text_template,
     generate_blank_marketing_plan_template,
     generate_blank_campaign_blueprint_template,
     generate_blank_social_calendar_template,
     generate_blank_performance_review_template,
 )
-from backend.pdf_utils import text_to_pdf_bytes
-from backend.routers.health import router as health_router
-from backend.api.routes_learn import router as learn_router
-from backend.services.wow_reports import (
-    apply_wow_template,
-    build_default_placeholders,
+from backend.pdf_utils import text_to_pdf_bytes  # noqa: E402
+from backend.routers.health import router as health_router  # noqa: E402
+from backend.api.routes_learn import router as learn_router  # noqa: E402
+from backend.services.wow_reports import (  # noqa: E402
     build_wow_report,
 )
-from aicmo.presets.package_presets import PACKAGE_PRESETS
-from aicmo.presets.wow_rules import get_wow_rule
+from aicmo.presets.package_presets import PACKAGE_PRESETS  # noqa: E402
+from aicmo.presets.wow_rules import get_wow_rule  # noqa: E402
 
 # Configure structured logging
-from aicmo.logging import configure_logging, get_logger
+from aicmo.logging import configure_logging, get_logger  # noqa: E402
 
 configure_logging(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = get_logger(__name__)
@@ -1101,24 +1101,93 @@ async def aicmo_revise(
 @app.post("/aicmo/export/pdf")
 def aicmo_export_pdf(payload: dict):
     """
-    Convert markdown to PDF with safe error handling.
+    Convert markdown or structured sections to PDF with safe error handling.
 
-    Body: { "markdown": "..." }
+    Supports two modes:
+    1. Markdown mode: { "markdown": "..." }
+    2. Structured mode: { "sections": [...], "brief": {...} }
 
     Returns:
-        StreamingResponse with PDF on success.
-        JSONResponse with error details on failure.
+        StreamingResponse with PDF on success (Content-Type: application/pdf).
+        JSONResponse with error details on failure (Content-Type: application/json).
     """
-    markdown = payload.get("markdown") or ""
-    result = safe_export_pdf(markdown, check_placeholders=True)
+    try:
+        # Mode 1: Try structured sections first (HTML template rendering)
+        sections = payload.get("sections")
+        brief = payload.get("brief")
 
-    # If result is a dict, it's an error – return as JSON
-    if isinstance(result, dict):
-        logger.warning(f"PDF export failed: {result}")
-        return JSONResponse(status_code=400, content=result)
+        if sections and brief:
+            try:
+                # Build context for template
+                context = {
+                    "client_name": brief.get("client_name") or "Client",
+                    "brand_name": brief.get("brand_name") or "Brand",
+                    "product_service": brief.get("product_service") or "",
+                    "location": brief.get("location") or "",
+                    "campaign_duration": brief.get("campaign_duration") or "",
+                    "prepared_by": brief.get("prepared_by") or "AICMO",
+                    "date": brief.get("date_str") or str(date.today()),
+                    "sections": sections_to_html_list(sections),
+                    "show_contents": True,
+                }
 
-    # Otherwise, it's a StreamingResponse – return it
-    return result
+                pdf_bytes = render_pdf_from_context(
+                    template_name="strategy_campaign_standard.html",
+                    context=context,
+                )
+
+                # Validate PDF header (double-check)
+                if not pdf_bytes.startswith(b"%PDF"):
+                    raise ValueError("Renderer did not produce a valid PDF stream")
+
+                logger.info(f"PDF exported via structured mode: {len(pdf_bytes)} bytes")
+                return StreamingResponse(
+                    iter([pdf_bytes]),
+                    media_type="application/pdf",
+                    headers={
+                        "Content-Disposition": 'attachment; filename="AICMO_Marketing_Plan.pdf"'
+                    },
+                )
+            except Exception as e:
+                logger.debug(f"Structured PDF rendering failed (not fatal): {e}")
+                # Fall through to markdown mode
+
+        # Mode 2: Fallback to markdown mode
+        markdown = payload.get("markdown") or ""
+
+        # If no markdown and no valid structured data, return error
+        if not markdown:
+            logger.warning("PDF export: no markdown or structured sections provided")
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": True,
+                    "message": "PDF export requires either 'markdown' or 'sections' + 'brief' data.",
+                    "export_type": "pdf",
+                },
+            )
+
+        result = safe_export_pdf(markdown, check_placeholders=True)
+
+        # If result is a dict, it's an error – return as JSON
+        if isinstance(result, dict):
+            logger.warning(f"PDF export failed: {result}")
+            return JSONResponse(status_code=400, content=result)
+
+        # Otherwise, it's a StreamingResponse – return it
+        logger.info("PDF exported via markdown mode")
+        return result
+
+    except Exception as e:
+        logger.error(f"PDF export endpoint error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": True,
+                "message": f"PDF export failed: {str(e)}",
+                "export_type": "pdf",
+            },
+        )
 
 
 @app.post("/aicmo/export/pptx")

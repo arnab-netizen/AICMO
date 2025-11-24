@@ -1,0 +1,210 @@
+/* backend/templates/styles.css */
+/* Agency-grade PDF styling for AICMO reports */
+
+@page {
+  size: A4;
+  margin: 2cm;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #222;
+  line-height: 1.5;
+  font-size: 11pt;
+}
+
+h1, h2, h3 {
+  font-weight: 600;
+  margin: 0 0 0.25em;
+}
+
+h1 {
+  font-size: 24pt;
+  letter-spacing: 0.03em;
+}
+
+h2 {
+  font-size: 16pt;
+  margin-bottom: 0.5em;
+}
+
+h3 {
+  font-size: 12pt;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Cover page */
+
+.cover-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  justify-content: space-between;
+  padding: 2cm;
+  background: linear-gradient(135deg, #111827, #4b5563);
+  color: #f9fafb;
+}
+
+.cover-content h1 {
+  font-size: 28pt;
+  margin-bottom: 0.5em;
+}
+
+.cover-content .subtitle {
+  font-size: 14pt;
+  opacity: 0.9;
+  margin-bottom: 1.5em;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75em 1.5em;
+  max-width: 70%;
+}
+
+.meta-grid .label {
+  display: block;
+  font-size: 8pt;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.meta-grid .value {
+  font-size: 11pt;
+  font-weight: 500;
+}
+
+.cover-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.agency-tagline {
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.8;
+}
+
+/* Contents page */
+
+.contents-page {
+  padding-top: 1cm;
+}
+
+.contents-page h2 {
+  margin-bottom: 0.75em;
+}
+
+.contents-list {
+  padding-left: 1.25em;
+}
+
+.contents-list li {
+  margin-bottom: 0.2em;
+}
+
+/* Sections */
+
+.section {
+  margin-bottom: 1.5cm;
+}
+
+.section-body p {
+  margin: 0 0 0.4em;
+}
+
+.section-body ul,
+.section-body ol {
+  margin: 0.2em 0 0.4em 1.25em;
+}
+
+.section-body li {
+  margin-bottom: 0.2em;
+}
+
+/* Callouts */
+
+.callout-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5cm;
+  margin-top: 0.75cm;
+}
+
+.callout-card {
+  border-radius: 8px;
+  padding: 0.6cm;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.callout-card h3 {
+  margin: 0 0 0.25em;
+}
+
+.callout-card p {
+  margin: 0;
+  font-size: 10pt;
+}
+
+/* Page breaks */
+
+.page-break {
+  page-break-after: always;
+}
+
+/* General text styling */
+
+a {
+  color: #0066cc;
+  text-decoration: none;
+}
+
+a:visited {
+  color: #663399;
+}
+
+strong {
+  font-weight: 600;
+}
+
+em {
+  font-style: italic;
+}
+
+code {
+  font-family: "Courier New", monospace;
+  font-size: 9pt;
+  background: #f0f0f0;
+  padding: 0.1em 0.3em;
+  border-radius: 2px;
+}
+
+blockquote {
+  margin: 0.5em 0;
+  padding-left: 1em;
+  border-left: 3px solid #ddd;
+  color: #666;
+  font-style: italic;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5em 0;
+}
+
+table th,
+table td {
+  border: 1px solid #ddd;
+  padding: 0.4em;
+  text-align: left;
+}
+
+table th {
+  background: #f0f0f0;
+  font-weight: 600;
+}

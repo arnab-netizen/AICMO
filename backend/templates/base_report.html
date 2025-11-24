@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ title or "Marketing Plan & Campaign Blueprint" }}</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <section class="cover-page">
+    <div class="cover-content">
+      <h1>Marketing Plan & Campaign Blueprint</h1>
+      <p class="subtitle">{{ product_service }} – {{ location }}</p>
+
+      <div class="meta-grid">
+        <div>
+          <span class="label">Client</span>
+          <span class="value">{{ client_name }}</span>
+        </div>
+        <div>
+          <span class="label">Brand</span>
+          <span class="value">{{ brand_name }}</span>
+        </div>
+        <div>
+          <span class="label">Campaign Duration</span>
+          <span class="value">{{ campaign_duration }}</span>
+        </div>
+        <div>
+          <span class="label">Prepared By</span>
+          <span class="value">{{ prepared_by }}</span>
+        </div>
+        <div>
+          <span class="label">Date</span>
+          <span class="value">{{ date }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="cover-footer">
+      <span class="agency-tagline">Powered by AICMO · Strategy · Creative · Performance</span>
+    </div>
+  </section>
+
+  <div class="page-break"></div>
+
+  <!-- Optional "Contents" like an agenda page -->
+  {% if show_contents %}
+  <section class="contents-page">
+    <h2>Agenda / Contents</h2>
+    <ol class="contents-list">
+      {% for section in sections %}
+      <li>{{ loop.index }}. {{ section.title }}</li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <div class="page-break"></div>
+  {% endif %}
+
+  <!-- Main sections -->
+  {% block content %}{% endblock %}
+
+</body>
+</html>

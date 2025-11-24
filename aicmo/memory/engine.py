@@ -603,7 +603,7 @@ def count_items(db_path: str = DEFAULT_DB_PATH) -> int:
 def preload_training_materials() -> None:
     """
     Hard-bind the training ZIP structure into AICMO's runtime memory.
-    
+
     This ensures AICMO learns from required training materials at startup.
     Called during app initialization to pre-populate the memory engine
     with foundational knowledge from the training library.
@@ -616,7 +616,7 @@ def preload_training_materials() -> None:
         "05_Report_Library",
         "06_Creative_Library",
         "07_Messaging_Architecture",
-        "08_Presentation_and_Decks"
+        "08_Presentation_and_Decks",
     ]
 
     data_path = Path("data/training")
@@ -629,7 +629,7 @@ def preload_training_materials() -> None:
         return
 
     logger.info(f"🔄 Pre-loading training materials from {data_path}...")
-    
+
     for folder in REQUIRED_FOLDERS:
         folder_path = data_path / folder
         if folder_path.exists():
@@ -643,14 +643,14 @@ def preload_training_materials() -> None:
                     blocks.append((f"{folder}: {file_path.stem}", content))
                 except Exception as e:
                     logger.debug(f"Could not load {file_path}: {e}")
-            
+
             # Learn from collected blocks
             if blocks:
                 learn_from_blocks(
                     kind="training_material",
                     blocks=blocks,
                     project_id="default",
-                    tags=[folder, "training"]
+                    tags=[folder, "training"],
                 )
         else:
             logger.debug(f"⏭️  Folder not found: {folder}")
@@ -661,16 +661,16 @@ def preload_training_materials() -> None:
 def sample_training_pattern(pattern_type: str = "copywriting") -> str:
     """
     Sample a premium copywriting recipe from training memory.
-    
+
     Retrieves an example from the training library that demonstrates
     the specified pattern (e.g., "copywriting", "hooks", "messaging").
-    
+
     Args:
         pattern_type: Type of pattern to sample ("copywriting", "hooks", "messaging", etc.)
-        
+
     Returns:
         A string containing a relevant training example or empty string if none found.
-        
+
     Usage:
         pattern = sample_training_pattern("copywriting")
         enhanced_copy = f"Based on agency best practices:\n{pattern}\n\nNow apply to: {user_input}"
@@ -678,11 +678,9 @@ def sample_training_pattern(pattern_type: str = "copywriting") -> str:
     try:
         # Search memory for training materials matching the pattern type
         results = retrieve_relevant_blocks(
-            query=f"{pattern_type} example best practices",
-            project_id="default",
-            limit=1
+            query=f"{pattern_type} example best practices", project_id="default", limit=1
         )
-        
+
         if results:
             return results[0].text
         else:
@@ -692,7 +690,9 @@ def sample_training_pattern(pattern_type: str = "copywriting") -> str:
                 "hooks": "Start with a question, stat, or bold claim. Make the first 3 words count. Create a knowledge gap.",
                 "messaging": "Position against category tension. Lead with the emotional benefit. Use parallel structure for authority.",
             }
-            return fallback_patterns.get(pattern_type, "Apply premium language principles and industry best practices.")
+            return fallback_patterns.get(
+                pattern_type, "Apply premium language principles and industry best practices."
+            )
     except Exception as e:
         logger.debug(f"Could not sample training pattern {pattern_type}: {e}")
         return ""

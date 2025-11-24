@@ -31,7 +31,6 @@ WOW_RULES: Dict[str, WowRule] = {
             {"key": "final_summary"},
         ]
     },
-
     # ------------------------------------------------------------
     # 2. Strategy + Campaign Pack (Standard)
     # ------------------------------------------------------------
@@ -56,7 +55,6 @@ WOW_RULES: Dict[str, WowRule] = {
             {"key": "final_summary"},
         ]
     },
-
     # ------------------------------------------------------------
     # 3. Full-Funnel Growth Suite (Premium)
     # ------------------------------------------------------------
@@ -85,7 +83,6 @@ WOW_RULES: Dict[str, WowRule] = {
             {"key": "final_summary"},
         ]
     },
-
     # ------------------------------------------------------------
     # 4. Launch & GTM Pack
     # ------------------------------------------------------------
@@ -111,7 +108,6 @@ WOW_RULES: Dict[str, WowRule] = {
             {"key": "final_summary"},
         ]
     },
-
     # ------------------------------------------------------------
     # 5. Brand Turnaround Lab
     # ------------------------------------------------------------
@@ -137,7 +133,6 @@ WOW_RULES: Dict[str, WowRule] = {
             {"key": "final_summary"},
         ]
     },
-
     # ------------------------------------------------------------
     # 6. Retention & CRM Booster
     # ------------------------------------------------------------
@@ -159,7 +154,6 @@ WOW_RULES: Dict[str, WowRule] = {
             {"key": "final_summary"},
         ]
     },
-
     # ------------------------------------------------------------
     # 7. Performance Audit & Revamp
     # ------------------------------------------------------------
@@ -182,7 +176,6 @@ WOW_RULES: Dict[str, WowRule] = {
             {"key": "final_summary"},
         ]
     },
-
     # ------------------------------------------------------------
     # 8. PR & Reputation Pack
     # ------------------------------------------------------------
@@ -207,7 +200,6 @@ WOW_RULES: Dict[str, WowRule] = {
             {"key": "final_summary"},
         ]
     },
-
     # ------------------------------------------------------------
     # 9. Always-On Content Engine
     # ------------------------------------------------------------
@@ -244,7 +236,7 @@ def get_wow_rule(package_key: str) -> WowRule:
 def get_wow_rules(package_key: str) -> Dict[str, Any]:
     """
     Backward-compatible accessor for WOW rules.
-    
+
     Returns section structure for new code, empty dict for old code.
     This maintains compatibility with code that expects min_captions, etc.
     """
