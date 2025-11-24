@@ -1043,17 +1043,146 @@ Output as markdown with clear sections.
 """,
         "output_format": "markdown",
     },
+    # -------------------------------------------------
+    # NEW: Missing templates added for Social & Audit packs
+    # -------------------------------------------------
+    "content_buckets": {
+        "name": "Content Buckets & Themes",
+        "prompt": """
+You are creating CONTENT BUCKETS for a social-first brand.
+
+Based on the brief, brand tone, audience, and category, propose 4–7 clear content buckets.
+For each bucket, include:
+- Name
+- Purpose (why this bucket matters)
+- Example post types
+- Example angles or hooks
+
+Keep it structured like:
+
+### 1. Bucket Name
+- Purpose:
+- Example post types:
+- Example angles:
+
+Make sure the buckets are distinct from each other and together cover most content needs.
+Avoid generic labels like "General" or "Miscellaneous".
+""",
+        "output_format": "markdown",
+    },
+    "hashtag_strategy": {
+        "name": "Hashtag Strategy",
+        "prompt": """
+Design a HASHTAG STRATEGY for this brand.
+
+Output in sections:
+1) Core Hashtag Principles for the brand
+2) Hashtag Pillars:
+   - Brand & Campaign
+   - Category & Product
+   - Audience & Community
+   - Location & Event
+3) For each pillar, give 8–12 example hashtags:
+   - Mix of broad + niche
+   - Mix of Hindi/vernacular + English if relevant
+4) Platform notes: any differences between Instagram, Facebook, YouTube Shorts, etc.
+
+Format with clear headings and bullet points so it is easy to copy into a client deck.
+""",
+        "output_format": "markdown",
+    },
+    "platform_guidelines": {
+        "name": "Platform Guidelines",
+        "prompt": """
+Create PLATFORM GUIDELINES for the key social platforms for this brand.
+
+For each relevant platform (e.g., Instagram, Facebook, YouTube, LinkedIn, WhatsApp):
+- Role of the platform in the mix
+- Content formats that should be prioritized
+- Posting frequency recommendations
+- Tone & style notes
+- Visual guidelines (high-level)
+- Do's and Don'ts
+
+Format:
+
+## Instagram
+- Role:
+- Priority formats:
+- Frequency:
+- Tone & style:
+- Visual notes:
+- Do:
+- Don't:
+
+Repeat for each platform that logically fits this brand and audience.
+""",
+        "output_format": "markdown",
+    },
     "new_ad_concepts": {
         "name": "New Ad Concepts",
         "prompt": """
-List 5–10 new ad concepts specifically tailored to address the weaknesses found in the audit.
+You are designing NEW AD CONCEPTS for a brand whose current performance is weak.
 
-For each:
-- Concept name
-- Core message
-- Why it's likely to perform better
+Using the audit insights and revamp strategy:
+- Propose 5–8 new ad concepts.
+- For each concept include:
+  - Concept name
+  - Core idea (1–2 lines)
+  - Primary objective (awareness, traffic, leads, sales, retention, etc.)
+  - Suggested formats (e.g., IG Reel, static, carousel, YT pre-roll, display)
+  - Key message / hook lines (2–3 examples)
+  - Visual direction (short notes)
+  - Target audience / segment
 
-Output as markdown subsections.
+Format clearly with headings per concept:
+
+### Concept 1: Name
+- Core idea:
+- Objective:
+- Formats:
+- Key messages:
+- Visual direction:
+- Target segment:
+
+Make sure concepts are differentiated, practical, and aligned with the brand tone and positioning.
+""",
+        "output_format": "markdown",
+    },
+    "new_positioning": {
+        "name": "New Positioning",
+        "prompt": """
+Develop a NEW POSITIONING statement for {{brand_name}} based on the turnaround strategy.
+
+Include:
+- Positioning statement (1–2 lines)
+- Target audience redefinition
+- New value proposition
+- Key differentiators vs competitors
+- Brand essence / archetype
+- Proof points / why believe it
+
+Format:
+
+## New Positioning Statement
+> {{positioning}}
+
+## Target Audience Redefinition
+{{new_target_audience}}
+
+## Value Proposition
+{{new_value_prop}}
+
+## Key Differentiators
+- {{diff_1}}
+- {{diff_2}}
+- {{diff_3}}
+
+## Brand Essence
+{{brand_essence}}
+
+## Proof Points
+{{proof_points}}
 """,
         "output_format": "markdown",
     },

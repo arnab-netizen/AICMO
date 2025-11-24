@@ -2,130 +2,82 @@ from __future__ import annotations
 
 from typing import Dict
 
-
-"""
-WOW templates for each service pack.
-
-These are markdown-based, PDF-friendly layouts with placeholders using
-double-curly syntax (e.g {{brand_name}}) so they can be filled by any
-simple replace/format layer without adding extra dependencies.
-
-Each template is designed to look "agency-grade" when exported as PDF.
-"""
-
+# WOW templates for each service pack.
+# These are markdown-based, PDF-friendly layouts with placeholders using
+# double-curly syntax (e.g {{brand_name}}) so they can be filled by any
+# simple replace/format layer without extra dependencies.
 
 WOW_TEMPLATES: Dict[str, str] = {
-    "quick_social_basic": r"""# {{brand_name}} – Quick Social Pack (Basic)
-### Social Media Content Playbook for {{primary_channel}} – {{city}}
+    # ============================================================
+    # 1. Quick Social Pack (Basic)
+    # ============================================================
+    "quick_social_basic": r"""# {{brand_name}} – Quick Social Playbook
+### Social Media Content Engine for {{primary_channel}} – {{city}}
 
 ---
 
-## 1. Brand Snapshot
+## 1. Brand & Context Snapshot
 
-- **Business Name:** {{brand_name}}
-- **Category:** {{category}}
-- **Location:** {{city}}, {{region}}
-- **Target Audience:** {{target_audience}}
-- **Brand Tone:** {{brand_tone}}
-- **Key Opportunity:** {{key_opportunity}}
+{{overview}}
 
 ---
 
-## 2. Visual Creative Direction (Mini)
+## 2. Audience Snapshot
 
-**Color Palette (HEX):**
-- Primary: {{color_primary}}
-- Secondary: {{color_secondary}}
-- Accent: {{color_accent}}
-
-**Typography:**
-- Headlines: {{font_headline}}
-- Body: {{font_body}}
-
-**Visual Style:**
-- Overall look: {{visual_style_summary}}
-- Do: {{visual_dos}}
-- Don't: {{visual_donts}}
+{{audience_segments}}
 
 ---
 
-## 3. Content Pillars
+## 3. Messaging Framework
 
-1. **{{pillar_1_name}}**  
-   - Purpose: {{pillar_1_purpose}}  
-   - Example themes: {{pillar_1_themes}}
-
-2. **{{pillar_2_name}}**  
-   - Purpose: {{pillar_2_purpose}}  
-   - Example themes: {{pillar_2_themes}}
-
-3. **{{pillar_3_name}}**  
-   - Purpose: {{pillar_3_purpose}}  
-   - Example themes: {{pillar_3_themes}}
+{{messaging_framework}}
 
 ---
 
-## 4. 14-Day Content Calendar (Sample)
+## 4. Content Buckets & Themes
 
-> Frequency: {{posting_frequency}} on {{primary_channel}}
-
-{{calendar_14_day_table}}
+{{content_buckets}}
 
 ---
 
-## 5. Sample Captions (10)
+## 5. Weekly Social Calendar
 
-> Mix of short, punchy lines and slightly longer storytelling.
-
-{{sample_captions_block}}
+{{weekly_social_calendar}}
 
 ---
 
-## 6. Hashtag Bank (40 Tags)
+## 6. Lightweight Creative Direction
 
-**Location Tags:**  
-{{hashtags_location}}
-
-**Audience & Lifestyle Tags:**  
-{{hashtags_audience}}
-
-**Product Tags (Coffee / Food):**  
-{{hashtags_product}}
-
-**Daily / Trend Tags:**  
-{{hashtags_trend}}
+{{creative_direction_light}}
 
 ---
 
-## 7. Reels & Stories (Fast Growth Engine)
+## 7. Hashtag Strategy
 
-### Reel Ideas (5)
-
-{{reel_ideas_block}}
-
-### Story Templates
-
-- Daily special: {{story_template_daily_special}}
-- Behind-the-scenes: {{story_template_bts}}
-- Poll / Q&A: {{story_template_poll}}
-- UGC repost: {{story_template_ugc}}
+{{hashtag_strategy}}
 
 ---
 
-## 8. Weekly Growth Checklist
+## 8. Platform-by-Platform Guidelines
 
-Every week, ensure you:
-
-1. Publish at least **{{weekly_posts_target}} posts** and **{{weekly_reels_target}} reels**
-2. Engage with **{{weekly_engagement_target}}** relevant profiles/hashtags
-3. Respond to **100%** comments and DMs within 12–24 hours
-4. Review performance of the **top 3 posts** and repeat what works
-5. Test at least **1 new hook or creative angle** each week
+{{platform_guidelines}}
 
 ---
 
-*This Quick Social Pack is designed to give {{brand_name}} a ready-to-post system that looks polished, feels on-brand, and is easy to execute consistently.*
+## 9. KPIs & Lightweight Measurement Plan
+
+{{kpi_plan_light}}
+
+---
+
+## 10. Final Summary & Next Steps
+
+{{final_summary}}
 """,
+
+    # ============================================================
+    # 2. Strategy + Campaign Pack (Standard)
+    # ============================================================
     "strategy_campaign_standard": r"""# {{brand_name}} – Strategy + Campaign Pack (Standard)
 ### Integrated Social & Campaign Strategy – {{campaign_name}}
 
