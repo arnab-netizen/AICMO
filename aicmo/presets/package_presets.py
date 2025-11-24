@@ -14,13 +14,18 @@ class PackageConfig(TypedDict):
     sections: List[str]
     requires_research: bool
     complexity: str
+    label: str
 
 
 PACKAGE_PRESETS: dict[str, PackageConfig] = {
+    # IMPORTANT: Keys are SLUGS (e.g., "quick_social_basic"), not display names
+    # The label field provides the display name
     # -------------------------------------------------------------
     # 1. Quick Social Pack (Basic)
     # -------------------------------------------------------------
-    "Quick Social Pack (Basic)": {
+    "quick_social_basic": {
+        "label": "Quick Social Pack (Basic)",
+        # All fields are required
         "sections": [
             "overview",
             "audience_segments",
@@ -39,7 +44,8 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
     # -------------------------------------------------------------
     # 2. Strategy + Campaign Pack (Standard)
     # -------------------------------------------------------------
-    "Strategy + Campaign Pack (Standard)": {
+    "strategy_campaign_standard": {
+        "label": "Strategy + Campaign Pack (Standard)",
         "sections": [
             "overview",
             "campaign_objective",
@@ -65,7 +71,8 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
     # -------------------------------------------------------------
     # 3. Full-Funnel Growth Suite (Premium)
     # -------------------------------------------------------------
-    "Full-Funnel Growth Suite (Premium)": {
+    "full_funnel_growth_suite": {
+        "label": "Full-Funnel Growth Suite (Premium)",
         "sections": [
             "overview",
             "market_landscape",
@@ -95,7 +102,8 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
     # -------------------------------------------------------------
     # 4. Launch & GTM Pack
     # -------------------------------------------------------------
-    "Launch & GTM Pack": {
+    "launch_gtm_pack": {
+        "label": "Launch & GTM Pack",
         "sections": [
             "overview",
             "market_landscape",
@@ -122,7 +130,8 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
     # -------------------------------------------------------------
     # 5. Brand Turnaround Lab
     # -------------------------------------------------------------
-    "Brand Turnaround Lab": {
+    "brand_turnaround_lab": {
+        "label": "Brand Turnaround Lab",
         "sections": [
             "overview",
             "brand_audit",
@@ -149,7 +158,8 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
     # -------------------------------------------------------------
     # 6. Retention & CRM Booster
     # -------------------------------------------------------------
-    "Retention & CRM Booster": {
+    "retention_crm_booster": {
+        "label": "Retention & CRM Booster",
         "sections": [
             "overview",
             "customer_segments",
@@ -172,7 +182,8 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
     # -------------------------------------------------------------
     # 7. Performance Audit & Revamp
     # -------------------------------------------------------------
-    "Performance Audit & Revamp": {
+    "performance_audit_revamp": {
+        "label": "Performance Audit & Revamp",
         "sections": [
             "overview",
             "account_audit",

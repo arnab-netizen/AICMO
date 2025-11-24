@@ -265,7 +265,7 @@ REFINEMENT_MODES: Dict[str, Dict[str, Any]] = {
     },
     "Balanced": {
         "passes": 2,
-        "max_tokens": 6000,
+        "max_tokens": 12000,
         "temperature": 0.7,
         "label": "Balanced quality + speed – default for most projects.",
     },
@@ -985,10 +985,18 @@ def render_final_output_tab() -> None:
 
     # --- PDF EXPORT SECTION ---
     with st.expander("📄 Export as PDF", expanded=False):
+        # Check if backend is available
+        backend_url = os.environ.get("AICMO_BACKEND_URL") or os.environ.get("BACKEND_URL")
+
         if not PDF_EXPORT_AVAILABLE:
             st.info(
                 "PDF export isn't available in this deployment because the backend "
                 "PDF module isn't loaded. Deploy the full backend to enable this feature."
+            )
+        elif not backend_url:
+            st.info(
+                "PDF export is available only when connected to the full backend. "
+                "Set AICMO_BACKEND_URL to enable this feature."
             )
         else:
             if st.button("Generate PDF", key="btn_generate_pdf", use_container_width=True):
@@ -997,37 +1005,43 @@ def render_final_output_tab() -> None:
                 else:
                     with st.spinner("Generating PDF report…"):
                         try:
-                            # Try backend PDF export first
-                            base_url = os.environ.get("AICMO_BACKEND_URL")
                             pdf_bytes = None
                             export_error = None
 
-                            if base_url:
-                                try:
-                                    # Call backend PDF export endpoint
-                                    resp = requests.post(
-                                        base_url.rstrip("/") + "/aicmo/export/pdf",
-                                        json={"markdown": st.session_state["final_report"]},
-                                        timeout=60,
-                                    )
-                                    
-                                    # Check status code first
-                                    if resp.status_code != 200:
-                                        # Backend returned an error (likely JSON)
-                                        try:
-                                            error_data = resp.json()
-                                            export_error = error_data.get("message", "PDF export failed on backend")
-                                        except Exception:
-                                            export_error = f"Backend returned status {resp.status_code}"
+                            try:
+                                # Call backend PDF export endpoint
+                                resp = requests.post(
+                                    backend_url.rstrip("/") + "/aicmo/export/pdf",
+                                    json={"markdown": st.session_state["final_report"]},
+                                    timeout=60,
+                                )
+
+                                # Check status code first
+                                if resp.status_code != 200:
+                                    # Backend returned an error (likely JSON)
+                                    try:
+                                        error_data = resp.json()
+                                        export_error = error_data.get(
+                                            "message", "PDF export failed on backend"
+                                        )
+                                    except Exception:
+                                        export_error = f"Backend returned status {resp.status_code}"
+                                else:
+                                    # Success – check content-type first
+                                    content_type = resp.headers.get("Content-Type", "")
+                                    if not content_type.startswith("application/pdf"):
+                                        export_error = (
+                                            f"Backend returned wrong content-type: {content_type}"
+                                        )
                                     else:
-                                        # Success – extract PDF bytes
+                                        # Extract PDF bytes
                                         pdf_bytes = resp.content
-                                        
+
                                         # Sanity check: PDF must start with %PDF header
                                         if pdf_bytes and not pdf_bytes.startswith(b"%PDF"):
                                             export_error = "Backend returned invalid PDF data (missing PDF header)"
                                             pdf_bytes = None
-                                        
+
                                         # Optionally track PDF metadata
                                         if pdf_bytes and ensure_pdf_for_report:
                                             try:
@@ -1046,15 +1060,17 @@ def render_final_output_tab() -> None:
                                             except Exception:
                                                 pass  # Non-critical, don't block download
 
-                                except requests.exceptions.RequestException as e:
-                                    export_error = f"Backend request failed: {str(e)[:100]}"
-                                except Exception as e:
-                                    export_error = f"Unexpected error: {str(e)[:100]}"
+                            except requests.exceptions.RequestException as e:
+                                export_error = f"Backend request failed: {str(e)[:100]}"
+                            except Exception as e:
+                                export_error = f"Unexpected error: {str(e)[:100]}"
 
                             # Show error if we couldn't get a valid PDF
                             if export_error:
                                 st.error(f"❌ PDF export failed: {export_error}")
-                                st.info("💡 Check that the backend is running and the report content is valid.")
+                                st.info(
+                                    "💡 Check that the backend is running and the report content is valid."
+                                )
                             elif pdf_bytes:
                                 # Success: show download button
                                 st.download_button(
