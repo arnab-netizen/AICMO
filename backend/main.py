@@ -1006,9 +1006,18 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
         # Convert output to markdown
         report_markdown = generate_output_report_markdown(brief, report)
 
+        # 🔍 DEBUG: Log report length and tail (before returning to Streamlit)
+        print(f"\n{'='*60}")
+        print(f"🔍 DEBUG REPORT LENGTH: {len(report_markdown)} characters")
+        print(f"{'='*60}")
+        print("LAST 500 CHARACTERS:")
+        print(report_markdown[-500:] if len(report_markdown) > 500 else report_markdown)
+        print(f"{'='*60}\n")
+
         logger.info(
             f"✅ [API WRAPPER] generate_report call successful. "
-            f"include_agency_grade={include_agency_grade}, use_learning={use_learning}"
+            f"include_agency_grade={include_agency_grade}, use_learning={use_learning} "
+            f"report_length={len(report_markdown)}"
         )
 
         return {

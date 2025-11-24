@@ -681,8 +681,15 @@ def _apply_humanization(
     """
     Apply the humanization wrapper to make output sound less AI-like.
     Gracefully degrades if humanizer is not available.
+
+    ⚠️  FIX #4: Skip humanization for large reports (>8000 chars)
+    to avoid token limit truncation at the humanization LLM layer.
     """
     if humanizer is None or not text:
+        return text
+
+    # Skip humanization for large reports to avoid token truncation
+    if len(text) > 8000:
         return text
 
     brand_voice = f"Brand: {brand_name}" if brand_name else None

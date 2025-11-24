@@ -227,7 +227,8 @@ class HumanizationWrapper:
 
         prompt = "\n".join(prompt_parts)
 
-        resp = _call_llm(prompt, model=self.model)
+        # ✨ FIX #4: Increased max_tokens from 800 to 4000 for full report humanization
+        resp = _call_llm(prompt, model=self.model, max_output_tokens=4000)
         if resp is None:
             # Fallback: minimal cleanup
             return self._fast_cleanup(text)
