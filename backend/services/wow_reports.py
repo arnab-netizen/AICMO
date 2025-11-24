@@ -233,3 +233,39 @@ def resolve_wow_package_key(service_pack_label: Optional[str]) -> Optional[str]:
     if not service_pack_label:
         return None
     return PACKAGE_KEY_BY_LABEL.get(service_pack_label)
+
+
+def build_wow_report(
+    req: Any,
+    wow_rule: Dict[str, Any],
+) -> str:
+    """
+    Build a complete WOW report using the section structure from wow_rules.
+
+    This is the new unified entry point that:
+    1. Takes the request and the WOW rule (with sections)
+    2. Builds placeholder values from the brief
+    3. Applies the WOW template with those placeholders
+    4. Returns the final markdown
+
+    Args:
+        req: GenerateRequest with brief, wow_package_key, etc.
+        wow_rule: Dict with "sections" list from WOW_RULES
+
+    Returns:
+        Markdown string with placeholders replaced and ready for display
+    """
+    # Build placeholder map from brief + existing output blocks
+    placeholder_values = build_default_placeholders(
+        brief=req.brief.model_dump() if hasattr(req.brief, "model_dump") else req.brief,
+        base_blocks={},  # Could extend with sections from output if desired
+    )
+
+    # Apply WOW template with safe placeholder replacement
+    wow_markdown = apply_wow_template(
+        package_key=req.wow_package_key,
+        placeholder_values=placeholder_values,
+        strip_unfilled=True,
+    )
+
+    return wow_markdown

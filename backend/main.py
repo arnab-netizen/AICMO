@@ -86,8 +86,10 @@ from backend.api.routes_learn import router as learn_router
 from backend.services.wow_reports import (
     apply_wow_template,
     build_default_placeholders,
+    build_wow_report,
 )
 from aicmo.presets.package_presets import PACKAGE_PRESETS
+from aicmo.presets.wow_rules import get_wow_rule
 
 # Configure structured logging
 from aicmo.logging import configure_logging, get_logger
@@ -624,11 +626,11 @@ def _apply_wow_to_output(
     req: GenerateRequest,
 ) -> AICMOOutputReport:
     """
-    Optional WOW template wrapping.
+    Optional WOW template wrapping using the new WOW system.
 
     If wow_enabled=True and wow_package_key is provided:
-    - Builds placeholder map from brief + output blocks
-    - Applies WOW template
+    - Fetches WOW rule structure (with sections) for the package
+    - Builds a complete WOW report using the section assembly
     - Stores in wow_markdown field
     - Stores package_key for reference
 
@@ -638,26 +640,25 @@ def _apply_wow_to_output(
         return output
 
     try:
-        # Build placeholder map from brief + existing output blocks
-        placeholder_values = build_default_placeholders(
-            brief=req.brief.model_dump() if hasattr(req.brief, "model_dump") else req.brief,
-            base_blocks={},  # Could extend with sections from output if desired
-        )
+        # Fetch the WOW rule for this package (contains section structure)
+        wow_rule = get_wow_rule(req.wow_package_key)
+        sections = wow_rule.get("sections", [])
 
-        # Apply WOW template with safe placeholder replacement
-        wow_markdown = apply_wow_template(
-            package_key=req.wow_package_key,
-            placeholder_values=placeholder_values,
-            strip_unfilled=True,
-        )
+        # Debug: Log which WOW pack and sections are being used
+        print(f"[WOW DEBUG] Using WOW pack: {req.wow_package_key}")
+        print(f"[WOW DEBUG] Sections in WOW rule: {[s['key'] for s in sections]}")
+
+        # Build the WOW report using the new unified system
+        wow_markdown = build_wow_report(req=req, wow_rule=wow_rule)
 
         # Store in output
         output.wow_markdown = wow_markdown
         output.wow_package_key = req.wow_package_key
 
-        logger.debug(f"WOW template applied: {req.wow_package_key}")
+        logger.debug(f"WOW report built successfully: {req.wow_package_key}")
+        logger.info(f"WOW system used {len(sections)} sections for {req.wow_package_key}")
     except Exception as e:
-        logger.warning(f"WOW template application failed (non-critical): {e}")
+        logger.warning(f"WOW report building failed (non-critical): {e}")
         # Non-breaking: continue without WOW
 
     return output

@@ -48,8 +48,10 @@ def apply_agency_baseline(
     measured = _inject_kpis_and_logic(brief, narrated, llm)
     humanized = _humanize_and_qa(brief, measured, llm)
 
-    template_key = pack_key or "agency_strategy_default"
-    template = WOW_TEMPLATES.get(template_key, WOW_TEMPLATES.get("agency_strategy_default", ""))
+    template_key = pack_key
+    template = WOW_TEMPLATES.get(template_key)
+    if not template:
+        return ""  # No WOW template defined for this package
     rendered = _render_wow_template(template, brief, humanized)
 
     return rendered
@@ -284,10 +286,10 @@ def apply_quick_social_baseline(
     enriched = _qs_enrich_calendar_and_hooks(brief, scaffolded, llm)
     humanized = _qs_humanize_and_qa(brief, enriched, llm)
 
-    template_key = pack_key or "quick_social_agency_default"
-    template = WOW_TEMPLATES.get(
-        template_key, WOW_TEMPLATES.get("quick_social_agency_default", "")
-    )
+    template_key = pack_key
+    template = WOW_TEMPLATES.get(template_key)
+    if not template:
+        return ""  # No WOW template defined for this package
     rendered = _render_wow_template(template, brief, humanized)
 
     return rendered

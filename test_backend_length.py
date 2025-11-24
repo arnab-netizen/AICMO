@@ -78,9 +78,9 @@ async def test_full_generation():
     report_markdown = generate_output_report_markdown(brief, report)
 
     # Log the length
-    print(f"\n✅ Report generation complete!")
+    print("\n✅ Report generation complete!")
     print(f"   Total markdown length: {len(report_markdown)} characters")
-    print(f"\n   Last 600 characters of report:")
+    print("\n   Last 600 characters of report:")
     print("   " + "-" * 76)
     tail = report_markdown[-600:] if len(report_markdown) > 600 else report_markdown
     for line in tail.split("\n"):
@@ -97,7 +97,7 @@ async def test_full_generation():
         ("Action Plan", "## 6. Next 30 days" in report_markdown),
     ]
 
-    print(f"\n📊 Section check:")
+    print("\n📊 Section check:")
     for section_name, present in sections:
         status = "✅" if present else "❌"
         print(f"   {status} {section_name}")
