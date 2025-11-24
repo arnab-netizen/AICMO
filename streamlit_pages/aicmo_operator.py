@@ -951,7 +951,10 @@ def render_final_output_tab() -> None:
         st.session_state["final_report"] = st.session_state.get("draft_report", "")
 
     st.markdown("#### Final report preview")
-    st.markdown(st.session_state["final_report"])
+    # ✨ FIX #3: Use safe chunked renderer to prevent truncation of large reports
+    from aicmo.renderers import render_full_report
+
+    render_full_report(st.session_state["final_report"], use_chunks=True)
 
     st.markdown("---")
     st.markdown("#### Export")
