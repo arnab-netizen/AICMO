@@ -87,6 +87,7 @@ from backend.services.wow_reports import (
     apply_wow_template,
     build_default_placeholders,
 )
+from aicmo.presets.package_presets import PACKAGE_PRESETS
 
 # Configure structured logging
 from aicmo.logging import configure_logging, get_logger
@@ -953,6 +954,21 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
         "status": "success"
     }
     """
+    # 🔥 DEBUG: Log package preset received
+    package_name = payload.get("package_name")
+    print("\n" + "=" * 60)
+    print("🔥 DEBUG PACKAGE PRESET RECEIVED")
+    print(f"    package_name: {package_name}")
+
+    # Check presets
+    preset_config = PACKAGE_PRESETS.get(package_name)
+    print(f"    preset_config: {preset_config}")
+    if preset_config:
+        print(f"    sections: {preset_config.get('sections')}")
+        print(f"    complexity: {preset_config.get('complexity')}")
+        print(f"    requires_research: {preset_config.get('requires_research')}")
+    print("=" * 60 + "\n")
+
     try:
         # Extract client brief dict
         client_brief_dict = payload.get("client_brief", {})
