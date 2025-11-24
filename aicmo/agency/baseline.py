@@ -40,7 +40,7 @@ def apply_agency_baseline(
       3. Enforce narrative cohesion
       4. Inject KPIs & business logic
       5. Humanize + QA
-      6. Render into WOW template (agency_strategy_default by default)
+      6. Render into pack-specific WOW template if available
     """
     scaffolded = _scaffold_to_agency_structure(brief, raw_draft, llm)
     deepened = _enforce_min_depth(brief, scaffolded, llm)
