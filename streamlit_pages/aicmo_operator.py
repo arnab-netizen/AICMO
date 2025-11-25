@@ -620,7 +620,8 @@ def call_backend_generate(
 
     st.session_state["last_backend_payload"] = payload
 
-    base_url = os.environ.get("AICMO_BACKEND_URL")
+    # 🔧 FIX: use BOTH AICMO_BACKEND_URL and BACKEND_URL
+    base_url = os.environ.get("AICMO_BACKEND_URL") or os.environ.get("BACKEND_URL")
     if base_url:
         try:
             resp = requests.post(
@@ -632,6 +633,7 @@ def call_backend_generate(
             data = resp.json()
             # Expecting {"report_markdown": "...", ...}
             if isinstance(data, dict) and "report_markdown" in data:
+                st.session_state["aicmo_backend_mode"] = "http-backend"
                 return data["report_markdown"]
         except Exception as e:  # pragma: no cover - UX only
             st.error("Backend API call failed, falling back to direct model call.")
@@ -639,6 +641,7 @@ def call_backend_generate(
 
     # Fallback: direct OpenAI call
     try:
+        st.session_state["aicmo_backend_mode"] = "local-openai"
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             st.error("OPENAI_API_KEY not set; cannot generate report.")
@@ -966,6 +969,11 @@ def render_final_output_tab() -> None:
         st.session_state["final_report"] = st.session_state.get("draft_report", "")
 
     st.markdown("#### Final report preview")
+    mode = st.session_state.get("aicmo_backend_mode")
+    if mode == "http-backend":
+        st.caption("🔌 Source: AICMO backend (WOW templates + presets active)")
+    elif mode == "local-openai":
+        st.caption("⚠️ Source: Direct OpenAI fallback (no WOW presets)")
     # ✨ FIX #3: Use safe chunked renderer to prevent truncation of large reports
     from aicmo.renderers import render_full_report
 
