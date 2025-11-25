@@ -2012,6 +2012,14 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
         # Force 2-pass refinement for quality
         refinement_mode["passes"] = 2
 
+        # 🔥 FIX #3️⃣: Convert display name to preset_key using PACKAGE_NAME_TO_KEY mapping
+        # This ensures "Strategy + Campaign Pack (Standard)" → "strategy_campaign_standard"
+        # so aicmo_generate() can properly identify and apply section-specific logic
+        resolved_preset_key = PACKAGE_NAME_TO_KEY.get(package_name, package_name)
+        logger.info(
+            f"🔥 [PRESET MAPPING] {package_name} → {resolved_preset_key}"
+        )
+
         # Build GenerateRequest
         gen_req = GenerateRequest(
             brief=brief,
@@ -2020,7 +2028,7 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
             generate_social_calendar=services.get("social_calendar", True),
             generate_performance_review=services.get("performance_review", False),
             generate_creatives=services.get("creatives", True),
-            package_preset=payload.get("package_name"),
+            package_preset=resolved_preset_key,  # 🔥 FIX #3: Use resolved preset key, not display name
             include_agency_grade=include_agency_grade,
             use_learning=use_learning,
             wow_enabled=wow_enabled,
@@ -2069,6 +2077,27 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
         print("LAST 500 CHARACTERS:")
         print(report_markdown[-500:] if len(report_markdown) > 500 else report_markdown)
         print(f"{'='*60}\n")
+
+        # 🔍 DEBUG: Add diagnostics footer to report (if AICMO_DEBUG_REPORT_FOOTER env var is set)
+        import os
+        if os.getenv("AICMO_DEBUG_REPORT_FOOTER"):
+            # Count sections in the report by looking for section headers
+            section_count = report_markdown.count("## ")  # Streamlit markdown section headers
+            
+            diagnostics_footer = (
+                f"\n\n---\n\n### DEBUG FOOTER\n"
+                f"- **Preset Key**: {resolved_preset_key}\n"
+                f"- **Display Name**: {package_name}\n"
+                f"- **Original Stage**: {stage}\n"
+                f"- **Effective Stage**: {effective_stage}\n"
+                f"- **WOW Enabled**: {wow_enabled}\n"
+                f"- **WOW Package Key**: {wow_package_key}\n"
+                f"- **Effective Max Tokens**: {refinement_mode.get('max_tokens', 'unknown')}\n"
+                f"- **Sections in Report**: {section_count}\n"
+                f"- **Report Length**: {len(report_markdown)} chars\n"
+            )
+            report_markdown += diagnostics_footer
+            logger.info(f"🔥 [DIAGNOSTICS] Added debug footer to report")
 
         logger.info(
             f"✅ [API WRAPPER] generate_report call successful. "
