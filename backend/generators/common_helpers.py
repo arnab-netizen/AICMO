@@ -11,8 +11,8 @@ Use these helpers in every generator to ensure client-ready, placeholder-free ou
 """
 
 import re
-from typing import Iterable, List, Dict, Optional
-from pydantic import BaseModel, Field
+from typing import Iterable, List, Dict
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class BrandBrief(BaseModel):
@@ -23,30 +23,24 @@ class BrandBrief(BaseModel):
     - brand_name: Required for any personalization
     - industry: Required for context-aware generation
     - primary_customer: Required for audience-specific messaging
-    - product_service: **REQUIRED** to fix 'no attribute product_service' errors
+    - product_service: **MANDATORY** to fix 'no attribute product_service' errors
 
-    Optional fields can be None but should NOT default to generic tokens.
+    All fields default to empty strings for backward compatibility.
+    No field should default to generic tokens like "your industry".
     """
 
-    brand_name: str = Field(..., description="Brand/company name")
-    industry: str = Field(..., description="Industry category")
-    primary_goal: str = Field(..., description="Primary marketing objective")
-    timeline: str = Field(..., description="Campaign/planning timeline")
-    primary_customer: str = Field(..., description="Main customer/audience segment")
+    model_config = ConfigDict(extra="allow")
 
-    # Optional but recommended
-    secondary_customer: Optional[str] = Field(None, description="Secondary audience segment")
-    brand_tone: Optional[str] = Field(None, description="Brand voice/tone preferences")
-    product_service: Optional[str] = Field(None, description="Product or service description")
-    location: Optional[str] = Field(None, description="Geographic focus")
-
-    # Collections
+    brand_name: str = ""
+    industry: str = ""
+    primary_goal: str = ""
+    timeline: str = ""
+    primary_customer: str = ""
+    secondary_customer: str = ""
+    brand_tone: str = ""
+    product_service: str = ""  # <- MANDATORY FIELD (fixes AttributeError)
+    location: str = ""
     competitors: List[str] = Field(default_factory=list, description="Competitor names")
-
-    class Config:
-        """Allow extra fields for backward compatibility."""
-
-        extra = "allow"
 
 
 # ============================================================================

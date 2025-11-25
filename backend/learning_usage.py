@@ -11,9 +11,12 @@ Quality filtering:
 - Rejects blocks with error text ("not yet implemented", etc.)
 - Rejects blocks with generic tokens ("your industry", etc.)
 - Only stores blocks > 300 chars (meaningful content)
+
+TEMPORARY: Learning disabled during sanitizer deployment (AICMO_LEARNING_ENABLED=0)
 """
 
 import datetime as _dt
+import os
 from typing import Any, Dict, Optional, TYPE_CHECKING
 from uuid import uuid4
 import json
@@ -23,6 +26,10 @@ from backend.learning_store import add_learning_example, LearningExample
 
 if TYPE_CHECKING:
     from backend.schemas import ClientIntakeForm
+
+# 🔥 TEMPORARY: Disable learning during sanitizer rollout
+# Once all generators are patched with sanitize_output(), set to "1"
+LEARNING_ENABLED = os.getenv("AICMO_LEARNING_ENABLED", "0") == "1"
 
 
 def _json_default(obj: Any) -> str:
@@ -116,6 +123,9 @@ def record_learning_from_output(
     **Quality filtering:** Only records if the raw_text passes should_learn_block.
     This prevents placeholders, error text, and generic tokens from contaminating memory.
 
+    **Temporary gate:** Learning disabled during sanitizer deployment (AICMO_LEARNING_ENABLED=0).
+    Set to "1" once all generators are patched.
+
     This function is non-critical and should be wrapped in try-except by the caller.
     It never raises exceptions; all errors are logged.
 
@@ -124,6 +134,9 @@ def record_learning_from_output(
         output: Generated output dict (or AICMOOutputReport.model_dump())
         notes: Optional metadata about this learning example
     """
+    # 🔥 TEMPORARY: Disable learning during sanitizer deployment
+    if not LEARNING_ENABLED:
+        return
     try:
         # Extract industry from brief.brand.industry
         industry = None

@@ -27,6 +27,7 @@ from pydantic import BaseModel  # noqa: E402
 from backend.learning_usage import record_learning_from_output  # noqa: E402
 from backend.llm_enhance import enhance_with_llm as enhance_with_llm_new  # noqa: E402
 from backend.generators.marketing_plan import generate_marketing_plan  # noqa: E402
+from backend.generators.common_helpers import sanitize_output  # noqa: E402
 from backend.agency_grade_enhancers import apply_agency_grade_enhancements  # noqa: E402
 from backend.export_utils import safe_export_pdf, safe_export_pptx, safe_export_zip  # noqa: E402
 from backend.pdf_renderer import render_pdf_from_context, sections_to_html_list  # noqa: E402
@@ -337,7 +338,7 @@ def _gen_overview(
     """Generate 'overview' section."""
     b = req.brief.brand
     g = req.brief.goal
-    return (
+    raw = (
         f"**Brand:** {b.brand_name}\n\n"
         f"**Industry:** {b.industry or 'Not specified'}\n\n"
         f"**Primary Goal:** {g.primary_goal or 'Growth'}\n\n"
@@ -345,31 +346,34 @@ def _gen_overview(
         f"This {req.package_preset or 'marketing'} plan provides a comprehensive strategy "
         "to achieve your business objectives through coordinated marketing activities."
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_campaign_objective(req: GenerateRequest, **kwargs) -> str:
     """Generate 'campaign_objective' section."""
     g = req.brief.goal
-    return (
+    raw = (
         f"**Primary Objective:** {g.primary_goal or 'Brand awareness and growth'}\n\n"
         f"**Secondary Objectives:** {g.secondary_goal or 'Lead generation, customer retention'}\n\n"
         f"**Target Timeline:** {g.timeline or '30-90 days'}\n\n"
         f"**Success Metrics:** Increased brand awareness, lead volume, and customer engagement "
         "across key channels."
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_core_campaign_idea(req: GenerateRequest, **kwargs) -> str:
     """Generate 'core_campaign_idea' section."""
     b = req.brief.brand
     s = req.brief.strategy_extras
-    return (
+    raw = (
         f"Position {b.brand_name} as the default choice in {b.industry or 'its category'} "
         "by combining consistent social presence with proof-driven storytelling.\n\n"
         f"**Key Insight:** {s.success_30_days or 'Customers prefer brands that demonstrate clear, repeatable promises backed by concrete proof.'}\n\n"
         "**Campaign Narrative:** From random marketing acts to a structured, repeatable system "
         "that compounds results over time."
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_messaging_framework(
@@ -380,7 +384,7 @@ def _gen_messaging_framework(
     """Generate 'messaging_framework' section."""
     b = req.brief.brand
     g = req.brief.goal
-    return (
+    raw = (
         (
             mp.messaging_pyramid.promise
             if mp.messaging_pyramid
@@ -407,24 +411,26 @@ def _gen_messaging_framework(
             else ""
         )
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_channel_plan(req: GenerateRequest, **kwargs) -> str:
     """Generate 'channel_plan' section."""
-    return (
+    raw = (
         "**Primary Channels:** Instagram, LinkedIn, Email\n\n"
         "**Secondary Channels:** X, YouTube, Paid Ads\n\n"
         "**Content Strategy:** Reuse 3–5 core ideas across channels with platform-specific "
         "optimization. Focus on consistency and repetition rather than constant new ideas.\n\n"
         "**Posting Frequency:** 1 post per day per platform, with 2 reels/videos per week."
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_audience_segments(req: GenerateRequest, **kwargs) -> str:
     """Generate 'audience_segments' section."""
     b = req.brief.brand
     a = req.brief.audience
-    return (
+    raw = (
         f"**Primary Audience:** {a.primary_customer}\n"
         f"- {a.primary_customer} actively seeking {b.product_service or 'solutions'}\n"
         f"- Values clarity, proof, and low friction\n\n"
@@ -433,6 +439,7 @@ def _gen_audience_segments(req: GenerateRequest, **kwargs) -> str:
         f"- Shares and amplifies proof-driven content\n\n"
         "**Messaging Approach:** Speak to the specific challenges and aspirations of each segment."
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_persona_cards(
@@ -441,7 +448,7 @@ def _gen_persona_cards(
     **kwargs,
 ) -> str:
     """Generate 'persona_cards' section."""
-    return (
+    raw = (
         "**Core Buyer Persona: The Decision-Maker**\n\n"
         f"{cb.audience_persona.name or 'Core Buyer'}\n\n"
         f"{cb.audience_persona.description or 'Actively seeking solutions and wants less friction, more clarity, and trustworthy proof before committing.'}\n\n"
@@ -449,6 +456,7 @@ def _gen_persona_cards(
         "- Desires: Clarity, proven systems, efficiency\n"
         "- Content Preference: Case studies, testimonials, walkthroughs"
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_creative_direction(
@@ -457,7 +465,7 @@ def _gen_creative_direction(
 ) -> str:
     """Generate 'creative_direction' section."""
     s = req.brief.strategy_extras
-    return (
+    raw = (
         "**Tone & Personality:** "
         + (
             ", ".join(s.brand_adjectives)
@@ -473,24 +481,26 @@ def _gen_creative_direction(
         "- Metrics and results prominently displayed\n"
         "- Consistent color palette and brand elements"
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_influencer_strategy(req: GenerateRequest, **kwargs) -> str:
     """Generate 'influencer_strategy' section."""
     b = req.brief.brand
-    return (
+    raw = (
         f"**Micro-Influencer Partners:** Thought leaders in {b.industry or 'the industry'} "
         "with 10k–100k engaged followers.\n\n"
         "**Co-creation Opportunities:** Case studies, webinar series, shared content campaigns.\n\n"
         "**Measurement:** Engagement rate (>2%), click-through rate, and lead attribution.\n\n"
         "**Budget Allocation:** 15–20% of media spend for influencer partnerships."
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_promotions_and_offers(req: GenerateRequest, **kwargs) -> str:
     """Generate 'promotions_and_offers' section."""
     b = req.brief.brand
-    return (
+    raw = (
         f"**Primary Offer:** Free consultation or audit to demonstrate the value of "
         f"{b.brand_name}'s approach.\n\n"
         "**Secondary Offers:** Email series, webinar, discount for long-term engagement.\n\n"
@@ -498,11 +508,12 @@ def _gen_promotions_and_offers(req: GenerateRequest, **kwargs) -> str:
         "and clear CTAs.\n\n"
         "**Risk Reversal:** Money-back guarantee or no-commitment trial period."
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_detailed_30_day_calendar(req: GenerateRequest, **kwargs) -> str:
     """Generate 'detailed_30_day_calendar' section."""
-    return (
+    raw = (
         "**Week 1 (Days 1–7):** Brand story and value positioning\n"
         "- 3–4 hero posts introducing the core promise\n"
         "- 2 educational carousel posts about the category\n\n"
@@ -516,11 +527,12 @@ def _gen_detailed_30_day_calendar(req: GenerateRequest, **kwargs) -> str:
         "- 3 direct CTA posts\n"
         "- Final offer push with countdown timer"
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_email_and_crm_flows(req: GenerateRequest, **kwargs) -> str:
     """Generate 'email_and_crm_flows' section."""
-    return (
+    raw = (
         "**Welcome Series (3 emails):** Introduce value, share proof, invite to offer\n\n"
         "**Educational Series (5 emails):** Deep-dive into core concepts and solutions\n\n"
         "**Offer Series (3 emails):** Soft pitch → Medium pitch → Hard pitch with "
@@ -528,23 +540,25 @@ def _gen_email_and_crm_flows(req: GenerateRequest, **kwargs) -> str:
         "**Post-Engagement:** Nurture sequence for non-converters, retargeting after "
         "30 days of activity"
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_ad_concepts(req: GenerateRequest, **kwargs) -> str:
     """Generate 'ad_concepts' section."""
-    return (
+    raw = (
         "**Awareness Ads:** Problem-aware hooks showing the cost of poor marketing strategy\n\n"
         "**Consideration Ads:** Feature case studies, results metrics, and proof of effectiveness\n\n"
         "**Conversion Ads:** Direct CTAs with limited-time offers and urgency elements\n\n"
         "**Remarketing Ads:** Targeted to page visitors and email openers with "
         "special retargeting offers"
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_kpi_and_budget_plan(req: GenerateRequest, **kwargs) -> str:
     """Generate 'kpi_and_budget_plan' section."""
     g = req.brief.goal
-    return (
+    raw = (
         f"**Primary KPIs:**\n"
         f"- Awareness: Reach ({g.primary_goal and 'target audience size'} per week)\n"
         f"- Engagement: Rate (>2% or 500+ interactions per post)\n"
@@ -556,11 +570,12 @@ def _gen_kpi_and_budget_plan(req: GenerateRequest, **kwargs) -> str:
         f"- Content/Creatives: 10%\n\n"
         f"**Measurement Cadence:** Weekly reporting, monthly analysis, quarterly optimization"
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_execution_roadmap(req: GenerateRequest, **kwargs) -> str:
     """Generate 'execution_roadmap' section."""
-    return (
+    raw = (
         "**Days 1–7:** Finalize messaging, create content bank, set up tracking\n\n"
         "**Days 8–14:** Launch organic social, email sequences, and first paid campaign\n\n"
         "**Days 15–21:** Optimize based on engagement data, launch second paid variant\n\n"
@@ -568,23 +583,25 @@ def _gen_execution_roadmap(req: GenerateRequest, **kwargs) -> str:
         "**Month 2+:** Iterate based on performance, double down on winners, "
         "test new channels"
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_post_campaign_analysis(req: GenerateRequest, **kwargs) -> str:
     """Generate 'post_campaign_analysis' section."""
-    return (
+    raw = (
         "**Performance Review:** Compare KPIs against targets, identify winners and losers\n\n"
         "**Content Analysis:** Which content themes, formats, and messages drove engagement?\n\n"
         "**Channel Performance:** ROI by platform, cost per lead, conversion rate\n\n"
         "**Learnings:** Document what worked, what didn't, and why for next campaign\n\n"
         "**Recommendations:** Suggest optimization tactics and new opportunities for growth"
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_final_summary(req: GenerateRequest, **kwargs) -> str:
     """Generate 'final_summary' section."""
     b = req.brief.brand
-    return (
+    raw = (
         f"This comprehensive {req.package_preset or 'marketing'} plan positions "
         f"{b.brand_name} for sustained growth through clear strategy, consistent messaging, "
         "and data-driven optimization.\n\n"
@@ -593,6 +610,7 @@ def _gen_final_summary(req: GenerateRequest, **kwargs) -> str:
         "By following this roadmap, you'll replace random marketing acts with a repeatable system "
         "that compounds results over time."
     )
+    return sanitize_output(raw, req.brief)
 
 
 # ============================================================
@@ -615,18 +633,19 @@ def _gen_campaign_objective(req: GenerateRequest, **kwargs) -> str:
 def _gen_value_proposition_map(req: GenerateRequest, **kwargs) -> str:
     """Generate 'value_proposition_map' section."""
     b = req.brief.brand
-    return (
+    raw = (
         f"**Primary Value:** Position {b.brand_name} as the default choice through clear, "
         "repeatable messaging and proof-driven storytelling.\n\n"
         "**Emotional Value:** Build trust and confidence through transparent, consistent communication.\n\n"
         "**Functional Value:** Deliver measurable outcomes and results in the stated timeline.\n\n"
         "**Differentiation:** Unique combination of clarity, consistency, and proof (vs. competitors' scattered approach)."
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_creative_territories(req: GenerateRequest, **kwargs) -> str:
     """Generate 'creative_territories' section."""
-    return (
+    raw = (
         "**Territory 1: Authority & Proof**\n"
         "- Showcase case studies, testimonials, metrics, and results\n"
         "- Tone: Confident, evidence-based, professional\n\n"
@@ -637,12 +656,13 @@ def _gen_creative_territories(req: GenerateRequest, **kwargs) -> str:
         "- Focus on compounding results and long-term ROI\n"
         "- Tone: Inspiring, forward-looking, ambitious"
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_copy_variants(req: GenerateRequest, **kwargs) -> str:
     """Generate 'copy_variants' section."""
     b = req.brief.brand
-    return (
+    raw = (
         "**Variant A (Rational):**\n"
         f"'{b.brand_name} replaces random marketing with a clear, repeatable system that "
         "compounds results over time.'\n\n"
@@ -651,6 +671,7 @@ def _gen_copy_variants(req: GenerateRequest, **kwargs) -> str:
         "**Variant C (Provocative):**\n"
         "' Your competitors are still posting randomly. Here's how to pull ahead.'"
     )
+    return sanitize_output(raw, req.brief)
 
 
 def _gen_funnel_breakdown(req: GenerateRequest, **kwargs) -> str:
@@ -1034,8 +1055,8 @@ def generate_sections(
                 # Graceful fallback if generator fails
                 results[section_id] = f"[Error generating {section_id}: {str(e)}]"
         else:
-            # Section not yet implemented
-            results[section_id] = f"[{section_id} - not yet implemented]"
+            # Section not yet implemented - skip rather than output placeholder
+            continue
 
     return results
 
@@ -1992,14 +2013,16 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
             ),
             voice=VoiceBrief(tone_of_voice=[]),
             product_service=ProductServiceBrief(
-                items=[
-                    ProductServiceItem(
-                        name=client_brief_dict.get("product_service", "Service/Product"),
-                        usp=None,
-                    )
-                ]
-                if client_brief_dict.get("product_service")
-                else []
+                items=(
+                    [
+                        ProductServiceItem(
+                            name=client_brief_dict.get("product_service", "Service/Product"),
+                            usp=None,
+                        )
+                    ]
+                    if client_brief_dict.get("product_service")
+                    else []
+                )
             ),
             assets_constraints=AssetsConstraintsBrief(
                 focus_platforms=[],
