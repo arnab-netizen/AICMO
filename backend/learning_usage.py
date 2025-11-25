@@ -7,6 +7,7 @@ Learning types supported:
 - full_report: Complete generated output (most common)
 """
 
+import datetime as _dt
 from typing import Any, Dict, Optional, TYPE_CHECKING
 from uuid import uuid4
 import json
@@ -15,6 +16,13 @@ from backend.learning_store import add_learning_example, LearningExample
 
 if TYPE_CHECKING:
     from backend.schemas import ClientIntakeForm
+
+
+def _json_default(obj: Any) -> str:
+    """JSON serialization fallback for non-standard types like datetime.date."""
+    if isinstance(obj, (_dt.date, _dt.datetime)):
+        return obj.isoformat()
+    return str(obj)
 
 
 def record_learning_from_output(
@@ -52,7 +60,7 @@ def record_learning_from_output(
             source_name = brief.brand.brand_name
 
         # Serialize output as formatted JSON (with indentation for readability)
-        raw_text = json.dumps(output, indent=2)
+        raw_text = json.dumps(output, indent=2, default=_json_default)
 
         # Create learning example
         example = LearningExample(

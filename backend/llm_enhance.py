@@ -7,6 +7,7 @@ Enhances generated content with:
 4. Optional: LLM-based enhancement (returns stub for now)
 """
 
+import datetime as _dt
 import json
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
@@ -15,6 +16,13 @@ from aicmo.presets.industry_presets import get_industry_preset
 
 if TYPE_CHECKING:
     from backend.schemas import ClientIntakeForm
+
+
+def _json_default(obj: Any) -> str:
+    """JSON serialization fallback for non-standard types like datetime.date."""
+    if isinstance(obj, (_dt.date, _dt.datetime)):
+        return obj.isoformat()
+    return str(obj)
 
 
 def enhance_with_llm(
@@ -143,7 +151,7 @@ Default Tone: {industry_preset.default_tone}
 
         # [BASE/STUB OUTPUT]
         stub_section = "[BASE/STUB OUTPUT]\n"
-        stub_section += json.dumps(stub_output, indent=2)
+        stub_section += json.dumps(stub_output, indent=2, default=_json_default)
         master_prompt_sections.append(stub_section)
 
         # Store master prompt for debugging (optional)

@@ -639,19 +639,19 @@ def call_backend_generate(
             resp = requests.post(
                 base_url.rstrip("/") + "/api/aicmo/generate_report",
                 json=payload,
-                timeout=60,  # ⏱️ shorten timeout so we don't hang forever in UI
+                timeout=(10, 120),  # 10s connect, 120s read – generous for WOW generation
             )
             st.session_state["aicmo_backend_http_status"] = resp.status_code
             resp.raise_for_status()
             data = resp.json()
             if isinstance(data, dict) and "report_markdown" in data:
                 st.session_state["aicmo_backend_mode"] = "http-backend"
+                st.session_state["generation_mode"] = "http-backend"
                 return data["report_markdown"]
         except requests.exceptions.ReadTimeout as e:  # backend too slow
             st.session_state["aicmo_backend_error"] = f"ReadTimeout: {e}"
             st.warning(
-                "Backend timed out while generating the report. "
-                "Falling back to local OpenAI generation."
+                "Backend took too long to respond. Using direct model fallback for this run."
             )
         except Exception as e:  # pragma: no cover - UX only
             st.session_state["aicmo_backend_error"] = str(e)
@@ -660,6 +660,7 @@ def call_backend_generate(
 
     # 2) Fallback: direct OpenAI call with pack-specific structure
     st.session_state["aicmo_backend_mode"] = "local-openai"
+    st.session_state["generation_mode"] = "local-openai"
 
     try:
         api_key = os.environ.get("OPENAI_API_KEY")
