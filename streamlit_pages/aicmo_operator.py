@@ -583,13 +583,17 @@ def call_backend_generate(
     - falls back to local OpenAI call if needed
     - returns markdown report or None on failure
     """
+
+    # Default mode: unknown until we successfully hit one of the paths
+    st.session_state["generation_mode"] = "unknown"
+
     client_payload = build_client_brief_payload()
     services = st.session_state["services"]
     package_name = st.session_state["selected_package"]
     refinement_name, refinement_cfg = get_refinement_mode()
     learn_items = load_learn_items()
 
-    # 🔥 Force-enable core service flags for WOW packs
+    # 🔥 Force-enable core WOW services so every package is agency-grade internally
     services["marketing_plan"] = True
     services["campaign_blueprint"] = True
     services["social_calendar"] = True
@@ -604,7 +608,7 @@ def call_backend_generate(
         "client_brief": client_payload,
         "services": services,
         "package_name": package_name,
-        "wow_enabled": bool(wow_package_key),  # Enable WOW if we have a valid key
+        "wow_enabled": bool(wow_package_key),
         "wow_package_key": wow_package_key,
         "refinement_mode": {
             "name": refinement_name,
@@ -619,49 +623,42 @@ def call_backend_generate(
 
     st.session_state["last_backend_payload"] = payload
 
-    # 🔧 allow forcing local-only mode to bypass backend completely
-    force_local = os.environ.get("AICMO_FORCE_LOCAL", "0") == "1"
+    # Backend URL resolution: prefer AICMO_BACKEND_URL, fall back to BACKEND_URL
+    base_url = os.environ.get("AICMO_BACKEND_URL") or os.environ.get("BACKEND_URL") or ""
+    base_url = base_url.rstrip("/")
 
-    # 🔍 track backend debug info in session_state
-    st.session_state["aicmo_backend_mode"] = None
-    st.session_state["aicmo_backend_url"] = None
-    st.session_state["aicmo_backend_http_status"] = None
-    st.session_state["aicmo_backend_error"] = None
-
-    base_url = None
-    if not force_local:
-        base_url = os.environ.get("AICMO_BACKEND_URL") or os.environ.get("BACKEND_URL")
-        st.session_state["aicmo_backend_url"] = base_url
-
-    # 1) Try backend HTTP path (if allowed and configured)
-    if base_url and not force_local:
+    # ----------------------------
+    # 1) Try backend HTTP endpoint
+    # ----------------------------
+    if base_url:
         try:
+            # Slightly longer read timeout for Render cold starts / agency-grade runs
             resp = requests.post(
-                base_url.rstrip("/") + "/api/aicmo/generate_report",
+                f"{base_url}/api/aicmo/generate_report",
                 json=payload,
-                timeout=(10, 120),  # 10s connect, 120s read – generous for WOW generation
+                timeout=(10, 300),  # (connect_timeout, read_timeout)
             )
-            st.session_state["aicmo_backend_http_status"] = resp.status_code
             resp.raise_for_status()
             data = resp.json()
             if isinstance(data, dict) and "report_markdown" in data:
-                st.session_state["aicmo_backend_mode"] = "http-backend"
                 st.session_state["generation_mode"] = "http-backend"
                 return data["report_markdown"]
-        except requests.exceptions.ReadTimeout as e:  # backend too slow
-            st.session_state["aicmo_backend_error"] = f"ReadTimeout: {e}"
+            else:
+                st.warning("Backend returned an unexpected payload. Falling back to direct model.")
+        except requests.exceptions.ReadTimeout:
             st.warning(
-                "Backend took too long to respond. Using direct model fallback for this run."
+                "Backend took too long to respond (read timeout). "
+                "Falling back to direct OpenAI generation for this run."
             )
+        except requests.exceptions.RequestException as e:
+            st.warning(f"Backend HTTP error: {e}. Falling back to direct model.")
         except Exception as e:  # pragma: no cover - UX only
-            st.session_state["aicmo_backend_error"] = str(e)
-            st.error("Backend API call failed, falling back to direct model call.")
+            st.error("Backend API call failed, falling back to direct model.")
             st.exception(e)
 
-    # 2) Fallback: direct OpenAI call with pack-specific structure
-    st.session_state["aicmo_backend_mode"] = "local-openai"
-    st.session_state["generation_mode"] = "local-openai"
-
+    # ---------------------------------
+    # 2) Fallback: direct OpenAI model
+    # ---------------------------------
     try:
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
@@ -677,36 +674,6 @@ def call_backend_generate(
             "Your writing is clear, structured, and presentation-ready."
         )
 
-        # 🔧 pack-specific layout enforcement for full reports
-        extra_guidelines = ""
-        if wow_package_key == "strategy_campaign_standard":
-            extra_guidelines = """
-This is the 'Strategy + Campaign Pack (Standard)' and MUST include ALL of the
-following sections as level-2 headings (##), in this order, with substantial content
-under each heading:
-
-1. Campaign overview
-2. Campaign objective
-3. Core campaign idea
-4. Messaging framework
-5. Channel plan
-6. Audience segments
-7. Persona cards
-8. Creative direction
-9. Influencer strategy
-10. Promotions and offers
-11. Detailed 30-day calendar
-12. Email and CRM flows
-13. Ad concepts
-14. KPI and budget plan
-15. Execution roadmap
-16. Post-campaign analysis
-17. Final summary
-
-Do NOT just list bullets; write detailed, client-ready content for each section.
-Target at least 2,500–3,000 words in total.
-"""
-
         user_prompt = (
             "Generate a client-ready marketing deliverable in markdown based on the JSON below.\n\n"
             "JSON payload:\n"
@@ -715,8 +682,7 @@ Target at least 2,500–3,000 words in total.
             "- Use H1/H2/H3 headings\n"
             "- Use bullet lists where helpful\n"
             "- Include channel-wise recommendations\n"
-            "- Make it directly usable as a client deck outline or report.\n"
-            f"{extra_guidelines}"
+            "- Make it directly usable as a client deck outline or report."
         )
 
         completion = client.chat.completions.create(
@@ -728,6 +694,8 @@ Target at least 2,500–3,000 words in total.
             max_tokens=refinement_cfg.get("max_tokens", 6000),
             temperature=refinement_cfg.get("temperature", 0.7),
         )
+
+        st.session_state["generation_mode"] = "direct-openai-fallback"
         return completion.choices[0].message.content or ""
     except Exception as e:  # pragma: no cover - UX only
         st.error("Model call failed.")
@@ -1012,24 +980,20 @@ def render_workshop_tab() -> None:
 def render_final_output_tab() -> None:
     st.subheader("3️⃣ Final Output – Export Client-Ready Report")
 
+    mode = st.session_state.get("generation_mode", "unknown")
+    if mode == "http-backend":
+        st.caption("✅ Source: AICMO backend (WOW presets + learning + agency-grade filters)")
+    elif mode == "direct-openai-fallback":
+        st.caption("⚠️ Source: Direct OpenAI fallback (no backend WOW / Phase-L)")
+    else:
+        st.caption("ℹ️ Source: Not recorded for this run (legacy or manual edit).")
+
     if not st.session_state.get("draft_report") and not st.session_state.get("final_report"):
         st.info("No content yet. Generate and refine a draft first.")
         return
 
     if not st.session_state.get("final_report"):
         st.session_state["final_report"] = st.session_state.get("draft_report", "")
-
-    # 🔍 Show backend source + debug info
-    mode = st.session_state.get("aicmo_backend_mode")
-    if mode == "http-backend":
-        st.caption("🔌 Source: AICMO backend (WOW templates + presets active)")
-    elif mode == "local-openai":
-        st.caption("⚠️ Source: Direct OpenAI fallback (pack-structured prompt)")
-
-    with st.expander("Backend debug (local vs HTTP)", expanded=False):
-        st.write("Backend URL:", st.session_state.get("aicmo_backend_url"))
-        st.write("HTTP status:", st.session_state.get("aicmo_backend_http_status"))
-        st.write("Error:", st.session_state.get("aicmo_backend_error"))
 
     st.markdown("#### Final report preview")
     # ✨ FIX #3: Use safe chunked renderer to prevent truncation of large reports
