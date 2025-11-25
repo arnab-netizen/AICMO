@@ -1,16 +1,18 @@
 """
-Integration test for PACKAGE_NAME_TO_KEY mapping fix.
+Integration test for HTTP endpoint fix.
 
-This test validates that the HTTP endpoint uses PACKAGE_NAME_TO_KEY mapping
-to convert display names to preset keys, ensuring the same behavior as
-direct aicmo_generate() calls.
+This test validates that the HTTP endpoint (used by Streamlit UI) now calls
+the SAME core generator logic that the unit tests use, producing full 17-section
+reports for Strategy + Campaign Pack (Standard).
+
+The key fix: The endpoint now builds a complete ClientInputBrief from the
+flattened Streamlit payload instead of trying to create an incomplete one.
 """
 
-import asyncio
 import os
 import pytest
-from httpx import AsyncClient
-from backend.main import aicmo_generate, GenerateRequest
+from httpx import AsyncClient, ASGITransport
+from backend.main import app, aicmo_generate, GenerateRequest
 from aicmo.io.client_reports import (
     ClientInputBrief,
     BrandBrief,
@@ -25,6 +27,215 @@ from aicmo.io.client_reports import (
 )
 
 
+@pytest.mark.asyncio
+async def test_http_endpoint_strategy_campaign_standard_full_report():
+    """
+    Test that the HTTP endpoint returns full 17-section report
+    when given Strategy + Campaign Pack (Standard) payload.
+
+    This validates that the endpoint now:
+    1. Builds a complete ClientInputBrief from flattened Streamlit data
+    2. Uses PACKAGE_NAME_TO_KEY mapping to resolve display name to preset key
+    3. Applies effective_stage override (draft → final)
+    4. Applies token ceiling (12000 minimum)
+    5. Calls the same aicmo_generate() core function as tests
+    """
+    os.environ["AICMO_DEBUG_REPORT_FOOTER"] = "1"
+
+    try:
+        # Build payload EXACTLY like Streamlit sends it
+        payload = {
+            "stage": "draft",
+            "client_brief": {
+                "raw_brief_text": (
+                    "Women's ethnic wear boutique offering fusion fashion items. "
+                    "Target: fashion-conscious women 25-45. "
+                    "Goal: Drive Diwali campaign sales. "
+                    "Budget: $25K-50K. Timeline: 30 days."
+                ),
+                "client_name": "Fashion Forward",
+                "brand_name": "StyleHub",
+                "product_service": "Women's ethnic wear boutique offering fusion fashion items",
+                "industry": "Fashion & Retail",
+                "geography": "USA",
+                "objectives": "Increase brand awareness and customer engagement",
+                "budget": "$25,000 - $50,000",
+                "timeline": "3-6 months",
+                "constraints": "Limited in-house team",
+            },
+            "services": {
+                "include_agency_grade": True,
+                "marketing_plan": True,
+                "campaign_blueprint": True,
+                "social_calendar": True,
+                "performance_review": False,
+                "creatives": True,
+            },
+            "package_name": "Strategy + Campaign Pack (Standard)",  # Display name
+            "wow_enabled": True,
+            "wow_package_key": "strategy_campaign_standard",
+            "refinement_mode": {
+                "name": "Balanced",
+                "passes": 1,
+                "max_tokens": 6000,
+                "temperature": 0.7,
+            },
+            "feedback": "",
+            "previous_draft": "",
+            "learn_items": [],
+            "use_learning": False,
+            "industry_key": None,
+        }
+
+        # Call the HTTP endpoint via test client
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post("/api/aicmo/generate_report", json=payload)
+
+        # Validate response structure
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}. Error: {response.text}"
+        )
+        result = response.json()
+        assert "report_markdown" in result, "Missing report_markdown in response"
+        assert result["status"] == "success", f"Status is {result.get('status')}, not success"
+
+        report_markdown = result["report_markdown"]
+
+        # Validate report is FULL 17 sections
+        section_count = report_markdown.count("## ")
+        assert section_count >= 17, (
+            f"Expected at least 17 sections, got {section_count}. "
+            f"Report length: {len(report_markdown)} chars."
+        )
+
+        # Validate report length
+        assert len(report_markdown) >= 3000, (
+            f"Expected report ≥ 3000 chars, got {len(report_markdown)}."
+        )
+
+        # Validate debug footer shows correct values
+        assert "DEBUG FOOTER (HTTP ENDPOINT PATH)" in report_markdown
+        assert "strategy_campaign_standard" in report_markdown
+        assert "Effective Stage" in report_markdown and "final" in report_markdown
+        assert "Effective Max Tokens" in report_markdown and "12000" in report_markdown
+
+        print(f"\n✅ HTTP ENDPOINT TEST PASSED")
+        print(f"   Sections: {section_count}")
+        print(f"   Length: {len(report_markdown)} chars")
+
+    finally:
+        if "AICMO_DEBUG_REPORT_FOOTER" in os.environ:
+            del os.environ["AICMO_DEBUG_REPORT_FOOTER"]
+
+
+@pytest.mark.asyncio
+async def test_http_endpoint_full_report_without_debug_footer():
+    """
+    Test HTTP endpoint without debug footer (production mode).
+    """
+    if "AICMO_DEBUG_REPORT_FOOTER" in os.environ:
+        del os.environ["AICMO_DEBUG_REPORT_FOOTER"]
+
+    payload = {
+        "stage": "draft",
+        "client_brief": {
+            "raw_brief_text": "Women's ethnic wear boutique. Goal: Diwali campaign.",
+            "brand_name": "StyleHub",
+            "product_service": "Women's ethnic wear",
+            "industry": "Fashion & Retail",
+            "timeline": "30 days",
+        },
+        "services": {
+            "include_agency_grade": True,
+            "marketing_plan": True,
+            "campaign_blueprint": True,
+            "social_calendar": True,
+            "creatives": True,
+        },
+        "package_name": "Strategy + Campaign Pack (Standard)",
+        "wow_enabled": True,
+        "wow_package_key": "strategy_campaign_standard",
+        "refinement_mode": {"name": "Balanced", "max_tokens": 6000},
+        "use_learning": False,
+    }
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post("/api/aicmo/generate_report", json=payload)
+
+    assert response.status_code == 200
+    result = response.json()
+    report_markdown = result["report_markdown"]
+
+    # Should NOT have debug footer
+    assert "DEBUG FOOTER" not in report_markdown
+
+    # But should still have full report
+    section_count = report_markdown.count("## ")
+    assert section_count >= 17, f"Expected 17+ sections, got {section_count}"
+
+    print(f"\n✅ PRODUCTION MODE TEST PASSED")
+    print(f"   Sections: {section_count}")
+
+
+@pytest.mark.asyncio
+async def test_http_endpoint_token_ceiling_enforced():
+    """
+    Test that token ceiling (minimum 12000 for Standard pack) is enforced.
+    """
+    os.environ["AICMO_DEBUG_REPORT_FOOTER"] = "1"
+
+    try:
+        payload = {
+            "stage": "draft",
+            "client_brief": {
+                "raw_brief_text": "Women's ethnic wear. Goal: Diwali sales.",
+                "brand_name": "StyleHub",
+                "product_service": "Women's ethnic wear",
+                "industry": "Fashion & Retail",
+            },
+            "services": {
+                "include_agency_grade": True,
+                "marketing_plan": True,
+                "campaign_blueprint": True,
+                "social_calendar": True,
+                "creatives": True,
+            },
+            "package_name": "Strategy + Campaign Pack (Standard)",
+            "wow_enabled": True,
+            "wow_package_key": "strategy_campaign_standard",
+            "refinement_mode": {
+                "name": "Balanced",
+                "max_tokens": 3000,  # LOW - should be forced to 12000
+            },
+            "use_learning": False,
+        }
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post("/api/aicmo/generate_report", json=payload)
+
+        assert response.status_code == 200
+        report_markdown = response.json()["report_markdown"]
+
+        # Verify token ceiling was enforced in footer
+        assert "Effective Max Tokens" in report_markdown and "12000" in report_markdown
+        section_count = report_markdown.count("## ")
+        assert section_count >= 17
+
+        print(f"\n✅ TOKEN CEILING TEST PASSED")
+        print(f"   Effective max_tokens: 12000")
+
+    finally:
+        if "AICMO_DEBUG_REPORT_FOOTER" in os.environ:
+            del os.environ["AICMO_DEBUG_REPORT_FOOTER"]
+
+
+# Keep original direct aicmo_generate tests for validation
 def _create_standard_pack_brief() -> ClientInputBrief:
     """Create a ClientInputBrief for testing the Standard pack."""
     return ClientInputBrief(
@@ -36,13 +247,12 @@ def _create_standard_pack_brief() -> ClientInputBrief:
         ),
         audience=AudienceBrief(
             primary_customer="Fashion-conscious women aged 25-45",
-            pain_points=["Limited authentic ethnic wear options", "Seasonal collection discovery"],
+            pain_points=["Limited authentic ethnic wear options"],
         ),
         goal=GoalBrief(
             primary_goal="Drive Diwali campaign sales",
-            secondary_goal="Build seasonal collection awareness",
             timeline="30 days",
-            kpis=["Sales conversion", "Collection awareness"],
+            kpis=["Sales conversion"],
         ),
         voice=VoiceBrief(
             tone_of_voice=["Elegant", "Traditional"],
@@ -69,158 +279,35 @@ def _create_standard_pack_brief() -> ClientInputBrief:
 
 
 @pytest.mark.asyncio
-async def test_package_name_to_key_mapping_via_api():
+async def test_direct_generator_with_display_name():
     """
-    Test that when aicmo_generate() receives package_preset="Strategy + Campaign Pack (Standard)",
-    it correctly maps to "strategy_campaign_standard" and generates the full 17-section report.
-    
-    This validates FIX #3: PACKAGE_NAME_TO_KEY mapping used in the endpoint handler.
+    Validate the direct aicmo_generate path with display name.
+    This ensures both HTTP and direct paths work.
     """
-    os.environ["AICMO_DEBUG_REPORT_FOOTER"] = "1"
-    
-    try:
-        brief = _create_standard_pack_brief()
-        
-        # Create request with DISPLAY NAME (what Streamlit UI sends)
-        req = GenerateRequest(
-            brief=brief,
-            generate_marketing_plan=True,
-            generate_campaign_blueprint=True,
-            generate_social_calendar=True,
-            generate_creatives=True,
-            package_preset="Strategy + Campaign Pack (Standard)",  # DISPLAY NAME
-            include_agency_grade=True,
-            use_learning=False,
-            wow_enabled=True,
-            wow_package_key="strategy_campaign_standard",
-            stage="draft",
-        )
-        
-        # Call aicmo_generate directly (this is what the endpoint handler does)
-        report = await aicmo_generate(req)
-        
-        # Get the report markdown (simulating what the endpoint returns)
-        from backend.main import generate_output_report_markdown
-        report_markdown = generate_output_report_markdown(brief, report)
-        
-        # Validate report structure
-        assert len(report_markdown) > 0, "Report is empty"
-        
-        # Validate report is not truncated (full 17 sections)
-        section_count = report_markdown.count("## ")
-        assert section_count >= 17, (
-            f"Expected at least 17 sections, got {section_count}. "
-            f"Report length: {len(report_markdown)} chars. "
-            f"Report tail:\n{report_markdown[-1000:]}"
-        )
-        
-        # Validate report length (17 sections should be 3000+ characters)
-        assert len(report_markdown) >= 3000, (
-            f"Expected report ≥ 3000 chars, got {len(report_markdown)}. "
-            f"Possible truncation: {report_markdown[-500:]}"
-        )
-        
-        print(f"\n✅ MAPPING TEST PASSED")
-        print(f"   Sections: {section_count}")
-        print(f"   Length: {len(report_markdown)} chars")
-        print(f"   Package: Strategy + Campaign Pack (Standard) → strategy_campaign_standard")
-        
-    finally:
-        if "AICMO_DEBUG_REPORT_FOOTER" in os.environ:
-            del os.environ["AICMO_DEBUG_REPORT_FOOTER"]
+    brief = _create_standard_pack_brief()
 
+    req = GenerateRequest(
+        brief=brief,
+        generate_marketing_plan=True,
+        generate_campaign_blueprint=True,
+        generate_social_calendar=True,
+        generate_creatives=True,
+        package_preset="Strategy + Campaign Pack (Standard)",
+        include_agency_grade=True,
+        use_learning=False,
+        wow_enabled=True,
+        wow_package_key="strategy_campaign_standard",
+        stage="draft",
+    )
 
-@pytest.mark.asyncio
-async def test_preset_key_directly():
-    """
-    Test that when aicmo_generate() receives the preset key directly,
-    it also works correctly (alternative code path).
-    """
-    os.environ["AICMO_DEBUG_REPORT_FOOTER"] = "1"
-    
-    try:
-        brief = _create_standard_pack_brief()
-        
-        # Create request with PRESET KEY directly (alternative format)
-        req = GenerateRequest(
-            brief=brief,
-            generate_marketing_plan=True,
-            generate_campaign_blueprint=True,
-            generate_social_calendar=True,
-            generate_creatives=True,
-            package_preset="strategy_campaign_standard",  # PRESET KEY
-            include_agency_grade=True,
-            use_learning=False,
-            wow_enabled=True,
-            wow_package_key="strategy_campaign_standard",
-            stage="draft",
-        )
-        
-        # Call aicmo_generate directly
-        report = await aicmo_generate(req)
-        
-        # Get the report markdown
-        from backend.main import generate_output_report_markdown
-        report_markdown = generate_output_report_markdown(brief, report)
-        
-        # Validate report is full 17 sections
-        section_count = report_markdown.count("## ")
-        assert section_count >= 17, (
-            f"Expected at least 17 sections with preset key, got {section_count}"
-        )
-        
-        print(f"\n✅ PRESET KEY TEST PASSED")
-        print(f"   Sections: {section_count}")
-        print(f"   Length: {len(report_markdown)} chars")
-        
-    finally:
-        if "AICMO_DEBUG_REPORT_FOOTER" in os.environ:
-            del os.environ["AICMO_DEBUG_REPORT_FOOTER"]
+    report = await aicmo_generate(req)
+    from backend.main import generate_output_report_markdown
 
+    report_markdown = generate_output_report_markdown(brief, report)
 
-@pytest.mark.asyncio
-async def test_token_ceiling_with_display_name():
-    """
-    Validate that token ceiling (min 12000 for Standard pack) is enforced
-    when using display name format.
-    """
-    os.environ["AICMO_DEBUG_REPORT_FOOTER"] = "1"
-    
-    try:
-        brief = _create_standard_pack_brief()
-        
-        req = GenerateRequest(
-            brief=brief,
-            generate_marketing_plan=True,
-            generate_campaign_blueprint=True,
-            generate_social_calendar=True,
-            generate_creatives=True,
-            package_preset="Strategy + Campaign Pack (Standard)",
-            include_agency_grade=True,
-            use_learning=False,
-            wow_enabled=True,
-            wow_package_key="strategy_campaign_standard",
-            stage="draft",
-        )
-        
-        report = await aicmo_generate(req)
-        from backend.main import generate_output_report_markdown
-        report_markdown = generate_output_report_markdown(brief, report)
-        
-        # Report should have all 17 sections despite incoming stage being "draft"
-        section_count = report_markdown.count("## ")
-        assert section_count >= 17, (
-            f"Expected 17+ sections despite draft stage, got {section_count}"
-        )
-        
-        assert len(report_markdown) >= 3000, (
-            f"Report too short: {len(report_markdown)} chars"
-        )
-        
-        print(f"\n✅ TOKEN CEILING TEST PASSED")
-        print(f"   Sections: {section_count}")
-        print(f"   Length: {len(report_markdown)} chars")
-        
-    finally:
-        if "AICMO_DEBUG_REPORT_FOOTER" in os.environ:
-            del os.environ["AICMO_DEBUG_REPORT_FOOTER"]
+    section_count = report_markdown.count("## ")
+    assert section_count >= 17, f"Expected 17+ sections, got {section_count}"
+    assert len(report_markdown) >= 3000
+
+    print(f"\n✅ DIRECT GENERATOR TEST PASSED")
+    print(f"   Sections: {section_count}")

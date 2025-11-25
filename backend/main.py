@@ -1912,7 +1912,18 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
     Expected Streamlit payload format:
     {
         "stage": "draft|refine|final",
-        "client_brief": {...dict with client metadata...},
+        "client_brief": {
+            "raw_brief_text": "...",
+            "client_name": "...",
+            "brand_name": "...",
+            "product_service": "...",
+            "industry": "...",
+            "geography": "...",
+            "objectives": "...",
+            "budget": "...",
+            "timeline": "...",
+            "constraints": "..."
+        },
         "services": {...dict with include_agency_grade, wow_enabled, etc...},
         "package_name": "Strategy + Campaign Pack (Standard)",
         "wow_enabled": bool,
@@ -1931,56 +1942,80 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
         "status": "success"
     }
     """
-    # 🔥 DEBUG: Log package preset received
+    # Extract top-level payload fields
     package_name = payload.get("package_name")
-    print("\n" + "=" * 60)
-    print("🔥 DEBUG PACKAGE PRESET RECEIVED")
-    print(f"    package_name: {package_name}")
+    stage = payload.get("stage", "draft")
+    services = payload.get("services", {})
+    client_brief_dict = payload.get("client_brief", {})
+    wow_enabled = payload.get("wow_enabled", False)
+    wow_package_key = payload.get("wow_package_key")
+    use_learning = payload.get("use_learning", False)
+    industry_key = payload.get("industry_key")
+    refinement_mode = payload.get("refinement_mode", {})
 
-    # Check presets
-    preset_config = PACKAGE_PRESETS.get(package_name)
-    print(f"    preset_config: {preset_config}")
-    if preset_config:
-        print(f"    sections: {preset_config.get('sections')}")
-        print(f"    complexity: {preset_config.get('complexity')}")
-        print(f"    requires_research: {preset_config.get('requires_research')}")
-    print("=" * 60 + "\n")
+    include_agency_grade = services.get("include_agency_grade", False)
+
+    # 🔥 FIX #3️⃣: Convert display name to preset_key using PACKAGE_NAME_TO_KEY mapping
+    resolved_preset_key = PACKAGE_NAME_TO_KEY.get(package_name, package_name)
+    logger.info(f"🔥 [PRESET MAPPING] {package_name} → {resolved_preset_key}")
 
     try:
-        # Extract client brief dict
-        client_brief_dict = payload.get("client_brief", {})
-
-        # Convert dict to ClientInputBrief model
-        brief = ClientInputBrief(
-            client_name=client_brief_dict.get("client_name"),
-            brand_name=client_brief_dict.get("brand_name"),
-            product_service=client_brief_dict.get("product_service"),
-            industry=client_brief_dict.get("industry"),
-            geography=client_brief_dict.get("geography"),
-            objectives=client_brief_dict.get("objectives"),
-            budget=client_brief_dict.get("budget"),
-            timeline=client_brief_dict.get("timeline"),
-            constraints=client_brief_dict.get("constraints"),
+        # BUILD COMPLETE ClientInputBrief from flattened Streamlit payload
+        # This is THE KEY FIX: construct ALL required nested structures with sensible defaults
+        from aicmo.io.client_reports import (
+            BrandBrief,
+            AudienceBrief,
+            GoalBrief,
+            VoiceBrief,
+            ProductServiceBrief,
+            ProductServiceItem,
+            AssetsConstraintsBrief,
+            OperationsBrief,
+            StrategyExtrasBrief,
         )
 
-        # Extract services dict
-        services = payload.get("services", {})
-        include_agency_grade = services.get("include_agency_grade", False)
-
-        # Extract use_learning flag
-        use_learning = payload.get("use_learning", False)
-
-        # Extract wow settings
-        wow_enabled = payload.get("wow_enabled", False)
-        wow_package_key = payload.get("wow_package_key")
-
-        # Extract industry key
-        industry_key = payload.get("industry_key")
+        brief = ClientInputBrief(
+            brand=BrandBrief(
+                brand_name=client_brief_dict.get("brand_name", "Unknown Brand"),
+                industry=client_brief_dict.get("industry"),
+                business_type=client_brief_dict.get("business_type"),
+                description=client_brief_dict.get("product_service"),
+            ),
+            audience=AudienceBrief(
+                primary_customer=client_brief_dict.get("objectives", "Target audience"),
+                pain_points=[],
+            ),
+            goal=GoalBrief(
+                primary_goal=client_brief_dict.get("objectives", "Achieve business goal"),
+                timeline=client_brief_dict.get("timeline"),
+                kpis=[],
+            ),
+            voice=VoiceBrief(tone_of_voice=[]),
+            product_service=ProductServiceBrief(
+                items=[
+                    ProductServiceItem(
+                        name=client_brief_dict.get("product_service", "Service/Product"),
+                        usp=None,
+                    )
+                ]
+                if client_brief_dict.get("product_service")
+                else []
+            ),
+            assets_constraints=AssetsConstraintsBrief(
+                focus_platforms=[],
+            ),
+            operations=OperationsBrief(
+                needs_calendar=True,
+            ),
+            strategy_extras=StrategyExtrasBrief(
+                brand_adjectives=[],
+                success_30_days=None,
+            ),
+        )
 
         # 🔥 FIX #2️⃣: Compute effective_stage for Strategy + Campaign Pack (Standard)
         # This ensures the standard pack always drives a FULL, final-style report
         # even if the incoming stage is "draft"
-        stage = payload.get("stage", "draft")
         if (
             package_name == "Strategy + Campaign Pack (Standard)"
             and include_agency_grade
@@ -1995,8 +2030,6 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
             effective_stage = stage
 
         # 🔥 FIX #4️⃣: Force safe token ceiling for Standard pack
-        # Override any lower limit to ensure we have room for all 17 sections
-        refinement_mode = payload.get("refinement_mode", {})
         if (
             package_name == "Strategy + Campaign Pack (Standard)"
             and include_agency_grade
@@ -2012,15 +2045,7 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
         # Force 2-pass refinement for quality
         refinement_mode["passes"] = 2
 
-        # 🔥 FIX #3️⃣: Convert display name to preset_key using PACKAGE_NAME_TO_KEY mapping
-        # This ensures "Strategy + Campaign Pack (Standard)" → "strategy_campaign_standard"
-        # so aicmo_generate() can properly identify and apply section-specific logic
-        resolved_preset_key = PACKAGE_NAME_TO_KEY.get(package_name, package_name)
-        logger.info(
-            f"🔥 [PRESET MAPPING] {package_name} → {resolved_preset_key}"
-        )
-
-        # Build GenerateRequest
+        # Build GenerateRequest using SAME structure as tests
         gen_req = GenerateRequest(
             brief=brief,
             generate_marketing_plan=services.get("marketing_plan", True),
@@ -2028,64 +2053,34 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
             generate_social_calendar=services.get("social_calendar", True),
             generate_performance_review=services.get("performance_review", False),
             generate_creatives=services.get("creatives", True),
-            package_preset=resolved_preset_key,  # 🔥 FIX #3: Use resolved preset key, not display name
+            package_preset=resolved_preset_key,  # 🔥 FIX #3: Use resolved preset key
             include_agency_grade=include_agency_grade,
             use_learning=use_learning,
             wow_enabled=wow_enabled,
             wow_package_key=wow_package_key,
             industry_key=industry_key,
-            stage=effective_stage,  # 🔥 FIX #2: Use effective_stage (may override payload stage)
+            stage=effective_stage,  # 🔥 FIX #2: Use effective_stage
         )
 
-        # Call the core /aicmo/generate endpoint
+        # Call the SAME core generator function that tests use
         report = await aicmo_generate(gen_req)
 
         # Convert output to markdown
         report_markdown = generate_output_report_markdown(brief, report)
 
-        # 🔥 FIX #7: Safety check for incomplete sentences and truncation
-        incomplete_indicators = [
-            "..." + (" " * 20),  # Trailing ellipsis
-            "[incomplete",
-            "to be completed",
-            "will be added",
-        ]
-        is_incomplete = any(ind in report_markdown.lower() for ind in incomplete_indicators)
-
-        if is_incomplete or (len(report_markdown) < 2000 and "final_summary" in report_markdown):
-            # Retry with higher max_tokens
-            logger.warning("⚠️ Report appears incomplete. Retrying with max_tokens=14000...")
-            try:
-                # Create a new request with same params but higher tokens
-                gen_req_retry = gen_req.model_copy(
-                    update={"wow_enabled": False}  # Retry without WOW to isolate issue
-                )
-                report_retry = await aicmo_generate(gen_req_retry)
-                report_markdown_retry = generate_output_report_markdown(brief, report_retry)
-                if len(report_markdown_retry) > len(report_markdown):
-                    logger.info("✅ Retry successful - using improved report")
-                    report_markdown = report_markdown_retry
-                    report = report_retry
-            except Exception as retry_err:
-                logger.debug(f"Retry failed (non-critical): {retry_err}")
-                # Continue with original report
-
-        # 🔍 DEBUG: Log report length and tail (before returning to Streamlit)
-        print(f"\n{'='*60}")
-        print(f"🔍 DEBUG REPORT LENGTH: {len(report_markdown)} characters")
-        print(f"{'='*60}")
-        print("LAST 500 CHARACTERS:")
-        print(report_markdown[-500:] if len(report_markdown) > 500 else report_markdown)
-        print(f"{'='*60}\n")
-
         # 🔍 DEBUG: Add diagnostics footer to report (if AICMO_DEBUG_REPORT_FOOTER env var is set)
         import os
+
         if os.getenv("AICMO_DEBUG_REPORT_FOOTER"):
             # Count sections in the report by looking for section headers
-            section_count = report_markdown.count("## ")  # Streamlit markdown section headers
-            
+            section_count = report_markdown.count("## ")
+            # Extract list of section IDs from the report
+            import re
+
+            section_ids = re.findall(r"^## (.+)$", report_markdown, re.MULTILINE)
+
             diagnostics_footer = (
-                f"\n\n---\n\n### DEBUG FOOTER\n"
+                f"\n\n---\n\n### DEBUG FOOTER (HTTP ENDPOINT PATH)\n"
                 f"- **Preset Key**: {resolved_preset_key}\n"
                 f"- **Display Name**: {package_name}\n"
                 f"- **Original Stage**: {stage}\n"
@@ -2096,13 +2091,15 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
                 f"- **Sections in Report**: {section_count}\n"
                 f"- **Report Length**: {len(report_markdown)} chars\n"
             )
+            if section_ids:
+                diagnostics_footer += f"- **Section IDs**: {', '.join(section_ids[:20])}\n"
             report_markdown += diagnostics_footer
-            logger.info(f"🔥 [DIAGNOSTICS] Added debug footer to report")
+            logger.info("🔥 [DIAGNOSTICS] Added debug footer to HTTP endpoint response")
 
         logger.info(
-            f"✅ [API WRAPPER] generate_report call successful. "
-            f"include_agency_grade={include_agency_grade}, use_learning={use_learning} "
-            f"report_length={len(report_markdown)}"
+            f"✅ [HTTP ENDPOINT] generate_report successful. "
+            f"preset={resolved_preset_key}, stage={effective_stage}, "
+            f"include_agency_grade={include_agency_grade}, length={len(report_markdown)}"
         )
 
         return {
@@ -2111,7 +2108,7 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
         }
 
     except Exception as e:
-        logger.error(f"❌ [API WRAPPER] generate_report failed: {e}", exc_info=True)
+        logger.error(f"❌ [HTTP ENDPOINT] generate_report failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Report generation failed: {str(e)}")
 
 
