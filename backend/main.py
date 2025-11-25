@@ -91,6 +91,27 @@ from backend.services.wow_reports import (  # noqa: E402
 from aicmo.presets.package_presets import PACKAGE_PRESETS  # noqa: E402
 from aicmo.presets.wow_rules import get_wow_rule  # noqa: E402
 
+# 🔥 Mapping from package display names to preset keys
+# Allows code to convert "Strategy + Campaign Pack (Standard)" → "strategy_campaign_standard"
+PACKAGE_NAME_TO_KEY = {
+    "Quick Social Pack (Basic)": "quick_social_basic",
+    "Strategy + Campaign Pack (Standard)": "strategy_campaign_standard",
+    "Full-Funnel Growth Suite (Premium)": "full_funnel_growth_suite",
+    "Launch & GTM Pack": "launch_gtm_pack",
+    "Brand Turnaround Lab": "brand_turnaround_lab",
+    "Retention & CRM Booster": "retention_crm_booster",
+    "Performance Audit & Revamp": "performance_audit_revamp",
+    # Also support preset keys directly (for direct API calls)
+    "quick_social_basic": "quick_social_basic",
+    "strategy_campaign_standard": "strategy_campaign_standard",
+    "strategy_campaign_basic": "strategy_campaign_basic",
+    "full_funnel_growth_suite": "full_funnel_growth_suite",
+    "launch_gtm_pack": "launch_gtm_pack",
+    "brand_turnaround_lab": "brand_turnaround_lab",
+    "retention_crm_booster": "retention_crm_booster",
+    "performance_audit_revamp": "performance_audit_revamp",
+}
+
 # Configure structured logging
 from aicmo.logging import configure_logging, get_logger  # noqa: E402
 
@@ -130,6 +151,7 @@ class GenerateRequest(BaseModel):
     use_learning: bool = False  # Phase L: enable learning context retrieval and injection
     wow_enabled: bool = True  # WOW: Enable WOW template wrapping
     wow_package_key: Optional[str] = None  # WOW: Package key (e.g., "quick_social_basic")
+    stage: str = "draft"  # 🔥 FIX #2: Stage for section selection ("draft", "final")
 
 
 app = FastAPI(title="AICMO API")
@@ -1542,7 +1564,9 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
     extra_sections: Dict[str, str] = {}
 
     if req.package_preset:
-        preset = PACKAGE_PRESETS.get(req.package_preset)
+        # 🔥 Convert display name to preset key if needed
+        preset_key = PACKAGE_NAME_TO_KEY.get(req.package_preset, req.package_preset)
+        preset = PACKAGE_PRESETS.get(preset_key)
         if preset:
             # Get the section_ids list from the preset
             section_ids = preset.get("sections", [])
@@ -1950,24 +1974,43 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
         wow_enabled = payload.get("wow_enabled", False)
         wow_package_key = payload.get("wow_package_key")
 
-        # 🔧 TEMPORARY TROUBLESHOOTING: Force WOW bypass for strategy_campaign_standard
-        # to verify if the underlying generator produces a long-form report
-        package_name = payload.get("package_name")
-        if package_name == "Strategy + Campaign Pack (Standard)":
-            # TEMP: Disable WOW to see raw generator output
-            wow_enabled = False
-            wow_package_key = None
-            logger.info(
-                "🔧 [TEMPORARY] WOW disabled for strategy_campaign_standard - testing raw output"
-            )
-
         # Extract industry key
         industry_key = payload.get("industry_key")
 
-        # 🔥 FIX #1 & #2: Force max_tokens=12000 and 2-pass refinement
+        # 🔥 FIX #2️⃣: Compute effective_stage for Strategy + Campaign Pack (Standard)
+        # This ensures the standard pack always drives a FULL, final-style report
+        # even if the incoming stage is "draft"
+        stage = payload.get("stage", "draft")
+        if (
+            package_name == "Strategy + Campaign Pack (Standard)"
+            and include_agency_grade
+            and wow_enabled
+            and wow_package_key == "strategy_campaign_standard"
+        ):
+            effective_stage = "final"
+            logger.info(
+                "🔥 [STANDARD PACK] Forcing effective_stage='final' for full report generation"
+            )
+        else:
+            effective_stage = stage
+
+        # 🔥 FIX #4️⃣: Force safe token ceiling for Standard pack
+        # Override any lower limit to ensure we have room for all 17 sections
         refinement_mode = payload.get("refinement_mode", {})
-        refinement_mode["max_tokens"] = 12000  # 🔥 Override any incoming limit
-        refinement_mode["passes"] = 2  # 🔥 Force 2-pass refinement
+        if (
+            package_name == "Strategy + Campaign Pack (Standard)"
+            and include_agency_grade
+            and wow_enabled
+        ):
+            original_max_tokens = refinement_mode.get("max_tokens", 6000)
+            refinement_mode["max_tokens"] = max(original_max_tokens, 12000)
+            logger.info(
+                f"🔥 [STANDARD PACK] Token limit enforced: "
+                f"{original_max_tokens} → {refinement_mode['max_tokens']}"
+            )
+
+        # Force 2-pass refinement for quality
+        refinement_mode["passes"] = 2
 
         # Build GenerateRequest
         gen_req = GenerateRequest(
@@ -1983,6 +2026,7 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
             wow_enabled=wow_enabled,
             wow_package_key=wow_package_key,
             industry_key=industry_key,
+            stage=effective_stage,  # 🔥 FIX #2: Use effective_stage (may override payload stage)
         )
 
         # Call the core /aicmo/generate endpoint
