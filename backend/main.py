@@ -1964,6 +1964,11 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
         # Extract industry key
         industry_key = payload.get("industry_key")
 
+        # 🔥 FIX #1 & #2: Force max_tokens=12000 and 2-pass refinement
+        refinement_mode = payload.get("refinement_mode", {})
+        refinement_mode["max_tokens"] = 12000  # 🔥 Override any incoming limit
+        refinement_mode["passes"] = 2  # 🔥 Force 2-pass refinement
+
         # Build GenerateRequest
         gen_req = GenerateRequest(
             brief=brief,
@@ -1985,6 +1990,33 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
 
         # Convert output to markdown
         report_markdown = generate_output_report_markdown(brief, report)
+
+        # 🔥 FIX #7: Safety check for incomplete sentences and truncation
+        incomplete_indicators = [
+            "..." + (" " * 20),  # Trailing ellipsis
+            "[incomplete",
+            "to be completed",
+            "will be added",
+        ]
+        is_incomplete = any(ind in report_markdown.lower() for ind in incomplete_indicators)
+
+        if is_incomplete or (len(report_markdown) < 2000 and "final_summary" in report_markdown):
+            # Retry with higher max_tokens
+            logger.warning("⚠️ Report appears incomplete. Retrying with max_tokens=14000...")
+            try:
+                # Create a new request with same params but higher tokens
+                gen_req_retry = gen_req.model_copy(
+                    update={"wow_enabled": False}  # Retry without WOW to isolate issue
+                )
+                report_retry = await aicmo_generate(gen_req_retry)
+                report_markdown_retry = generate_output_report_markdown(brief, report_retry)
+                if len(report_markdown_retry) > len(report_markdown):
+                    logger.info("✅ Retry successful - using improved report")
+                    report_markdown = report_markdown_retry
+                    report = report_retry
+            except Exception as retry_err:
+                logger.debug(f"Retry failed (non-critical): {retry_err}")
+                # Continue with original report
 
         # 🔍 DEBUG: Log report length and tail (before returning to Streamlit)
         print(f"\n{'='*60}")

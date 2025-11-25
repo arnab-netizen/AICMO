@@ -589,6 +589,14 @@ def call_backend_generate(
     refinement_name, refinement_cfg = get_refinement_mode()
     learn_items = load_learn_items()
 
+    # 🔥 FIX #4: Force-enable all service flags regardless of user checkbox state
+    services["marketing_plan"] = True
+    services["campaign_blueprint"] = True
+    services["social_calendar"] = True
+    services["creatives"] = True
+    services["include_agency_grade"] = True
+    # All services are ALWAYS enabled - no auto-disable from checkboxes
+
     # Resolve WOW package key from the selected package label
     wow_package_key = PACKAGE_KEY_BY_LABEL.get(package_name)
 
