@@ -94,6 +94,18 @@ def build_default_placeholders(
 
     region = brief.get("region") or brief.get("country") or ""
 
+    # Extract geography from assets_constraints for location-aware templates
+    geography = ""
+    if isinstance(brief.get("assets_constraints"), dict):
+        geography = brief["assets_constraints"].get("geography", "")
+
+    # If region is empty but geography exists, use geography
+    if not region and geography:
+        region = geography
+
+    # regions is a plural version for templates that use it
+    regions = geography or region
+
     target_audience = (
         brief.get("target_audience")  # Flat
         or get_nested(brief, "audience", "primary_customer")  # Nested
@@ -126,6 +138,7 @@ def build_default_placeholders(
         "category": category,
         "city": city,
         "region": region,
+        "regions": regions,
         "target_audience": target_audience,
         "brand_tone": brand_tone,
         "primary_channel": primary_channel,

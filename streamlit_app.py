@@ -417,7 +417,15 @@ with st.sidebar:
     st.markdown("---")
     nav = st.radio(
         "Navigation",
-        ["Dashboard", "Brief & Generate", "Workshop", "Learn & Improve", "Export", "Settings"],
+        [
+            "Dashboard",
+            "Brief & Generate",
+            "Workshop",
+            "Learn & Improve",
+            "Export",
+            "🛡️ Operator QC",
+            "Settings",
+        ],
         index=0,
     )
 
@@ -916,6 +924,17 @@ elif nav == "Export":
 # ═══════════════════════════════════════════════════════════════════════
 # SETTINGS
 # ═══════════════════════════════════════════════════════════════════════
+
+elif nav == "🛡️ Operator QC":
+    # Import and run the operator_qc module
+    try:
+        from streamlit_pages.operator_qc import main as operator_qc_main
+
+        operator_qc_main()
+    except ImportError as e:
+        st.error(f"Operator QC module not available: {e}")
+    except Exception as e:
+        st.error(f"Error loading Operator QC: {e}")
 
 elif nav == "Settings":
     st.subheader("Settings & Diagnostics")

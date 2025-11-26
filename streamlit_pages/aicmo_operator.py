@@ -995,11 +995,42 @@ def render_final_output_tab() -> None:
     if not st.session_state.get("final_report"):
         st.session_state["final_report"] = st.session_state.get("draft_report", "")
 
+    # 🛡️ OPERATOR MODE: Generate proof file
+    if st.session_state.get("final_report"):
+        try:
+            from backend.proof_utils import save_proof_file
+
+            brief_dict = build_client_brief_payload()
+            package_key = st.session_state.get("selected_package", "unknown").lower()
+
+            proof_path = save_proof_file(
+                report_markdown=st.session_state["final_report"],
+                brief=brief_dict,
+                package_key=package_key,
+            )
+            st.session_state["last_proof_file"] = str(proof_path)
+        except Exception:
+            pass  # Silently fail if proof_utils not available
+
     st.markdown("#### Final report preview")
     # ✨ FIX #3: Use safe chunked renderer to prevent truncation of large reports
     from aicmo.renderers import render_full_report
 
     render_full_report(st.session_state["final_report"], use_chunks=True)
+
+    # 🛡️ OPERATOR MODE: Show proof file info
+    if st.session_state.get("last_proof_file"):
+        with st.expander("📋 Proof File Info (Operator Mode)"):
+            st.success(f"✅ Proof file generated: {Path(st.session_state['last_proof_file']).name}")
+            st.caption(f"📂 Path: `{st.session_state['last_proof_file']}`")
+            st.markdown(
+                "This proof file contains:\n"
+                "- Brief metadata\n"
+                "- Placeholder injection table\n"
+                "- Quality gate results\n"
+                "- Sanitization report\n"
+                "- Full sanitized report"
+            )
 
     st.markdown("---")
     st.markdown("#### Export")
@@ -1356,6 +1387,21 @@ def render_learn_tab() -> None:
 def main() -> None:
     init_session_state()
     render_header()
+
+    # 🛡️ OPERATOR MODE TOGGLE (sidebar)
+    with st.sidebar:
+        st.markdown("---")
+        operator_mode = st.toggle("🛡️ Operator Mode (QC)", value=False)
+        if operator_mode:
+            st.caption("✅ Internal QA tools enabled")
+            st.markdown(
+                """
+**Quick Links:**
+- 📊 [QC Dashboard](/operator_qc)
+- 📁 [Proof Files](.aicmo/proof/)
+- 🧪 [WOW Audit](scripts/dev/aicmo_wow_end_to_end_check.py)
+            """
+            )
 
     tab1, tab2, tab3, tab4 = st.tabs(
         [

@@ -65,6 +65,9 @@ class AssetsConstraintsBrief(BaseModel):
     constraints: List[str] = Field(default_factory=list)
     focus_platforms: List[str] = Field(default_factory=list)
     avoid_platforms: List[str] = Field(default_factory=list)
+    geography: Optional[str] = None  # Geographic targeting/launch location
+    budget: Optional[str] = None  # Budget information
+    timeline: Optional[str] = None  # Timeline/deadline information
 
 
 class OperationsBrief(BaseModel):
