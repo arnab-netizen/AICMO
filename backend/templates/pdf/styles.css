@@ -1,0 +1,240 @@
+@page {
+    size: A4;
+    margin: 1.5cm;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 11pt;
+    color: #222222;
+    line-height: 1.5;
+}
+
+.doc-header,
+.doc-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 9pt;
+    color: #555555;
+}
+
+.doc-header {
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 0.3cm;
+    margin-bottom: 0.5cm;
+}
+
+.doc-footer {
+    border-top: 1px solid #e0e0e0;
+    padding-top: 0.3cm;
+    margin-top: 0.5cm;
+}
+
+.doc-title {
+    font-size: 14pt;
+    font-weight: 600;
+}
+
+.doc-subtitle {
+    font-size: 10pt;
+    color: #777777;
+}
+
+.agency-name {
+    font-weight: 600;
+    font-size: 10pt;
+}
+
+.agency-tagline {
+    font-size: 8pt;
+    color: #999999;
+}
+
+.doc-content {
+    margin-top: 0.5cm;
+}
+
+h1, h2, h3 {
+    color: #7B2D43;
+    margin-top: 0.4cm;
+    margin-bottom: 0.2cm;
+}
+
+h1 {
+    font-size: 16pt;
+}
+
+h2 {
+    font-size: 14pt;
+}
+
+h3 {
+    font-size: 12pt;
+}
+
+.section-block {
+    margin-bottom: 0.6cm;
+    padding: 0.4cm;
+    border-radius: 6px;
+    background-color: #FAF5E6;
+    border-left: 3px solid #D4AF37;
+}
+
+.section-title {
+    font-size: 12pt;
+    font-weight: 600;
+    margin-bottom: 0.2cm;
+}
+
+.section-body {
+    font-size: 10.5pt;
+    line-height: 1.4;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.2cm;
+    margin-bottom: 0.3cm;
+    font-size: 9.5pt;
+}
+
+th, td {
+    border: 1px solid #dddddd;
+    padding: 0.15cm 0.2cm;
+    text-align: left;
+}
+
+th {
+    background-color: #F2E6D9;
+    font-weight: 600;
+}
+
+tr:nth-child(even) {
+    background-color: #FEFBF5;
+}
+
+.persona-card,
+.mockup-card {
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    padding: 0.3cm;
+    margin-bottom: 0.4cm;
+}
+
+.persona-header {
+    font-weight: 600;
+    font-size: 10pt;
+    margin-bottom: 0.1cm;
+}
+
+.persona-detail {
+    font-size: 9pt;
+    color: #555555;
+}
+
+.chart-placeholder {
+    border-radius: 6px;
+    border: 1px dashed #d0d0d0;
+    padding: 0.4cm;
+    text-align: center;
+    font-size: 9pt;
+    color: #777777;
+    margin-top: 0.3cm;
+    background-color: #F9F9F9;
+    min-height: 3cm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-top: 0.2cm;
+}
+
+.calendar-day {
+    border: 1px solid #e0e0e0;
+    padding: 0.1cm;
+    text-align: center;
+    font-size: 8pt;
+}
+
+.calendar-day.header {
+    background-color: #F2E6D9;
+    font-weight: 600;
+}
+
+.competitor-row {
+    margin-bottom: 0.3cm;
+}
+
+.competitor-name {
+    font-weight: 600;
+    font-size: 10pt;
+}
+
+.competitor-detail {
+    font-size: 9pt;
+    color: #666666;
+}
+
+.brand-palette {
+    display: flex;
+    gap: 0.2cm;
+    margin-top: 0.2cm;
+}
+
+.color-swatch {
+    width: 1cm;
+    height: 1cm;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+}
+
+.kpi-metric {
+    display: inline-block;
+    margin-right: 0.5cm;
+    margin-bottom: 0.3cm;
+}
+
+.kpi-value {
+    font-size: 11pt;
+    font-weight: 600;
+    color: #7B2D43;
+}
+
+.kpi-label {
+    font-size: 9pt;
+    color: #666666;
+}
+
+.page-break {
+    page-break-after: always;
+}
+
+ul, ol {
+    margin-left: 0.3cm;
+    margin-bottom: 0.2cm;
+}
+
+li {
+    margin-bottom: 0.1cm;
+}
+
+p {
+    margin-bottom: 0.2cm;
+}
+
+strong {
+    font-weight: 600;
+    color: #333333;
+}
+
+em {
+    font-style: italic;
+    color: #666666;
+}

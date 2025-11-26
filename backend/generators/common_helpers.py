@@ -129,22 +129,25 @@ def apply_token_replacements(text: str, brief: BrandBrief) -> str:
 
     Args:
         text: Raw generated text
-        brief: BrandBrief with concrete values
+        brief: BrandBrief or ClientInputBrief with concrete values
 
     Returns:
         Text with all tokens replaced
     """
+    # Handle both BrandBrief and ClientInputBrief
+    brand = brief.brand if hasattr(brief, "brand") else brief
+
     replacements: Dict[str, str] = {
-        "your industry": brief.industry or "the market",
-        "your category": brief.industry or "the category",
-        "your audience": brief.primary_customer or "your target audience",
-        "your market": brief.industry or "your market",
-        "your customers": brief.primary_customer or "your customers",
-        "your solution": brief.product_service or brief.industry,
-        "{brand_name}": brief.brand_name or "",
-        "{industry}": brief.industry or "",
-        "{product_service}": brief.product_service or "",
-        "{primary_customer}": brief.primary_customer or "",
+        "your industry": brand.industry or "the market",
+        "your category": brand.industry or "the category",
+        "your audience": brand.primary_customer or "your target audience",
+        "your market": brand.industry or "your market",
+        "your customers": brand.primary_customer or "your customers",
+        "your solution": brand.product_service or brand.industry,
+        "{brand_name}": brand.brand_name or "",
+        "{industry}": brand.industry or "",
+        "{product_service}": brand.product_service or "",
+        "{primary_customer}": brand.primary_customer or "",
     }
 
     for token, replacement in replacements.items():
@@ -223,7 +226,7 @@ def sanitize_output(text: str, brief: BrandBrief) -> str:
 
     Args:
         text: Raw generator output
-        brief: BrandBrief for token replacement
+        brief: BrandBrief or ClientInputBrief for token replacement
 
     Returns:
         Clean, client-ready text

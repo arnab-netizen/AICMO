@@ -29,7 +29,13 @@ from backend.llm_enhance import enhance_with_llm as enhance_with_llm_new  # noqa
 from backend.generators.marketing_plan import generate_marketing_plan  # noqa: E402
 from backend.generators.common_helpers import sanitize_output  # noqa: E402
 from backend.agency_grade_enhancers import apply_agency_grade_enhancements  # noqa: E402
-from backend.export_utils import safe_export_pdf, safe_export_pptx, safe_export_zip  # noqa: E402
+
+from backend.export_utils import (  # noqa: E402
+    safe_export_pdf,
+    safe_export_pptx,
+    safe_export_zip,
+    safe_export_agency_pdf,
+)
 from backend.pdf_renderer import render_pdf_from_context, sections_to_html_list  # noqa: E402
 from aicmo.presets.industry_presets import list_available_industries  # noqa: E402
 from aicmo.generators import (  # noqa: E402
@@ -1058,8 +1064,11 @@ def generate_sections(
             try:
                 results[section_id] = generator_fn(**context)
             except Exception as e:
-                # Graceful fallback if generator fails
-                results[section_id] = f"[Error generating {section_id}: {str(e)}]"
+                # Log error internally for debugging, but don't leak to client
+                logger.error(f"Section generator failed for '{section_id}': {e}", exc_info=True)
+                # Return empty string instead of error message
+                # Downstream aggregator will skip empty sections
+                results[section_id] = ""
         else:
             # Section not yet implemented - skip rather than output placeholder
             continue
@@ -1964,6 +1973,51 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
         return base_output
 
 
+# =====================================================================
+# SCHEMA VALIDATION HELPERS – Ensure briefs are always complete
+# =====================================================================
+
+REQUIRED_BRIEF_FIELDS = [
+    "brand_name",
+    "industry",
+    "product_service",
+    "primary_goal",
+    "primary_customer",
+]
+
+
+def validate_client_brief(brief: "ClientInputBrief") -> None:
+    """
+    Validate that a ClientInputBrief has all required fields populated.
+    Raises HTTPException if any required field is missing or empty.
+    """
+    from fastapi import HTTPException
+
+    missing: list[str] = []
+
+    # Check brand fields
+    if not brief.brand.brand_name or not brief.brand.brand_name.strip():
+        missing.append("brand_name")
+    if not brief.brand.industry or not brief.brand.industry.strip():
+        missing.append("industry")
+    if not brief.brand.product_service or not brief.brand.product_service.strip():
+        missing.append("product_service")
+
+    # Check goal fields
+    if not brief.goal.primary_goal or not brief.goal.primary_goal.strip():
+        missing.append("primary_goal")
+
+    # Check audience fields
+    if not brief.audience.primary_customer or not brief.audience.primary_customer.strip():
+        missing.append("primary_customer")
+
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing or empty required fields: {', '.join(missing)}",
+        )
+
+
 @app.post("/api/aicmo/generate_report")
 async def api_aicmo_generate_report(payload: dict) -> dict:
     """
@@ -2037,18 +2091,28 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
 
         brief = ClientInputBrief(
             brand=BrandBrief(
-                brand_name=client_brief_dict.get("brand_name", "Unknown Brand"),
-                industry=client_brief_dict.get("industry"),
-                business_type=client_brief_dict.get("business_type"),
-                description=client_brief_dict.get("product_service"),
+                brand_name=client_brief_dict.get("brand_name", "").strip() or "Your Brand",
+                industry=client_brief_dict.get("industry", "").strip() or "your industry",
+                product_service=client_brief_dict.get("product_service", "").strip()
+                or "your main product/service",
+                primary_goal=client_brief_dict.get("objectives", "").strip()
+                or "Achieve your business goal",
+                primary_customer=client_brief_dict.get("objectives", "").strip()
+                or "your target customer",
+                location=client_brief_dict.get("geography", "").strip() or None,
+                timeline=client_brief_dict.get("timeline", "").strip() or None,
+                business_type=client_brief_dict.get("business_type", "").strip() or None,
+                description=client_brief_dict.get("product_service", "").strip() or None,
             ),
             audience=AudienceBrief(
-                primary_customer=client_brief_dict.get("objectives", "Target audience"),
+                primary_customer=client_brief_dict.get("objectives", "").strip()
+                or "target audience",
                 pain_points=[],
             ),
             goal=GoalBrief(
-                primary_goal=client_brief_dict.get("objectives", "Achieve business goal"),
-                timeline=client_brief_dict.get("timeline"),
+                primary_goal=client_brief_dict.get("objectives", "").strip()
+                or "achieve your business goal",
+                timeline=client_brief_dict.get("timeline", "").strip() or None,
                 kpis=[],
             ),
             voice=VoiceBrief(tone_of_voice=[]),
@@ -2056,7 +2120,8 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
                 items=(
                     [
                         ProductServiceItem(
-                            name=client_brief_dict.get("product_service", "Service/Product"),
+                            name=client_brief_dict.get("product_service", "").strip()
+                            or "Your Product/Service",
                             usp=None,
                         )
                     ]
@@ -2075,6 +2140,12 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
                 success_30_days=None,
             ),
         )
+
+        # Apply safe defaults to prevent downstream errors
+        brief = brief.with_safe_defaults()
+
+        # Validate that required fields are present
+        validate_client_brief(brief)
 
         # 🔥 FIX #2️⃣: Compute effective_stage for Strategy + Campaign Pack (Standard)
         # This ensures the standard pack always drives a FULL, final-style report
@@ -2237,15 +2308,29 @@ def aicmo_export_pdf(payload: dict):
     """
     Convert markdown or structured sections to PDF with safe error handling.
 
-    Supports two modes:
-    1. Markdown mode: { "markdown": "..." }
-    2. Structured mode: { "sections": [...], "brief": {...} }
+    Supports three modes:
+    1. Agency-grade PDF: { "wow_enabled": True, ... }
+    2. Markdown mode: { "markdown": "..." }
+    3. Structured mode: { "sections": [...], "brief": {...} }
 
     Returns:
         StreamingResponse with PDF on success (Content-Type: application/pdf).
         JSONResponse with error details on failure (Content-Type: application/json).
     """
     try:
+        # Check if agency-grade PDF export is enabled
+        wow_enabled = payload.get("wow_enabled", False)
+
+        if wow_enabled:
+            try:
+                logger.info("🎨 [AGENCY PDF] Attempting agency-grade PDF export...")
+                return safe_export_agency_pdf(payload)
+            except Exception as e:
+                logger.warning(
+                    f"🎨 [AGENCY PDF] Agency export failed, falling back to standard: {e}"
+                )
+                # Fall through to standard export
+
         # Mode 1: Try structured sections first (HTML template rendering)
         sections = payload.get("sections")
         brief = payload.get("brief")

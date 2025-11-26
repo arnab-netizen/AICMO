@@ -552,6 +552,35 @@ def get_refinement_mode() -> Tuple[str, Dict[str, Any]]:
     return mode_name, config
 
 
+def validate_required_brief_fields() -> Tuple[bool, str]:
+    """
+    Validate that all required brief fields are filled.
+
+    Returns:
+        (is_valid: bool, error_message: str)
+    """
+    required_fields = {
+        "brand_name": "Brand / product name",
+        "product_service": "Product / service",
+        "industry": "Industry / category",
+        "objectives": "Primary objectives",
+    }
+
+    meta = st.session_state.get("client_brief_meta", {})
+    missing_fields = []
+
+    for field_key, field_label in required_fields.items():
+        value = (meta.get(field_key, "") or "").strip()
+        if not value:
+            missing_fields.append(field_label)
+
+    if missing_fields:
+        message = f"Required fields missing: {', '.join(missing_fields)}"
+        return False, message
+
+    return True, ""
+
+
 def build_client_brief_payload() -> Dict[str, Any]:
     """
     Build a generic client-brief payload dict from session state.
@@ -782,25 +811,29 @@ def render_client_input_tab() -> None:
                 value=meta.get("client_name", ""),
             )
             meta["brand_name"] = st.text_input(
-                "Brand / product name",
+                "Brand / product name *",
                 value=meta.get("brand_name", ""),
+                help="Required - will be used in all generated content",
             )
             meta["product_service"] = st.text_input(
-                "Product / service",
+                "Product / service *",
                 value=meta.get("product_service", ""),
+                help="Required - describe the main offering",
             )
             meta["industry"] = st.text_input(
-                "Industry / category",
+                "Industry / category *",
                 value=meta.get("industry", ""),
+                help="Required - e.g., SaaS, e-commerce, healthcare",
             )
             meta["geography"] = st.text_input(
                 "Primary geography / market",
                 value=meta.get("geography", ""),
             )
             meta["objectives"] = st.text_area(
-                "Primary objectives",
+                "Primary objectives *",
                 value=meta.get("objectives", ""),
                 height=80,
+                help="Required - core goals and key metrics",
             )
             meta["budget"] = st.text_input(
                 "Budget (if known)",
@@ -879,7 +912,18 @@ This will generate an agency-grade WOW report with:
         st.session_state["refinement_mode"] = selected_mode
         st.caption(REFINEMENT_MODES[selected_mode]["label"])
 
-        if st.button("Generate draft report", type="primary", use_container_width=True):
+        # Validate required fields
+        is_valid, error_msg = validate_required_brief_fields()
+
+        if not is_valid:
+            st.warning(f"⚠️ {error_msg}")
+
+        if st.button(
+            "Generate draft report",
+            type="primary",
+            use_container_width=True,
+            disabled=not is_valid,
+        ):
             with st.spinner("Generating draft report with AICMO..."):
                 report_md = call_backend_generate(stage="draft")
             if report_md:
@@ -1068,6 +1112,13 @@ def render_final_output_tab() -> None:
                 "Set AICMO_BACKEND_URL to enable this feature."
             )
         else:
+            # Agency mode toggle
+            agency_mode = st.checkbox(
+                "Generate agency-grade PDF (Ogilvy/McCann style)",
+                value=False,
+                help="When enabled, uses AICMO's full HTML-designed layout. When disabled, uses the classic text PDF.",
+            )
+
             if st.button("Generate PDF", key="btn_generate_pdf", use_container_width=True):
                 if not st.session_state.get("final_report"):
                     st.warning("Generate a report first before exporting to PDF.")
@@ -1078,10 +1129,17 @@ def render_final_output_tab() -> None:
                             export_error = None
 
                             try:
+                                # Build payload with agency mode flags
+                                payload = {
+                                    "markdown": st.session_state["final_report"],
+                                    "wow_enabled": bool(agency_mode),
+                                    "wow_package_key": "strategy_campaign_standard",
+                                }
+
                                 # Call backend PDF export endpoint
                                 resp = requests.post(
                                     backend_url.rstrip("/") + "/aicmo/export/pdf",
-                                    json={"markdown": st.session_state["final_report"]},
+                                    json=payload,
                                     timeout=60,
                                 )
 

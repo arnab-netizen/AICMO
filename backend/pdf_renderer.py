@@ -11,6 +11,16 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+# Guarded WeasyPrint import
+try:
+    from weasyprint import HTML, CSS
+
+    WEASYPRINT_AVAILABLE = True
+except Exception:
+    HTML = None  # type: ignore
+    CSS = None  # type: ignore
+    WEASYPRINT_AVAILABLE = False
+
 logger = logging.getLogger("aicmo.pdf_renderer")
 
 
@@ -136,3 +146,95 @@ def sections_to_html_list(sections: list[Dict[str, Any]]) -> list[Dict[str, Any]
             }
         )
     return html_sections
+
+
+def render_html_template_to_pdf(template_name: str, context: Dict[str, Any]) -> bytes:
+    """
+    Render an HTML template with Jinja2 and convert it to PDF using WeasyPrint.
+
+    This is an ADDITIVE function that does not change existing behavior.
+    Raises RuntimeError if WeasyPrint is not available.
+
+    Args:
+        template_name: Name of the Jinja2 template file
+        context: Dictionary of template variables
+
+    Returns:
+        PDF file as bytes
+
+    Raises:
+        RuntimeError: If WeasyPrint is not available or template not found
+    """
+    if not WEASYPRINT_AVAILABLE:
+        raise RuntimeError(
+            "WeasyPrint is not available; cannot render HTML to PDF. "
+            "Install with: pip install weasyprint jinja2"
+        )
+
+    try:
+        from jinja2 import Environment, FileSystemLoader, select_autoescape
+    except ImportError as e:
+        raise RuntimeError("Jinja2 is not available") from e
+
+    template_dir = Path(__file__).parent / "templates" / "pdf"
+
+    if not template_dir.exists():
+        logger.warning(f"Template directory does not exist: {template_dir}")
+        raise RuntimeError(f"PDF template directory not found: {template_dir}")
+
+    env = Environment(
+        loader=FileSystemLoader(str(template_dir)),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
+
+    try:
+        template = env.get_template(template_name)
+        html_str = template.render(**context)
+    except Exception as e:
+        logger.error(f"Template rendering failed for {template_name}: {e}")
+        raise RuntimeError(f"Template rendering failed: {e}") from e
+
+    # Render HTML to PDF with optional CSS
+    try:
+        css_path = template_dir / "styles.css"
+        stylesheets = []
+
+        if css_path.exists():
+            stylesheets.append(CSS(filename=str(css_path)))
+
+        pdf_bytes = HTML(string=html_str, base_url=str(template_dir)).write_pdf(
+            stylesheets=stylesheets if stylesheets else None
+        )
+
+        if not pdf_bytes:
+            raise RuntimeError("PDF generation returned empty bytes")
+
+        if not pdf_bytes.startswith(b"%PDF"):
+            raise RuntimeError("Generated PDF bytes do not start with '%PDF' header")
+
+        logger.info(f"Agency PDF rendered: {template_name} ({len(pdf_bytes)} bytes)")
+        return pdf_bytes
+
+    except Exception as e:
+        logger.error(f"PDF generation failed: {e}")
+        raise RuntimeError(f"PDF generation failed: {e}") from e
+
+
+def render_agency_pdf(context: Dict[str, Any]) -> bytes:
+    """
+    Entry point for generating the full agency-grade PDF.
+
+    Uses a master template that includes all sections and design elements.
+    This does NOT replace the existing ReportLab-based PDFs; it is only used
+    when explicitly requested via the UI toggle.
+
+    Args:
+        context: Dictionary containing report data to pass to template
+
+    Returns:
+        PDF file as bytes
+
+    Raises:
+        RuntimeError: If template rendering or PDF generation fails
+    """
+    return render_html_template_to_pdf("campaign_strategy.html", context)

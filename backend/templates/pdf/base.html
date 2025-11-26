@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>{{ title or "AICMO Strategy Report" }}</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <header class="doc-header">
+        <div class="doc-header-left">
+            <div class="doc-title">{{ brand_name or "Brand" }}</div>
+            <div class="doc-subtitle">{{ campaign_title or "" }}</div>
+        </div>
+        <div class="doc-header-right">
+            <div class="agency-name">AICMO</div>
+            <div class="agency-tagline">Marketing Intelligence</div>
+        </div>
+    </header>
+
+    <main class="doc-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="doc-footer">
+        <span class="footer-left">{{ brand_name or "" }}</span>
+        <span class="footer-right">Page <span class="page-number"></span></span>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="doc-content">
+
+<!-- 1. OVERVIEW / EXECUTIVE SUMMARY -->
+<div class="section-block">
+  <div class="section-title">CAMPAIGN OVERVIEW</div>
+  <div class="section-body">
+    {{ report.get('campaign_title', 'Campaign Title') }}
+    {% if report.get('campaign_duration') %}
+      | {{ report.get('campaign_duration') }}
+    {% endif %}
+  </div>
+</div>
+
+{% if report.get('objectives_html') or report.get('objectives_md') %}
+<h2>Objectives</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('objectives_html') or report.get('objectives_md', '') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 2. CORE IDEA & MESSAGING -->
+{% if report.get('core_campaign_idea_html') or report.get('core_campaign_idea_md') %}
+<h2>Core Campaign Idea</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('core_campaign_idea_html') or report.get('core_campaign_idea_md', '') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- BASE UPGRADE #1: Competitor Snapshot Table -->
+{% if report.get('competitor_snapshot') %}
+<h2>Competitive Landscape</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Competitor</th>
+      <th>Position</th>
+      <th>Key Message</th>
+      <th>Channels</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for competitor in report.get('competitor_snapshot', []) %}
+    <tr>
+      <td>{{ competitor.get('name', 'N/A') }}</td>
+      <td>{{ competitor.get('position', 'N/A') }}</td>
+      <td>{{ competitor.get('key_message', 'N/A') }}</td>
+      <td>{{ competitor.get('channels', 'N/A') }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<!-- 3. CHANNEL PLAN -->
+{% if report.get('channel_plan_html') or report.get('channel_plan_md') %}
+<h2>Channel Strategy</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('channel_plan_html') or report.get('channel_plan_md', '') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 4. AUDIENCE & PERSONAS -->
+{% if report.get('audience_segments_html') or report.get('audience_segments_md') %}
+<h2>Audience Segments</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('audience_segments_html') or report.get('audience_segments_md', '') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- PERSONAS -->
+{% if report.get('personas') %}
+<h2>Key Personas</h2>
+{% for persona in report.get('personas', []) %}
+<div class="persona-card">
+  <div class="persona-header">{{ persona.get('name', 'Persona') }}</div>
+  <div class="persona-detail">
+    <strong>Role:</strong> {{ persona.get('role', 'N/A') }}<br>
+    <strong>Goals:</strong> {{ persona.get('goals', 'N/A') }}<br>
+    <strong>Challenges:</strong> {{ persona.get('challenges', 'N/A') }}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- BASE UPGRADE #2: ROI Model Table -->
+{% if report.get('roi_model') %}
+<h2>ROI Model</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Metric</th>
+      <th>Q1</th>
+      <th>Q2</th>
+      <th>Q3</th>
+      <th>Q4</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% set roi = report.get('roi_model', {}) %}
+    {% if roi.get('reach') %}
+    <tr>
+      <td>Estimated Reach</td>
+      <td>{{ roi.reach.get('q1', '—') }}</td>
+      <td>{{ roi.reach.get('q2', '—') }}</td>
+      <td>{{ roi.reach.get('q3', '—') }}</td>
+      <td>{{ roi.reach.get('q4', '—') }}</td>
+    </tr>
+    {% endif %}
+    {% if roi.get('engagement') %}
+    <tr>
+      <td>Engagement Rate</td>
+      <td>{{ roi.engagement.get('q1', '—') }}</td>
+      <td>{{ roi.engagement.get('q2', '—') }}</td>
+      <td>{{ roi.engagement.get('q3', '—') }}</td>
+      <td>{{ roi.engagement.get('q4', '—') }}</td>
+    </tr>
+    {% endif %}
+    {% if roi.get('conversion') %}
+    <tr>
+      <td>Conversion Rate</td>
+      <td>{{ roi.conversion.get('q1', '—') }}</td>
+      <td>{{ roi.conversion.get('q2', '—') }}</td>
+      <td>{{ roi.conversion.get('q3', '—') }}</td>
+      <td>{{ roi.conversion.get('q4', '—') }}</td>
+    </tr>
+    {% endif %}
+  </tbody>
+</table>
+{% endif %}
+
+<!-- 5. CREATIVE DIRECTION -->
+{% if report.get('creative_direction_html') or report.get('creative_direction_md') %}
+<h2>Creative Direction</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('creative_direction_html') or report.get('creative_direction_md', '') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- BASE UPGRADE #3: Brand Visual Identity Section -->
+{% if report.get('brand_identity') %}
+<h2>Brand Visual Identity</h2>
+<div class="section-block">
+  {% set identity = report.get('brand_identity', {}) %}
+  
+  {% if identity.get('primary_color') or identity.get('secondary_color') %}
+  <div style="margin-bottom: 0.3cm;">
+    <strong>Color Palette</strong>
+    <div class="brand-palette">
+      {% if identity.get('primary_color') %}
+      <div class="color-swatch" style="background-color: {{ identity.primary_color }};"></div>
+      {% endif %}
+      {% if identity.get('secondary_color') %}
+      <div class="color-swatch" style="background-color: {{ identity.secondary_color }};"></div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+  
+  {% if identity.get('typography') %}
+  <div style="margin-bottom: 0.2cm;">
+    <strong>Typography:</strong> {{ identity.typography }}
+  </div>
+  {% endif %}
+  
+  {% if identity.get('tone_voice') %}
+  <div style="margin-bottom: 0.2cm;">
+    <strong>Tone & Voice:</strong> {{ identity.tone_voice }}
+  </div>
+  {% endif %}
+  
+  {% if identity.get('visual_elements') %}
+  <div style="margin-bottom: 0.2cm;">
+    <strong>Visual Elements:</strong> {{ identity.visual_elements }}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- BASE UPGRADE #4: Mockup Placeholders -->
+<h2>Creative Mockups</h2>
+<div class="mockup-card">
+  <strong>Desktop Advertisement</strong>
+  <div class="chart-placeholder">
+    <em>[Desktop Creative Mockup - 1200x400px]</em>
+  </div>
+</div>
+
+<div class="mockup-card">
+  <strong>Mobile Advertisement</strong>
+  <div class="chart-placeholder" style="min-height: 4cm;">
+    <em>[Mobile Creative Mockup - 360x600px]</em>
+  </div>
+</div>
+
+<!-- BASE UPGRADE #5: Chart Placeholders -->
+<h2>Performance Projections</h2>
+<div class="chart-placeholder">
+  <em>[Reach & Engagement Chart]</em>
+</div>
+<div class="chart-placeholder">
+  <em>[Budget Allocation Breakdown]</em>
+</div>
+
+<!-- 6. CALENDAR -->
+{% if report.get('calendar_html') or report.get('calendar_md') %}
+<h2>30-Day Campaign Calendar</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('calendar_html') or report.get('calendar_md', '') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 7. AD CONCEPTS -->
+{% if report.get('ad_concepts_html') or report.get('ad_concepts_md') %}
+<h2>Ad Concepts & Variations</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('ad_concepts_html') or report.get('ad_concepts_md', '') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 8. KPI & BUDGET -->
+{% if report.get('kpi_budget_html') or report.get('kpi_budget_md') %}
+<h2>KPIs & Budget Allocation</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('kpi_budget_html') or report.get('kpi_budget_md', '') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 9. EXECUTION ROADMAP -->
+{% if report.get('execution_html') or report.get('execution_md') %}
+<h2>Execution Roadmap</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('execution_html') or report.get('execution_md', '') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 10. POST-CAMPAIGN -->
+{% if report.get('post_campaign_html') or report.get('post_campaign_md') %}
+<h2>Post-Campaign Analysis</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('post_campaign_html') or report.get('post_campaign_md', '') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 11. FINAL SUMMARY -->
+{% if report.get('final_summary_html') or report.get('final_summary_md') %}
+<h2>Campaign Summary</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('final_summary_html') or report.get('final_summary_md', '') }}
+  </div>
+</div>
+{% endif %}
+
+</div>
+
+{% endblock %}

@@ -13,13 +13,61 @@ from pydantic import BaseModel, HttpUrl, Field
 
 
 class BrandBrief(BaseModel):
+    # Core required fields
     brand_name: str
+    industry: str
+    product_service: str
+
+    # Goal and audience
+    primary_goal: str
+    primary_customer: str
+    secondary_customer: Optional[str] = None
+
+    # Brand character
+    brand_tone: Optional[str] = None
+
+    # Location and timing
+    location: Optional[str] = None
+    timeline: Optional[str] = None
+
+    # Competitors and context
+    competitors: List[str] = Field(default_factory=list)
+
+    # Web and social
     website: Optional[HttpUrl] = None
     social_links: List[HttpUrl] = Field(default_factory=list)
-    industry: Optional[str] = None
     locations: List[str] = Field(default_factory=list)
     business_type: Optional[str] = None
     description: Optional[str] = None
+
+    def with_safe_defaults(self) -> "BrandBrief":
+        """
+        Return a copy where essential fields have sensible fallbacks.
+        Used by downstream WOW / agency modules to avoid attribute errors
+        and 'Not specified' placeholders.
+        """
+
+        def _fallback(value: Optional[str], default: str) -> str:
+            v = (value or "").strip()
+            return v if v else default
+
+        return BrandBrief(
+            brand_name=_fallback(self.brand_name, "Your Brand"),
+            industry=_fallback(self.industry, "your industry"),
+            product_service=_fallback(self.product_service, "your main product/service"),
+            primary_goal=_fallback(self.primary_goal, "growth and market expansion"),
+            primary_customer=_fallback(self.primary_customer, "your core customer segment"),
+            secondary_customer=self.secondary_customer,
+            brand_tone=_fallback(self.brand_tone, "professional and engaging"),
+            location=_fallback(self.location, "your location"),
+            timeline=_fallback(self.timeline, "the next 30–90 days"),
+            competitors=self.competitors or [],
+            website=self.website,
+            social_links=self.social_links or [],
+            locations=self.locations or [],
+            business_type=self.business_type,
+            description=self.description,
+        )
 
 
 class AudienceBrief(BaseModel):
@@ -98,6 +146,22 @@ class ClientInputBrief(BaseModel):
     assets_constraints: AssetsConstraintsBrief
     operations: OperationsBrief
     strategy_extras: StrategyExtrasBrief
+
+    def with_safe_defaults(self) -> "ClientInputBrief":
+        """
+        Return a copy where brand and goal fields use safe defaults.
+        Prevents 'Not specified' and attribute errors downstream.
+        """
+        return ClientInputBrief(
+            brand=self.brand.with_safe_defaults(),
+            audience=self.audience,
+            goal=self.goal,
+            voice=self.voice,
+            product_service=self.product_service,
+            assets_constraints=self.assets_constraints,
+            operations=self.operations,
+            strategy_extras=self.strategy_extras,
+        )
 
 
 # =========================================
