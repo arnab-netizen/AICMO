@@ -33,10 +33,12 @@ def build_default_placeholders(
 
     This is intentionally defensive:
     - Missing keys just become empty strings
+    - Properly handles nested ClientInputBrief structure
     - You can extend this mapping over time without breaking anything
 
     Args:
         brief: Client brief dict with business details, goals, audience, etc.
+               Handles both flat dicts and nested ClientInputBrief.model_dump() output
         base_blocks: Pre-generated blocks (tables, captions, hashtags, etc.)
 
     Returns:
@@ -45,21 +47,78 @@ def build_default_placeholders(
     brief = dict(brief or {})
     base_blocks = dict(base_blocks or {})
 
+    # Helper: safely extract nested fields from ClientInputBrief structure
+    # When brief.model_dump() is called, nested models become nested dicts:
+    # brief = {
+    #   "brand": {"brand_name": "X", "industry": "Y", ...},
+    #   "audience": {"primary_customer": "Z", ...},
+    #   "goal": {"primary_goal": "A", ...},
+    #   ...
+    # }
+    def get_nested(d: Dict[str, Any], *keys: str, default: str = "") -> str:
+        """Safely traverse nested dict structure."""
+        current = d
+        for key in keys:
+            if isinstance(current, dict):
+                current = current.get(key, {})
+            else:
+                return default
+        return str(current) if current else default
+
     # Try to resolve commonly used fields; fall back gracefully if missing.
+    # Now handles both flat and nested structures
     brand_name = (
-        brief.get("brand_name")
+        brief.get("brand_name")  # Flat structure
+        or get_nested(brief, "brand", "brand_name")  # Nested structure
         or brief.get("business_name")
         or brief.get("client_name")
         or brief.get("name")
         or ""
     )
-    category = brief.get("category") or brief.get("business_type") or ""
-    city = brief.get("city") or brief.get("location") or ""
+    category = (
+        brief.get("category")  # Flat
+        or get_nested(brief, "brand", "industry")  # Nested: brand.industry
+        or get_nested(brief, "brand", "business_type")  # Nested
+        or brief.get("business_type")
+        or ""
+    )
+    city = (
+        brief.get("city")  # Flat
+        or (get_nested(brief, "brand", "locations") or "")  # Nested: brand.locations[0]
+        or brief.get("location")
+        or ""
+    )
+    # If locations is a list, get first item
+    if isinstance(brief.get("brand", {}).get("locations"), list):
+        city = brief["brand"]["locations"][0] if brief["brand"]["locations"] else city
+
     region = brief.get("region") or brief.get("country") or ""
-    target_audience = brief.get("target_audience") or brief.get("audience") or ""
-    brand_tone = brief.get("brand_tone") or brief.get("tone_of_voice") or ""
+
+    target_audience = (
+        brief.get("target_audience")  # Flat
+        or get_nested(brief, "audience", "primary_customer")  # Nested
+        or brief.get("audience")
+        or ""
+    )
+
+    brand_tone = (
+        brief.get("brand_tone")  # Flat
+        or get_nested(brief, "voice", "tone_of_voice")  # Nested: voice is a list, join it
+        or brief.get("tone_of_voice")
+        or ""
+    )
+    # If tone_of_voice is a list, join it
+    if isinstance(brief.get("voice", {}).get("tone_of_voice"), list):
+        brand_tone = ", ".join(brief["voice"]["tone_of_voice"]) or brand_tone
+
     primary_channel = brief.get("primary_channel") or "Instagram"
-    key_opportunity = brief.get("key_opportunity") or brief.get("main_goal") or ""
+
+    key_opportunity = (
+        brief.get("key_opportunity")  # Flat
+        or get_nested(brief, "goal", "primary_goal")  # Nested
+        or brief.get("main_goal")
+        or ""
+    )
 
     placeholders: Dict[str, Any] = {
         # Generic / brand-level placeholders used across templates
@@ -164,17 +223,18 @@ def apply_wow_template(
     Returns:
         Markdown string with placeholders replaced
     """
-    # Check if brief is too incomplete; if so, use fallback template
-    # Count non-empty required fields
-    required_fields = ["brand_name", "category", "target_audience", "city"]
+    # Check if brief is critically incomplete; only fallback if almost nothing is provided
+    # Count non-empty required fields (brand_name is the most critical)
+    required_fields = ["brand_name", "category", "target_audience"]
     provided_fields = sum(
         1
         for field in required_fields
         if placeholder_values.get(field) and str(placeholder_values.get(field)).strip()
     )
 
-    # If less than 2 required fields are filled, use fallback_basic
-    if provided_fields < 2:
+    # Only use fallback if brand_name is missing (most critical) AND no category/audience
+    # This allows partial briefs to still generate their requested WOW pack instead of falling back
+    if not placeholder_values.get("brand_name", "").strip() and provided_fields < 1:
         package_key = "fallback_basic"
 
     template = get_wow_template(package_key)

@@ -186,7 +186,7 @@ WOW_TEMPLATES: Dict[str, str] = {
 
 *This Strategy + Campaign Pack gives {{brand_name}} a comprehensive, executable roadmap that aligns objectives, messaging, channels, creative, and measurement around {{campaign_name}}.*
 """,
-    "full_funnel_premium": r"""# {{brand_name}} – Full-Funnel Growth Suite (Premium)
+    "full_funnel_growth_suite": r"""# {{brand_name}} – Full-Funnel Growth Suite (Premium)
 ### Awareness → Consideration → Conversion → Retention
 
 ---
@@ -316,7 +316,7 @@ Traffic Sources → Lead Magnet → Nurture → Offer → Post-Purchase → Refe
 
 *This Full-Funnel Growth Suite maps {{brand_name}}'s entire path from traffic to repeat purchase, with creative, messaging, and automations aligned at every stage.*
 """,
-    "launch_gtm": r"""# {{brand_name}} – Launch & GTM Pack
+    "launch_gtm_pack": r"""# {{brand_name}} – Launch & GTM Pack
 ### Go-To-Market Strategy for {{product_name}}
 
 ---
@@ -406,7 +406,7 @@ Traffic Sources → Lead Magnet → Nurture → Offer → Post-Purchase → Refe
 
 *This Launch & GTM Pack ensures {{product_name}} enters the market with clarity, momentum, and a repeatable framework for future launches.*
 """,
-    "brand_turnaround": r"""# {{brand_name}} – Brand Turnaround Lab
+    "brand_turnaround_lab": r"""# {{brand_name}} – Brand Turnaround Lab
 ### From Decline to Relevance
 
 ---
@@ -495,7 +495,7 @@ Traffic Sources → Lead Magnet → Nurture → Offer → Post-Purchase → Refe
 
 *This Brand Turnaround Lab gives {{brand_name}} a practical path from damaged perception to renewed trust and relevance.*
 """,
-    "retention_crm": r"""# {{brand_name}} – Retention & CRM Booster
+    "retention_crm_booster": r"""# {{brand_name}} – Retention & CRM Booster
 ### Turning Buyers into Lifelong Customers
 
 ---
@@ -566,7 +566,7 @@ Traffic Sources → Lead Magnet → Nurture → Offer → Post-Purchase → Refe
 
 *This Retention & CRM Booster is designed to make every new buyer more profitable over time for {{brand_name}}.*
 """,
-    "performance_audit": r"""# {{brand_name}} – Performance Audit & Revamp
+    "performance_audit_revamp": r"""# {{brand_name}} – Performance Audit & Revamp
 ### What's Working, What's Wasted, What to Fix First
 
 ---
@@ -1097,6 +1097,144 @@ Traffic Sources → Lead Magnet → Nurture → Offer → Post-Purchase → Refe
 ---
 
 *This Enterprise-grade strategic campaign plan provides {{brand_name}} with a comprehensive, integrated framework designed for executive decision-making, multi-team coordination, and measurable business impact. Built on industry best practices, customer insights, and competitive intelligence, this strategy ensures alignment across all functions and channels.*
+""",
+    # ============================================================
+    # 9. PR & Reputation Pack
+    # ============================================================
+    "pr_reputation_pack": r"""# {{brand_name}} – PR & Reputation Strategy
+
+---
+
+## 1. Brand Overview
+
+{{overview}}
+
+---
+
+## 2. Current Reputation Assessment
+
+{{reputation_assessment}}
+
+---
+
+## 3. Key Messages & Narrative
+
+{{key_messages}}
+
+---
+
+## 4. Media Strategy & Outreach
+
+{{media_strategy}}
+
+---
+
+## 5. Crisis Communication Playbook
+
+{{crisis_playbook}}
+
+---
+
+## 6. Social Listening & Monitoring
+
+{{social_listening}}
+
+---
+
+## 7. Influencer & Advocate Program
+
+{{influencer_strategy}}
+
+---
+
+## 8. Content Calendar (PR & Comms)
+
+{{pr_content_calendar}}
+
+---
+
+## 9. Measurement & KPIs
+
+{{pr_kpis}}
+
+---
+
+## 10. Executive Summary
+
+{{pr_summary}}
+
+---
+
+*This PR and Reputation Strategy provides {{brand_name}} with a comprehensive framework to build positive brand perception, manage stakeholder relationships, and protect reputation in an always-on media environment.*
+""",
+    # ============================================================
+    # 10. Always-On Content Engine
+    # ============================================================
+    "always_on_content_engine": r"""# {{brand_name}} – Always-On Content Engine
+
+---
+
+## 1. Brand & Audience Foundation
+
+{{overview}}
+
+---
+
+## 2. Content Strategy & Pillars
+
+{{content_pillars}}
+
+---
+
+## 3. Editorial Calendar (30-Day Rolling)
+
+{{editorial_calendar}}
+
+---
+
+## 4. Content Production Playbook
+
+{{production_playbook}}
+
+---
+
+## 5. Social Media Distribution Strategy
+
+{{distribution_strategy}}
+
+---
+
+## 6. Engagement & Community Management
+
+{{engagement_framework}}
+
+---
+
+## 7. Content Performance Benchmarks
+
+{{performance_benchmarks}}
+
+---
+
+## 8. Optimization & Iteration Process
+
+{{optimization_process}}
+
+---
+
+## 9. Resource & Team Requirements
+
+{{resource_requirements}}
+
+---
+
+## 10. Strategic Summary
+
+{{content_engine_summary}}
+
+---
+
+*This Always-On Content Engine equips {{brand_name}} with a sustainable, scalable framework for consistent, high-quality content production that builds audience loyalty and drives continuous business results.*
 """,
 }
 

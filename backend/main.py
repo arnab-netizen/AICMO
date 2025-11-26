@@ -119,6 +119,12 @@ from aicmo.logging import configure_logging, get_logger  # noqa: E402
 configure_logging(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = get_logger(__name__)
 
+# 🔥 FIX #6: Disable learning from HTTP reports (temporarily, until sanitizer is live)
+AICMO_ENABLE_HTTP_LEARNING = os.getenv("AICMO_ENABLE_HTTP_LEARNING", "0") == "1"
+logger.info(
+    f"🔥 [HTTP LEARNING] Status: {'ENABLED' if AICMO_ENABLE_HTTP_LEARNING else 'DISABLED (default)'}"
+)
+
 # Configure structured logging
 logger = logging.getLogger("aicmo")
 logging.basicConfig(
@@ -1778,17 +1784,36 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
             except Exception as e:
                 logger.debug(f"Reasoning trace attachment failed (non-critical): {e}")
 
-        # Phase L: Auto-learn from this final report
-        try:
-            learn_from_report(
-                report=base_output,
-                project_id=None,  # No explicit project ID in this context
-                tags=["auto_learn", "final_report"],
+        # Phase L: Auto-learn from this final report (gated by AICMO_ENABLE_HTTP_LEARNING)
+        # Import quality gate check
+        from backend.quality_gates import is_report_learnable
+
+        if AICMO_ENABLE_HTTP_LEARNING:
+            try:
+                # Check report quality before learning
+                report_text = generate_output_report_markdown(req.brief, base_output)
+                is_learnable, reasons = is_report_learnable(
+                    report_text, brief_brand_name=req.brief.brand.brand_name
+                )
+
+                if is_learnable:
+                    learn_from_report(
+                        report=base_output,
+                        project_id=None,  # No explicit project ID in this context
+                        tags=["auto_learn", "final_report"],
+                    )
+                    logger.info("🔥 [LEARNING RECORDED] Report learned and stored in memory engine")
+                else:
+                    logger.warning(
+                        "⚠️  [LEARNING SKIPPED] Report failed quality gate: %s", "; ".join(reasons)
+                    )
+            except Exception as e:
+                logger.debug(f"Auto-learning failed (non-critical): {e}")
+                logger.warning("⚠️  [LEARNING FAILED] Report could not be recorded: %s", str(e))
+        else:
+            logger.info(
+                "ℹ️  [HTTP LEARNING] Disabled (AICMO_ENABLE_HTTP_LEARNING=0). Skipping learn_from_report."
             )
-            logger.info("🔥 [LEARNING RECORDED] Report learned and stored in memory engine")
-        except Exception as e:
-            logger.debug(f"Auto-learning failed (non-critical): {e}")
-            logger.warning("⚠️  [LEARNING FAILED] Report could not be recorded: %s", str(e))
 
         # WOW: Apply optional template wrapping
         base_output = _apply_wow_to_output(base_output, req)
@@ -1848,19 +1873,24 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
         except Exception as e:
             logger.debug(f"Learning recording failed (non-critical): {e}")
 
-        # Phase L: Auto-learn from this final report
-        try:
-            learn_from_report(
-                report=enhanced_output,
-                project_id=None,  # No explicit project ID in this context
-                tags=["auto_learn", "final_report", "llm_enhanced"],
-            )
+        # Phase L: Auto-learn from this final report (gated by AICMO_ENABLE_HTTP_LEARNING)
+        if AICMO_ENABLE_HTTP_LEARNING:
+            try:
+                learn_from_report(
+                    report=enhanced_output,
+                    project_id=None,  # No explicit project ID in this context
+                    tags=["auto_learn", "final_report", "llm_enhanced"],
+                )
+                logger.info(
+                    "🔥 [LEARNING RECORDED] LLM-enhanced report learned and stored in memory engine"
+                )
+            except Exception as e:
+                logger.debug(f"Auto-learning failed (non-critical): {e}")
+                logger.warning("⚠️  [LEARNING FAILED] Report could not be recorded: %s", str(e))
+        else:
             logger.info(
-                "🔥 [LEARNING RECORDED] LLM-enhanced report learned and stored in memory engine"
+                "ℹ️  [HTTP LEARNING] Disabled (AICMO_ENABLE_HTTP_LEARNING=0). Skipping learn_from_report."
             )
-        except Exception as e:
-            logger.debug(f"Auto-learning failed (non-critical): {e}")
-            logger.warning("⚠️  [LEARNING FAILED] Report could not be recorded: %s", str(e))
 
         # WOW: Apply optional template wrapping
         enhanced_output = _apply_wow_to_output(enhanced_output, req)
@@ -1878,19 +1908,24 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
             except Exception as e:
                 logger.debug(f"Agency-grade enhancements failed (non-critical): {e}")
 
-        # Phase L: Auto-learn from this final report (even on fallback)
-        try:
-            learn_from_report(
-                report=base_output,
-                project_id=None,
-                tags=["auto_learn", "final_report", "llm_fallback"],
-            )
+        # Phase L: Auto-learn from this final report (even on fallback, gated by AICMO_ENABLE_HTTP_LEARNING)
+        if AICMO_ENABLE_HTTP_LEARNING:
+            try:
+                learn_from_report(
+                    report=base_output,
+                    project_id=None,
+                    tags=["auto_learn", "final_report", "llm_fallback"],
+                )
+                logger.info(
+                    "🔥 [LEARNING RECORDED] Fallback report learned and stored in memory engine"
+                )
+            except Exception as e:
+                logger.debug(f"Auto-learning failed (non-critical): {e}")
+                logger.warning("⚠️  [LEARNING FAILED] Report could not be recorded: %s", str(e))
+        else:
             logger.info(
-                "🔥 [LEARNING RECORDED] Fallback report learned and stored in memory engine"
+                "ℹ️  [HTTP LEARNING] Disabled (AICMO_ENABLE_HTTP_LEARNING=0). Skipping learn_from_report."
             )
-        except Exception as e:
-            logger.debug(f"Auto-learning failed (non-critical): {e}")
-            logger.warning("⚠️  [LEARNING FAILED] Report could not be recorded: %s", str(e))
 
         # WOW: Apply optional template wrapping
         base_output = _apply_wow_to_output(base_output, req)
@@ -1908,15 +1943,20 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
             except Exception as e:
                 print(f"[AICMO] Agency-grade enhancements failed (non-critical): {e}")
 
-        # Phase L: Auto-learn from this final report (even on fallback)
-        try:
-            learn_from_report(
-                report=base_output,
-                project_id=None,
-                tags=["auto_learn", "final_report", "llm_fallback"],
+        # Phase L: Auto-learn from this final report (even on fallback, gated by AICMO_ENABLE_HTTP_LEARNING)
+        if AICMO_ENABLE_HTTP_LEARNING:
+            try:
+                learn_from_report(
+                    report=base_output,
+                    project_id=None,
+                    tags=["auto_learn", "final_report", "llm_fallback"],
+                )
+            except Exception as e:
+                print(f"[AICMO] Auto-learning failed (non-critical): {e}")
+        else:
+            print(
+                "[AICMO] HTTP learning disabled (AICMO_ENABLE_HTTP_LEARNING=0). Skipping learn_from_report."
             )
-        except Exception as e:
-            print(f"[AICMO] Auto-learning failed (non-critical): {e}")
 
         # WOW: Apply optional template wrapping
         base_output = _apply_wow_to_output(base_output, req)
@@ -2090,6 +2130,12 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
 
         # Convert output to markdown
         report_markdown = generate_output_report_markdown(brief, report)
+
+        # 🔥 FIX #5: Apply final sanitization pass to remove placeholders
+        from aicmo.generators.language_filters import sanitize_final_report_text
+
+        report_markdown = sanitize_final_report_text(report_markdown)
+        logger.info("✅ [SANITIZER] Applied final report sanitization pass")
 
         # 🔍 DEBUG: Add diagnostics footer to report (if AICMO_DEBUG_REPORT_FOOTER env var is set)
         import os

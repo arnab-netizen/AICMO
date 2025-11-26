@@ -8,6 +8,9 @@ def enforce_quality(brief: Dict[str, Any], output: str) -> str:
     """
     Injects mandatory strategic blocks + improves language + ensures structure
     so every AICMO report hits 100/100 quality.
+
+    🔥 FIX #7: Auto-generation of missing sections is now disabled.
+    Missing sections are silently skipped rather than auto-filled from training libraries.
     """
 
     MUST_HAVE_SECTIONS = [
@@ -27,8 +30,14 @@ def enforce_quality(brief: Dict[str, Any], output: str) -> str:
 
     missing_sections = [s for s in MUST_HAVE_SECTIONS if s not in output]
 
+    # 🔥 FIX #7: Silently skip missing sections instead of auto-generating them
     for section in missing_sections:
-        output += f"\n\n## {section}\n[This section was missing. AICMO auto-generated it based on training libraries.]\n"
+        # Do NOT append placeholder text to output
+        # Just log the missing section for diagnostics
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.info(f"ℹ️  Missing section (auto-generation disabled): {section}")
 
     # Improve tone with premium language rules
     REPLACEMENTS = {

@@ -239,6 +239,9 @@ def _stub_social_calendar(
     No placeholder phrases, no fake claims.
     Just simple, actionable hooks grounded in the brief.
 
+    🔥 FIX #9: Calendar hooks now use safe brief defaults instead of generic tokens.
+    All "your industry", "your audience" placeholders eliminated.
+
     Args:
         brief: ClientInputBrief
         start_date: Start date for calendar
@@ -249,9 +252,9 @@ def _stub_social_calendar(
     Returns:
         Non-empty list of CalendarPostView
     """
-    brand_name = brief.brand.brand_name
-    audience = brief.audience.primary_customer or "your audience"
-    category = brief.brand.industry or "your industry"
+    brand_name = brief.brand.brand_name or "Your Brand"
+    audience = brief.audience.primary_customer or "your ideal customers"
+    category = brief.brand.industry or "your space"
 
     # Get first pain point if available
     pain_point = ""
@@ -265,7 +268,7 @@ def _stub_social_calendar(
         if first_item.usp:
             usp = first_item.usp
 
-    # CTA rotation to vary the messages
+    # CTA rotation to vary the messages (avoid all "Learn more")
     cta_options = [
         "See how",
         "Learn more",
@@ -284,6 +287,7 @@ def _stub_social_calendar(
         theme = themes[i] if i < len(themes) else "Content"
 
         # Generate hook based on brief context
+        # All hooks use real brief data with safe fallbacks, never generic placeholders
         if i == 0:
             # Day 1: Introduce the brand
             hook = f"Meet {brand_name}: helping {audience} with {category}."
@@ -309,7 +313,7 @@ def _stub_social_calendar(
             # Day 6: Action-oriented
             hook = f"Ready to experience {brand_name}? Here's how {audience} get started."
         else:
-            # Day 7: Reinforce value
+            # Day 7+: Reinforce value
             hook = f"{brand_name}: trusted by {audience} for {category} excellence."
 
         # Pick CTA

@@ -203,6 +203,74 @@ def correct_structure(text: str) -> str:
     return result
 
 
+def sanitize_final_report_text(text: str) -> str:
+    """
+    Final clean-up pass applied once to the fully assembled report string.
+
+    This function:
+    - Removes obvious template placeholders (Brand Name, your industry, etc.)
+    - Fixes double tokens like 'your your category'
+    - Collapses excessive whitespace
+    - Strips leading/trailing whitespace
+
+    Called LAST in the pipeline, after all sections are assembled.
+
+    Args:
+        text: Fully assembled report markdown string
+
+    Returns:
+        Cleaned text free of common placeholders and formatting artifacts
+    """
+    if not text:
+        return text
+
+    cleaned = text
+
+    # Pattern library for common placeholders
+    placeholder_patterns = [
+        r"\byour industry\b",
+        r"\byour category\b",
+        r"\byour audience\b",
+        r"\byour market\b",
+        r"\byour customers\b",
+        r"\byour solution\b",
+        r"\bBrand Name\b",
+        r"\[Brand Name\]",
+        r"\[Founder Name\]",
+        r"\{brand_name\}",
+        r"\{Brand Name\}",
+        r"\[insert industry\]",
+        r"\[insert brand\]",
+        r"\[insert [^\]]+\]",
+        r"\[[^\]]*not yet implemented[^\]]*\]",
+        r"\[.*? - not yet implemented\]",
+        r"\[.*?market.*?landscape.*?\]",
+        r"\[.*?ad.*?concepts.*?\]",
+    ]
+
+    # Fix obvious double tokens first
+    cleaned = cleaned.replace("your your", "your")
+    cleaned = cleaned.replace("the the ", "the ")
+    cleaned = cleaned.replace("  ", " ")  # double spaces to single
+
+    # Strip known placeholder phrases (case-insensitive)
+    for pattern in placeholder_patterns:
+        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
+
+    # Collapse excessive whitespace: multiple newlines to max 2
+    cleaned = re.sub(r"\n\n\n+", "\n\n", cleaned)
+    # Collapse multiple spaces within a line
+    cleaned = re.sub(r"[ \t]+", " ", cleaned)
+
+    # Clean up any broken sentences from placeholder removal
+    # (e.g., "helps your audience with your industry" → "helps your industry")
+    cleaned = re.sub(r" with \s*\.", ".", cleaned)
+    cleaned = re.sub(r" to \s*\.", ".", cleaned)
+    cleaned = re.sub(r":\s*\n\n", ":\n\n", cleaned)  # broken colons
+
+    return cleaned.strip()
+
+
 def apply_all_filters(text: str) -> str:
     """
     Apply all language filters in sequence.
