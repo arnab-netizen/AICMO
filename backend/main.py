@@ -97,6 +97,11 @@ from backend.services.wow_reports import (  # noqa: E402
 )
 from aicmo.presets.package_presets import PACKAGE_PRESETS  # noqa: E402
 from aicmo.presets.wow_rules import get_wow_rule  # noqa: E402
+from backend.humanizer import (  # noqa: E402
+    humanize_report_text,
+    HumanizerConfig,
+)
+from backend.industry_config import get_industry_config  # noqa: E402
 
 # 🔥 Mapping from package display names to preset keys
 # Allows code to convert "Strategy + Campaign Pack (Standard)" → "strategy_campaign_standard"
@@ -1917,6 +1922,7 @@ def _apply_wow_to_output(
     - Builds a complete WOW report using the section assembly
     - Stores in wow_markdown field
     - Stores package_key for reference
+    - Applies humanization layer for style improvement (non-breaking)
 
     Non-breaking: if WOW fails or is disabled, output is returned unchanged.
     """
@@ -1934,6 +1940,46 @@ def _apply_wow_to_output(
 
         # Build the WOW report using the new unified system
         wow_markdown = build_wow_report(req=req, wow_rule=wow_rule)
+
+        # Apply humanization layer: light style cleanup, no structural changes
+        try:
+            industry_key = (
+                getattr(req.brief, "industry_key", None) or getattr(req.brief, "industry", "") or ""
+            )
+        except Exception:
+            industry_key = ""
+
+        try:
+            industry_profile = get_industry_config(industry_key) if industry_key else None
+            industry_profile_dict = dict(industry_profile) if industry_profile else {}
+        except Exception:
+            industry_profile_dict = {}
+
+        # Determine humanization level based on pack type
+        pack_humanize_level = "light"
+        if req.wow_package_key in {
+            "strategy_campaign_standard",
+            "full_funnel_growth_suite",
+            "launch_gtm_pack",
+        }:
+            pack_humanize_level = "medium"
+
+        try:
+            humanizer_config = HumanizerConfig(level=pack_humanize_level)
+            wow_markdown = humanize_report_text(
+                wow_markdown,
+                brief=req.brief,
+                pack_key=req.wow_package_key,
+                industry_key=str(industry_key),
+                config=humanizer_config,
+                industry_profile=industry_profile_dict,
+            )
+            logger.debug(
+                f"Humanization applied to {req.wow_package_key} (level={pack_humanize_level})"
+            )
+        except Exception as e:
+            logger.debug(f"Humanization failed (non-breaking): {e}")
+            # Continue without humanization
 
         # Store in output
         output.wow_markdown = wow_markdown
