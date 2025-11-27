@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="doc-content">
+
+<!-- FULL-FUNNEL GROWTH SUITE (PREMIUM) - 21 SECTIONS -->
+
+<!-- TITLE -->
+<h1>{{ report.get('brand_name', 'Your Brand') }} – Full-Funnel Growth Suite</h1>
+
+<!-- 1. OVERVIEW -->
+<div class="section-block">
+  <h2>Executive Summary</h2>
+  <div class="section-body">
+    {{ report.get('title', 'Premium Full-Funnel Strategy') }}<br>
+    Comprehensive growth strategy spanning awareness, consideration, conversion, and retention.
+  </div>
+</div>
+
+<!-- 2. MARKET LANDSCAPE -->
+{% if report.get('market_landscape_html') %}
+<h2>Market Landscape</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('market_landscape_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 3. COMPETITOR ANALYSIS -->
+{% if report.get('competitor_analysis_html') %}
+<h2>Competitive Analysis</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('competitor_analysis_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 4. FUNNEL BREAKDOWN -->
+{% if report.get('funnel_breakdown_html') %}
+<h2>Funnel Architecture</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('funnel_breakdown_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 5. AUDIENCE SEGMENTS -->
+{% if report.get('audience_segments_html') %}
+<h2>Audience Segmentation</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('audience_segments_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 6. PERSONAS -->
+{% if report.get('personas') %}
+<h2>Buyer Personas</h2>
+{% for persona in report.get('personas', []) %}
+<div class="persona-card">
+  <div class="persona-header">{{ persona.get('name', 'Persona') }}</div>
+  <div class="persona-detail">
+    <strong>Role:</strong> {{ persona.get('role', 'N/A') }}<br>
+    <strong>Goals:</strong> {{ persona.get('goals', 'N/A') }}<br>
+    <strong>Challenges:</strong> {{ persona.get('challenges', 'N/A') }}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- 7. VALUE PROPOSITION MAP -->
+{% if report.get('value_proposition_html') %}
+<h2>Value Proposition</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('value_proposition_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 8. MESSAGING FRAMEWORK -->
+{% if report.get('messaging_framework_html') %}
+<h2>Core Messaging</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('messaging_framework_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 9. AWARENESS STRATEGY -->
+{% if report.get('awareness_strategy_html') %}
+<h2>Awareness Stage Strategy</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('awareness_strategy_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 10. CONSIDERATION STRATEGY -->
+{% if report.get('consideration_strategy_html') %}
+<h2>Consideration Stage Strategy</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('consideration_strategy_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 11. CONVERSION STRATEGY -->
+{% if report.get('conversion_strategy_html') %}
+<h2>Conversion Stage Strategy</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('conversion_strategy_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 12. RETENTION STRATEGY -->
+{% if report.get('retention_strategy_html') %}
+<h2>Retention & Expansion Strategy</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('retention_strategy_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 13. EMAIL AUTOMATION FLOWS -->
+{% if report.get('email_flows_html') %}
+<h2>Email Automation Sequences</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('email_flows_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 14. REMARKETING STRATEGY -->
+{% if report.get('remarketing_html') %}
+<h2>Remarketing & Retargeting</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('remarketing_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 15. AD CONCEPTS (MULTI-PLATFORM) -->
+{% if report.get('ad_concepts_html') %}
+<h2>Ad Creative Concepts</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('ad_concepts_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 16. CREATIVE DIRECTION -->
+{% if report.get('creative_direction_html') %}
+<h2>Design System & Brand Guidelines</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('creative_direction_html') }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 17. FULL CALENDAR (30-DAY) -->
+{% if report.get('calendar_html') %}
+<h2>30-Day Integrated Calendar</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('calendar_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 18. KPI & BUDGET PLAN -->
+{% if report.get('kpi_budget_html') %}
+<h2>KPIs, Budget & ROI Model</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('kpi_budget_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 19. EXECUTION ROADMAP -->
+{% if report.get('execution_html') %}
+<h2>Execution Roadmap</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('execution_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 20. OPTIMIZATION OPPORTUNITIES -->
+{% if report.get('optimization_html') %}
+<h2>Optimization Opportunities</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('optimization_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 21. FINAL SUMMARY -->
+{% if report.get('final_summary_html') %}
+<h2>Next Steps & Success Criteria</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('final_summary_html') }}
+  </div>
+</div>
+{% endif %}
+
+<p><em>Full-Funnel Growth Suite – 21-section premium strategy covering all stages of customer journey.</em></p>
+
+</div>
+
+{% endblock %}

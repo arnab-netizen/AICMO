@@ -119,6 +119,145 @@ PACKAGE_NAME_TO_KEY = {
     "performance_audit_revamp": "performance_audit_revamp",
 }
 
+# 🔥 FIX #1: Pack-specific section whitelist enforcement
+# Ensures Basic packs only get 10 sections, Standard gets 17, Premium gets 21
+# Maps WOW package key → list of allowed section IDs
+PACK_SECTION_WHITELIST = {
+    # Quick Social Pack (Basic) - 10 sections only
+    "quick_social_basic": {
+        "overview",
+        "audience_segments",
+        "messaging_framework",
+        "content_buckets",
+        "weekly_social_calendar",
+        "creative_direction_light",
+        "hashtag_strategy",
+        "platform_guidelines",
+        "kpi_plan_light",
+        "final_summary",
+    },
+    # Strategy + Campaign Pack (Standard) - 17 sections
+    "strategy_campaign_standard": {
+        "overview",
+        "campaign_objective",
+        "core_campaign_idea",
+        "messaging_framework",
+        "channel_plan",
+        "audience_segments",
+        "persona_cards",
+        "creative_direction",
+        "influencer_strategy",
+        "promotions_and_offers",
+        "detailed_30_day_calendar",
+        "email_and_crm_flows",
+        "ad_concepts",
+        "kpi_and_budget_plan",
+        "execution_roadmap",
+        "post_campaign_analysis",
+        "final_summary",
+    },
+    # Full-Funnel Growth Suite (Premium) - 21 sections
+    "full_funnel_growth_suite": {
+        "overview",
+        "market_landscape",
+        "competitor_analysis",
+        "funnel_breakdown",
+        "audience_segments",
+        "persona_cards",
+        "value_proposition_map",
+        "messaging_framework",
+        "awareness_strategy",
+        "consideration_strategy",
+        "conversion_strategy",
+        "retention_strategy",
+        "email_automation_flows",
+        "remarketing_strategy",
+        "ad_concepts_multi_platform",
+        "creative_direction",
+        "full_30_day_calendar",
+        "kpi_and_budget_plan",
+        "execution_roadmap",
+        "optimization_opportunities",
+        "final_summary",
+    },
+    # Launch & GTM Pack - 14 sections
+    "launch_gtm_pack": {
+        "overview",
+        "market_landscape",
+        "product_positioning",
+        "messaging_framework",
+        "launch_phases",
+        "channel_plan",
+        "audience_segments",
+        "persona_cards",
+        "creative_direction",
+        "influencer_strategy",
+        "detailed_30_day_calendar",
+        "email_and_crm_flows",
+        "execution_roadmap",
+        "final_summary",
+    },
+    # Brand Turnaround Lab - 16 sections
+    "brand_turnaround_lab": {
+        "overview",
+        "market_landscape",
+        "competitor_analysis",
+        "brand_positioning",
+        "messaging_framework",
+        "audience_segments",
+        "persona_cards",
+        "creative_territories",
+        "channel_plan",
+        "detailed_30_day_calendar",
+        "creative_direction",
+        "kpi_and_budget_plan",
+        "execution_roadmap",
+        "post_campaign_analysis",
+        "final_summary",
+        "reputation_management",
+    },
+    # Retention & CRM Booster - 12 sections
+    "retention_crm_booster": {
+        "overview",
+        "audience_segments",
+        "persona_cards",
+        "messaging_framework",
+        "customer_journey_mapping",
+        "email_and_crm_flows",
+        "channel_plan",
+        "offer_strategy",
+        "loyalty_and_referral",
+        "kpi_and_budget_plan",
+        "execution_roadmap",
+        "final_summary",
+    },
+    # Performance Audit & Revamp - 13 sections
+    "performance_audit_revamp": {
+        "overview",
+        "current_state_assessment",
+        "competitor_analysis",
+        "messaging_framework",
+        "channel_audit",
+        "audience_segments",
+        "persona_cards",
+        "creative_review",
+        "recommended_changes",
+        "detailed_30_day_calendar",
+        "execution_roadmap",
+        "kpi_and_budget_plan",
+        "final_summary",
+    },
+}
+
+
+def get_allowed_sections_for_pack(wow_package_key: str) -> set[str]:
+    """
+    Get the set of allowed section IDs for a given WOW package.
+    Returns empty set if package not recognized (fail-safe).
+    """
+    return PACK_SECTION_WHITELIST.get(wow_package_key, set())
+
+
 # Configure structured logging
 from aicmo.logging import configure_logging, get_logger  # noqa: E402
 
@@ -1398,7 +1537,23 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
         )
 
     # Persona cards - brief-driven generation
-    persona_cards = [generate_persona(req.brief)]
+    # 🔥 FIX #4: Try industry-specific personas first
+    if req.generate_personas:
+        from backend.industry_config import get_default_personas_for_industry
+
+        industry = req.brief.brand.industry
+        industry_personas = get_default_personas_for_industry(industry) if industry else None
+
+        if industry_personas:
+            logger.info(f"Using {len(industry_personas)} industry-specific personas for {industry}")
+            # Use industry-specific personas (list of dicts compatible with AICMOOutputReport)
+            persona_cards = industry_personas
+        else:
+            # Fallback to generic personas
+            logger.debug(f"No industry config for {industry}, using generic personas")
+            persona_cards = [generate_persona(req.brief)]
+    else:
+        persona_cards = [generate_persona(req.brief)]
 
     # Action plan
     action_plan = ActionPlan(
@@ -1607,8 +1762,23 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
             # Get the section_ids list from the preset
             section_ids = preset.get("sections", [])
 
+            # 🔥 FIX #2: Apply pack-scoping whitelist
+            if req.wow_enabled and req.wow_package_key:
+                allowed_sections = get_allowed_sections_for_pack(req.wow_package_key)
+                if allowed_sections:
+                    original_count = len(section_ids)
+                    section_ids = [s for s in section_ids if s in allowed_sections]
+
+                    logger.info(
+                        f"Pack scoping applied for {req.wow_package_key}: "
+                        f"{original_count} sections → {len(section_ids)} allowed sections"
+                    )
+
+                    if len(section_ids) != original_count:
+                        filtered_out = set(preset.get("sections", [])) - set(section_ids)
+                        logger.debug(f"Filtered out sections: {filtered_out}")
+
             # Use the generalized generate_sections() function
-            # This is pack-agnostic and works for any preset (Basic, Standard, Premium, Enterprise)
             extra_sections = generate_sections(
                 section_ids=section_ids,
                 req=req,
@@ -1826,6 +1996,24 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
 
         # WOW: Apply optional template wrapping
         base_output = _apply_wow_to_output(base_output, req)
+
+        # 🔥 FIX #6: Validate output before export
+        try:
+            from backend.validators import OutputValidator
+
+            validator = OutputValidator(
+                output=base_output,
+                brief=req.brief,
+                wow_package_key=req.wow_package_key if req.wow_enabled else None,
+            )
+            issues = validator.validate_all()
+
+            error_count = sum(1 for i in issues if i.severity == "error")
+            if error_count > 0 and req.wow_enabled:
+                logger.warning(f"Output validation: {error_count} blocking issues detected")
+                logger.debug(validator.get_error_summary())
+        except Exception as e:
+            logger.debug(f"Output validation failed (non-critical): {e}")
 
         return base_output
 

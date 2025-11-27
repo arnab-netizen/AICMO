@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="doc-content">
+
+<!-- PERFORMANCE AUDIT & REVAMP - 13 SECTIONS -->
+
+<h1>{{ report.get('brand_name', 'Your Brand') }} – Performance Audit & Revamp</h1>
+
+<!-- 1. OVERVIEW -->
+<div class="section-block">
+  <h2>Audit Overview</h2>
+  <div class="section-body">
+    {{ report.get('title', 'Comprehensive Marketing Performance Audit & Recommendations') }}<br>
+    Diagnostic analysis and actionable improvement roadmap.
+  </div>
+</div>
+
+<!-- 2. MARKET LANDSCAPE -->
+{% if report.get('market_landscape_html') %}
+<h2>Market Context</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('market_landscape_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 3. COMPETITOR ANALYSIS -->
+{% if report.get('competitor_analysis_html') %}
+<h2>Competitive Benchmarking</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('competitor_analysis_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 4. MESSAGING FRAMEWORK -->
+{% if report.get('messaging_framework_html') %}
+<h2>Messaging Audit & Recommendations</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('messaging_framework_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 5. CHANNEL AUDIT -->
+{% if report.get('channel_audit_html') %}
+<h2>Channel Performance Audit</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('channel_audit_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 6. AUDIENCE SEGMENTS -->
+{% if report.get('audience_segments_html') %}
+<h2>Audience Insights</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('audience_segments_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 7. PERSONAS -->
+{% if report.get('personas') %}
+<h2>Customer Personas</h2>
+{% for persona in report.get('personas', []) %}
+<div class="persona-card">
+  <div class="persona-header">{{ persona.get('name', 'Persona') }}</div>
+  <div class="persona-detail">
+    <strong>Role:</strong> {{ persona.get('role', 'N/A') }}<br>
+    <strong>Current Experience:</strong> {{ persona.get('goals', 'N/A') }}<br>
+    <strong>Improvement Areas:</strong> {{ persona.get('challenges', 'N/A') }}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- 8. CREATIVE REVIEW -->
+{% if report.get('creative_review_html') %}
+<h2>Creative & Content Audit</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('creative_review_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 9. RECOMMENDED CHANGES -->
+{% if report.get('recommendations_html') %}
+<h2>Recommended Improvements</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('recommendations_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 10. 30-DAY CALENDAR -->
+{% if report.get('calendar_html') %}
+<h2>30-Day Revamp Calendar</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('calendar_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 11. EXECUTION ROADMAP -->
+{% if report.get('execution_html') %}
+<h2>Implementation Roadmap</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('execution_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 12. KPI & BUDGET PLAN -->
+{% if report.get('kpi_budget_html') %}
+<h2>Success Metrics & Budget</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('kpi_budget_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 13. FINAL SUMMARY -->
+{% if report.get('final_summary_html') %}
+<h2>Next Steps & Success Criteria</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('final_summary_html') }}
+  </div>
+</div>
+{% endif %}
+
+<p><em>Performance Audit & Revamp – 13-section diagnostic and improvement strategy.</em></p>
+
+</div>
+
+{% endblock %}

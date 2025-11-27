@@ -220,16 +220,45 @@ def render_html_template_to_pdf(template_name: str, context: Dict[str, Any]) -> 
         raise RuntimeError(f"PDF generation failed: {e}") from e
 
 
+# FIX #3: Map WOW package to appropriate PDF template
+TEMPLATE_BY_WOW_PACKAGE = {
+    "quick_social_basic": "quick_social_basic.html",
+    "strategy_campaign_standard": "campaign_strategy.html",  # Default/standard
+    "full_funnel_growth_suite": "full_funnel_growth.html",
+    "launch_gtm_pack": "launch_gtm.html",
+    "brand_turnaround_lab": "brand_turnaround.html",
+    "retention_crm_booster": "retention_crm.html",
+    "performance_audit_revamp": "performance_audit.html",
+}
+
+
+def resolve_pdf_template_for_pack(wow_package_key: Optional[str]) -> str:
+    """
+    Resolve which PDF template to use for a given WOW package.
+
+    Args:
+        wow_package_key: The WOW package key (e.g., "quick_social_basic")
+
+    Returns:
+        Template filename to use (defaults to "campaign_strategy.html" if unknown)
+    """
+    if not wow_package_key:
+        return "campaign_strategy.html"
+
+    return TEMPLATE_BY_WOW_PACKAGE.get(wow_package_key, "campaign_strategy.html")
+
+
 def render_agency_pdf(context: Dict[str, Any]) -> bytes:
     """
     Entry point for generating the full agency-grade PDF.
 
-    Uses a master template that includes all sections and design elements.
+    Uses a pack-specific template that includes appropriate sections and design elements.
     This does NOT replace the existing ReportLab-based PDFs; it is only used
     when explicitly requested via the UI toggle.
 
     Args:
         context: Dictionary containing report data to pass to template
+                 Should include 'wow_package_key' for proper template selection
 
     Returns:
         PDF file as bytes
@@ -237,4 +266,8 @@ def render_agency_pdf(context: Dict[str, Any]) -> bytes:
     Raises:
         RuntimeError: If template rendering or PDF generation fails
     """
-    return render_html_template_to_pdf("campaign_strategy.html", context)
+    # FIX #3: Select template based on WOW package, not hardcoded
+    wow_package_key = context.get("wow_package_key")
+    template_name = resolve_pdf_template_for_pack(wow_package_key)
+
+    return render_html_template_to_pdf(template_name, context)

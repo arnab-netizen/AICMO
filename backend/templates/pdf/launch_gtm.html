@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="doc-content">
+
+<!-- LAUNCH & GTM PACK - 14 SECTIONS -->
+
+<h1>{{ report.get('brand_name', 'Your Brand') }} – Launch & Go-to-Market Strategy</h1>
+
+<!-- 1. OVERVIEW -->
+<div class="section-block">
+  <h2>Launch Overview</h2>
+  <div class="section-body">
+    {{ report.get('title', 'Product Launch Strategy') }}<br>
+    <strong>Launch Timeline:</strong> {{ report.get('campaign_duration', 'Immediate') }}
+  </div>
+</div>
+
+<!-- 2. MARKET LANDSCAPE -->
+{% if report.get('market_landscape_html') %}
+<h2>Market Landscape</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('market_landscape_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 3. PRODUCT POSITIONING -->
+{% if report.get('positioning_html') %}
+<h2>Product Positioning</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('positioning_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 4. MESSAGING FRAMEWORK -->
+{% if report.get('messaging_framework_html') %}
+<h2>Launch Messaging</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('messaging_framework_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 5. LAUNCH PHASES -->
+{% if report.get('launch_phases_html') %}
+<h2>Launch Phases</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('launch_phases_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 6. CHANNEL STRATEGY -->
+{% if report.get('channel_plan_html') %}
+<h2>Channel & Distribution Strategy</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('channel_plan_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 7. AUDIENCE SEGMENTS -->
+{% if report.get('audience_segments_html') %}
+<h2>Target Audience Segments</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('audience_segments_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 8. PERSONAS -->
+{% if report.get('personas') %}
+<h2>Buyer Personas</h2>
+{% for persona in report.get('personas', []) %}
+<div class="persona-card">
+  <div class="persona-header">{{ persona.get('name', 'Persona') }}</div>
+  <div class="persona-detail">
+    <strong>Role:</strong> {{ persona.get('role', 'N/A') }}<br>
+    <strong>Goals:</strong> {{ persona.get('goals', 'N/A') }}<br>
+    <strong>Key Pain Points:</strong> {{ persona.get('challenges', 'N/A') }}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- 9. CREATIVE DIRECTION -->
+{% if report.get('creative_direction_html') %}
+<h2>Creative Direction</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('creative_direction_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 10. INFLUENCER STRATEGY -->
+{% if report.get('influencer_strategy_html') %}
+<h2>Influencer & Partnership Strategy</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('influencer_strategy_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 11. 30-DAY CALENDAR -->
+{% if report.get('calendar_html') %}
+<h2>30-Day Launch Calendar</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('calendar_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 12. EMAIL & CRM FLOWS -->
+{% if report.get('email_flows_html') %}
+<h2>Email & CRM Launch Flows</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('email_flows_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 13. EXECUTION ROADMAP -->
+{% if report.get('execution_html') %}
+<h2>Execution Roadmap</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('execution_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 14. FINAL SUMMARY -->
+{% if report.get('final_summary_html') %}
+<h2>Launch Checklist & Next Steps</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('final_summary_html') }}
+  </div>
+</div>
+{% endif %}
+
+<p><em>Launch & Go-to-Market Pack – 14-section strategy for successful product/service launch.</em></p>
+
+</div>
+
+{% endblock %}

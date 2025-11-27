@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="doc-content">
+
+<!-- RETENTION & CRM BOOSTER - 12 SECTIONS -->
+
+<h1>{{ report.get('brand_name', 'Your Brand') }} – Retention & CRM Booster</h1>
+
+<!-- 1. OVERVIEW -->
+<div class="section-block">
+  <h2>Retention Strategy Overview</h2>
+  <div class="section-body">
+    {{ report.get('title', 'Customer Retention & Expansion Strategy') }}<br>
+    Focus on maximizing customer lifetime value and recurring revenue.
+  </div>
+</div>
+
+<!-- 2. AUDIENCE SEGMENTS -->
+{% if report.get('audience_segments_html') %}
+<h2>Customer Segments</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('audience_segments_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 3. PERSONAS -->
+{% if report.get('personas') %}
+<h2>Customer Personas</h2>
+{% for persona in report.get('personas', []) %}
+<div class="persona-card">
+  <div class="persona-header">{{ persona.get('name', 'Persona') }}</div>
+  <div class="persona-detail">
+    <strong>Role:</strong> {{ persona.get('role', 'N/A') }}<br>
+    <strong>Motivation:</strong> {{ persona.get('goals', 'N/A') }}<br>
+    <strong>Churn Risk:</strong> {{ persona.get('challenges', 'N/A') }}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- 4. MESSAGING FRAMEWORK -->
+{% if report.get('messaging_framework_html') %}
+<h2>Retention Messaging</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('messaging_framework_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 5. CUSTOMER JOURNEY MAPPING -->
+{% if report.get('customer_journey_html') %}
+<h2>Customer Journey & Lifecycle</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('customer_journey_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 6. EMAIL & CRM FLOWS -->
+{% if report.get('email_flows_html') %}
+<h2>Email & CRM Automation Flows</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('email_flows_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 7. CHANNEL STRATEGY -->
+{% if report.get('channel_plan_html') %}
+<h2>Multi-Channel Retention Strategy</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('channel_plan_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 8. OFFER STRATEGY -->
+{% if report.get('offer_strategy_html') %}
+<h2>Offers & Incentives</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('offer_strategy_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 9. LOYALTY & REFERRAL -->
+{% if report.get('loyalty_referral_html') %}
+<h2>Loyalty & Referral Programs</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('loyalty_referral_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 10. KPI & BUDGET PLAN -->
+{% if report.get('kpi_budget_html') %}
+<h2>Retention KPIs & Budget</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('kpi_budget_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 11. EXECUTION ROADMAP -->
+{% if report.get('execution_html') %}
+<h2>Implementation Roadmap</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('execution_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 12. FINAL SUMMARY -->
+{% if report.get('final_summary_html') %}
+<h2>Success Plan & Next Steps</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('final_summary_html') }}
+  </div>
+</div>
+{% endif %}
+
+<p><em>Retention & CRM Booster – 12-section strategy to maximize customer lifetime value and reduce churn.</em></p>
+
+</div>
+
+{% endblock %}

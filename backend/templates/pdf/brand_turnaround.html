@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="doc-content">
+
+<!-- BRAND TURNAROUND LAB - 16 SECTIONS -->
+
+<h1>{{ report.get('brand_name', 'Your Brand') }} – Brand Turnaround Lab</h1>
+
+<!-- 1. OVERVIEW -->
+<div class="section-block">
+  <h2>Turnaround Strategy Overview</h2>
+  <div class="section-body">
+    {{ report.get('title', 'Brand Transformation Strategy') }}<br>
+    Comprehensive brand repositioning and revival strategy.
+  </div>
+</div>
+
+<!-- 2. MARKET LANDSCAPE -->
+{% if report.get('market_landscape_html') %}
+<h2>Current Market Position</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('market_landscape_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 3. COMPETITOR ANALYSIS -->
+{% if report.get('competitor_analysis_html') %}
+<h2>Competitive Landscape Analysis</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('competitor_analysis_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 4. BRAND POSITIONING -->
+{% if report.get('positioning_html') %}
+<h2>New Brand Positioning</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('positioning_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 5. MESSAGING FRAMEWORK -->
+{% if report.get('messaging_framework_html') %}
+<h2>Messaging Strategy</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('messaging_framework_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 6. AUDIENCE SEGMENTS -->
+{% if report.get('audience_segments_html') %}
+<h2>Target Audience</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('audience_segments_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 7. PERSONAS -->
+{% if report.get('personas') %}
+<h2>Customer Personas</h2>
+{% for persona in report.get('personas', []) %}
+<div class="persona-card">
+  <div class="persona-header">{{ persona.get('name', 'Persona') }}</div>
+  <div class="persona-detail">
+    <strong>Role:</strong> {{ persona.get('role', 'N/A') }}<br>
+    <strong>Goals:</strong> {{ persona.get('goals', 'N/A') }}<br>
+    <strong>Concerns:</strong> {{ persona.get('challenges', 'N/A') }}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- 8. CREATIVE TERRITORIES -->
+{% if report.get('creative_territories_html') %}
+<h2>Creative Territories</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('creative_territories_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 9. CHANNEL STRATEGY -->
+{% if report.get('channel_plan_html') %}
+<h2>Channel Strategy</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('channel_plan_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 10. 30-DAY CALENDAR -->
+{% if report.get('calendar_html') %}
+<h2>30-Day Campaign Calendar</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('calendar_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 11. CREATIVE DIRECTION -->
+{% if report.get('creative_direction_html') %}
+<h2>Creative Direction & Brand Guidelines</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('creative_direction_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 12. KPI & BUDGET PLAN -->
+{% if report.get('kpi_budget_html') %}
+<h2>Success Metrics & Budget</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('kpi_budget_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 13. EXECUTION ROADMAP -->
+{% if report.get('execution_html') %}
+<h2>Execution Roadmap</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('execution_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 14. POST-CAMPAIGN ANALYSIS -->
+{% if report.get('post_campaign_html') %}
+<h2>Performance Review & Analysis Plan</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('post_campaign_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 15. REPUTATION MANAGEMENT -->
+{% if report.get('reputation_html') %}
+<h2>Reputation Management</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('reputation_html') }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 16. FINAL SUMMARY -->
+{% if report.get('final_summary_html') %}
+<h2>Transformation Timeline & Next Steps</h2>
+<div class="section-block">
+  <div class="section-body">
+    {{ report.get('final_summary_html') }}
+  </div>
+</div>
+{% endif %}
+
+<p><em>Brand Turnaround Lab – 16-section comprehensive brand revitalization strategy.</em></p>
+
+</div>
+
+{% endblock %}
