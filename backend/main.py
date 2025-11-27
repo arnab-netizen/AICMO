@@ -102,6 +102,12 @@ from backend.humanizer import (  # noqa: E402
     HumanizerConfig,
 )
 from backend.industry_config import get_industry_config  # noqa: E402
+from backend.generators.social.video_script_generator import (  # noqa: E402
+    generate_video_script_for_day,
+)
+from backend.generators.action.week1_action_plan import (  # noqa: E402
+    generate_week1_action_plan,
+)
 
 # 🔥 Mapping from package display names to preset keys
 # Allows code to convert "Strategy + Campaign Pack (Standard)" → "strategy_campaign_standard"
@@ -1222,6 +1228,84 @@ def _gen_conversion_audit(req: GenerateRequest, **kwargs) -> str:
     )
 
 
+# ============================================================
+# VIDEO SCRIPT & WEEK 1 ACTION PLAN GENERATORS
+# ============================================================
+
+
+def _gen_video_scripts(
+    req: GenerateRequest,
+    mp: MarketingPlanView,
+    **kwargs,
+) -> str:
+    """Generate 'video_scripts' section with optional video metadata."""
+    b = req.brief.brand
+    industry = b.industry or "general"
+    audience_desc = ", ".join(
+        [p.audience_segment or "target audience" for p in (mp.personas or [])]
+    )
+
+    # Generate video script metadata for primary social content
+    video_metadata = generate_video_script_for_day(
+        brand=b.brand_name,
+        industry=industry,
+        audience=audience_desc or "target audience",
+        text_topic=req.brief.goal.primary_goal or "campaign objective",
+    )
+
+    # Format as markdown section
+    raw = "**Video Script Framework**\n\n"
+
+    if video_metadata.get("video_hook"):
+        raw += f"**Hook (0-3 seconds):** {video_metadata['video_hook']}\n\n"
+
+    if video_metadata.get("video_body"):
+        raw += "**Body Points:**\n"
+        for i, point in enumerate(video_metadata["video_body"], 1):
+            raw += f"- Point {i}: {point}\n"
+        raw += "\n"
+
+    if video_metadata.get("video_audio_direction"):
+        raw += f"**Audio Direction:** {video_metadata['video_audio_direction']}\n\n"
+
+    if video_metadata.get("video_visual_reference"):
+        raw += f"**Visual Reference:** {video_metadata['video_visual_reference']}\n\n"
+
+    if not video_metadata:
+        raw += "Video script generation framework ready for LLM enhancement pipeline."
+
+    return sanitize_output(raw, req.brief)
+
+
+def _gen_week1_action_plan(
+    req: GenerateRequest,
+    **kwargs,
+) -> str:
+    """Generate 'week1_action_plan' section with 7-day action checklist."""
+    report_data = {
+        "brand_name": req.brief.brand.brand_name,
+        "goals": [req.brief.goal.primary_goal or "growth"],
+        "campaign_goals": [req.brief.goal.primary_goal or "growth"],
+    }
+
+    week1_output = generate_week1_action_plan(report_data)
+    tasks = week1_output.get("week1_plan", [])
+
+    raw = "**Week 1 Action Plan - 7-Day Quick-Start Checklist**\n\n"
+    for task in tasks:
+        raw += f"- {task}\n"
+
+    raw += (
+        "\n**Key Success Factors:**\n"
+        "- Execute at least one task each day\n"
+        "- Measure engagement and response rates\n"
+        "- Document learnings for next week's optimization\n"
+        "- Adapt based on real-time performance data"
+    )
+
+    return sanitize_output(raw, req.brief)
+
+
 # Register all section generators
 SECTION_GENERATORS: dict[str, callable] = {
     "overview": _gen_overview,
@@ -1265,6 +1349,8 @@ SECTION_GENERATORS: dict[str, callable] = {
     "churn_diagnosis": _gen_churn_diagnosis,
     "conversion_audit": _gen_conversion_audit,
     "ugc_and_community_plan": _gen_promotions_and_offers,  # Reuse promotions for now
+    "video_scripts": _gen_video_scripts,
+    "week1_action_plan": _gen_week1_action_plan,
     "final_summary": _gen_final_summary,
 }
 
@@ -1926,7 +2012,27 @@ def _apply_wow_to_output(
 
     Non-breaking: if WOW fails or is disabled, output is returned unchanged.
     """
+    # 🔥 DIAGNOSTIC LOGGING: Track fallback decision
+    logger.info(
+        "FALLBACK_DECISION_START",
+        extra={
+            "wow_enabled": req.wow_enabled,
+            "wow_package_key": req.wow_package_key,
+            "will_apply_wow": bool(req.wow_enabled and req.wow_package_key),
+        },
+    )
+
     if not req.wow_enabled or not req.wow_package_key:
+        fallback_reason = ""
+        if not req.wow_enabled:
+            fallback_reason = "wow_enabled=False"
+        elif not req.wow_package_key:
+            fallback_reason = "wow_package_key is None/empty"
+
+        logger.info(
+            "FALLBACK_DECISION_RESULT",
+            extra={"fallback_reason": fallback_reason, "action": "SKIP_WOW_FALLBACK_TO_STUB"},
+        )
         return output
 
     try:
@@ -1934,7 +2040,29 @@ def _apply_wow_to_output(
         wow_rule = get_wow_rule(req.wow_package_key)
         sections = wow_rule.get("sections", [])
 
+        # 🔥 DIAGNOSTIC LOGGING: Log WOW package and sections
+        logger.info(
+            "WOW_PACKAGE_RESOLUTION",
+            extra={
+                "wow_package_key": req.wow_package_key,
+                "sections_found": len(sections),
+                "section_keys": [s.get("key") for s in sections],
+            },
+        )
+
         # Debug: Log which WOW pack and sections are being used
+        if len(sections) == 0:
+            logger.warning(
+                "WOW_PACKAGE_EMPTY_SECTIONS",
+                extra={
+                    "wow_package_key": req.wow_package_key,
+                    "action": "FALLBACK_TO_STUB",
+                    "reason": "WOW rule has empty sections list",
+                },
+            )
+            # No sections defined for this package - return stub output
+            return output
+
         print(f"[WOW DEBUG] Using WOW pack: {req.wow_package_key}")
         print(f"[WOW DEBUG] Sections in WOW rule: {[s['key'] for s in sections]}")
 
@@ -1985,10 +2113,26 @@ def _apply_wow_to_output(
         output.wow_markdown = wow_markdown
         output.wow_package_key = req.wow_package_key
 
+        logger.info(
+            "WOW_APPLICATION_SUCCESS",
+            extra={
+                "wow_package_key": req.wow_package_key,
+                "sections_count": len(sections),
+                "action": "WOW_APPLIED_SUCCESSFULLY",
+            },
+        )
         logger.debug(f"WOW report built successfully: {req.wow_package_key}")
         logger.info(f"WOW system used {len(sections)} sections for {req.wow_package_key}")
     except Exception as e:
-        logger.warning(f"WOW report building failed (non-critical): {e}")
+        logger.warning(
+            "WOW_APPLICATION_FAILED",
+            extra={
+                "wow_package_key": req.wow_package_key,
+                "error": str(e),
+                "exception_type": type(e).__name__,
+                "action": "FALLBACK_TO_STUB",
+            },
+        )
         # Non-breaking: continue without WOW
 
     return output

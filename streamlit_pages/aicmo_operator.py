@@ -246,11 +246,13 @@ PACKAGE_PRESETS: Dict[str, Dict[str, bool]] = {
 PACKAGE_KEY_BY_LABEL: Dict[str, str] = {
     "Quick Social Pack (Basic)": "quick_social_basic",
     "Strategy + Campaign Pack (Standard)": "strategy_campaign_standard",
-    "Full-Funnel Growth Suite (Premium)": "full_funnel_premium",
-    "Launch & GTM Pack": "launch_gtm",
-    "Brand Turnaround Lab": "brand_turnaround",
-    "Retention & CRM Booster": "retention_crm",
-    "Performance Audit & Revamp": "performance_audit",
+    "Full-Funnel Growth Suite (Premium)": "full_funnel_growth_suite",
+    "Launch & GTM Pack": "launch_gtm_pack",
+    "Brand Turnaround Lab": "brand_turnaround_lab",
+    "Retention & CRM Booster": "retention_crm_booster",
+    "Performance Audit & Revamp": "performance_audit_revamp",
+    "PR & Reputation Pack": "pr_reputation_pack",
+    "Always-on Content Engine": "always_on_content_engine",
 }
 
 # -------------------------------------------------
@@ -648,6 +650,7 @@ def call_backend_generate(
         "learn_items": learn_items,
         "use_learning": True,
         "industry_key": st.session_state.get("industry_key"),
+        "competitor_snapshot": st.session_state.get("competitor_snapshot", []),
     }
 
     st.session_state["last_backend_payload"] = payload
@@ -865,6 +868,73 @@ def render_client_input_tab() -> None:
                     st.session_state["industry_key"] = None
             else:
                 st.info("No industry presets available in this environment.")
+
+        # ================================
+        # Competitor Research (Optional)
+        # ================================
+        st.markdown("### Competitor Research (Optional)")
+
+        enable_competitor_research = st.checkbox(
+            "Enable Competitor Research for this report",
+            value=False,
+            help="Fetch local competitors based on industry + geography to improve strategic recommendations.",
+        )
+
+        competitor_snapshot = []
+
+        if enable_competitor_research:
+            meta = st.session_state.get("client_brief_meta", {}) or {}
+            location = meta.get("geography", "")
+            industry = meta.get("industry", "")
+
+            if not (location and industry):
+                st.warning("Enter location and industry above to fetch competitors.")
+            else:
+                with st.spinner("Fetching competitors based on location and industry..."):
+                    try:
+                        # Try to call backend API for competitor research
+                        backend_url = (
+                            os.environ.get("AICMO_BACKEND_URL")
+                            or os.environ.get("BACKEND_URL")
+                            or ""
+                        )
+                        backend_url = backend_url.rstrip("/")
+
+                        if backend_url:
+                            resp = requests.post(
+                                f"{backend_url}/api/competitor/research",
+                                json={
+                                    "location": location,
+                                    "industry": industry,
+                                },
+                                timeout=60,
+                            )
+
+                            if resp.status_code == 200:
+                                competitor_snapshot = resp.json().get("competitors", [])
+                                st.session_state["competitor_snapshot"] = competitor_snapshot
+                            elif resp.status_code == 404:
+                                st.info("Competitor research API not yet implemented on backend.")
+                            else:
+                                st.error(f"Competitor API error: {resp.text[:200]}")
+                        else:
+                            st.warning(
+                                "Backend URL not configured. Competitor research unavailable."
+                            )
+
+                    except requests.exceptions.ReadTimeout:
+                        st.warning(
+                            "Competitor research timed out. Continuing without competitors..."
+                        )
+                    except Exception as e:
+                        st.warning(f"Error fetching competitors: {str(e)}")
+
+            # Display results
+            if competitor_snapshot:
+                st.subheader("Local Competitor Snapshot")
+                st.dataframe(competitor_snapshot, use_container_width=True)
+            elif enable_competitor_research:
+                st.info("No competitors found or competitor research is not yet available.")
 
     with col_right:
         st.markdown("#### Package & services")
