@@ -41,7 +41,7 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
         "requires_research": False,
         "complexity": "low",
     },
-    # ----- 2. Strategy + Campaign Pack (Standard - 17 sections) -----
+    # ----- 2. Strategy + Campaign Pack (Standard - 16 sections) -----
     "strategy_campaign_standard": {
         "label": "Strategy + Campaign Pack (Standard)",
         "description": "Comprehensive, professional strategy for mid-market campaigns. Agency-ready output.",
@@ -58,7 +58,6 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
             "influencer_strategy",
             "promotions_and_offers",
             "detailed_30_day_calendar",
-            "email_and_crm_flows",
             "ad_concepts",
             "kpi_and_budget_plan",
             "execution_roadmap",
@@ -99,7 +98,7 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
     # 3. Full-Funnel Growth Suite (Premium)
     # ============================================================
     # (Renamed from full_funnel_growth_suite for consistency in naming)
-    # Note: This is currently 21 sections. Will be enhanced to 25 for true Premium tier.
+    # Note: This is currently 21 sections. Now enhanced with landing page and measurement (23 sections).
     # ============================================================
     "full_funnel_growth_suite": {
         "label": "Full-Funnel Growth Suite (Premium)",
@@ -116,12 +115,14 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
             "consideration_strategy",
             "conversion_strategy",
             "retention_strategy",
+            "landing_page_blueprint",
             "email_automation_flows",
             "remarketing_strategy",
             "ad_concepts_multi_platform",
             "creative_direction",
             "full_30_day_calendar",
             "kpi_and_budget_plan",
+            "measurement_framework",
             "execution_roadmap",
             "optimization_opportunities",
             "final_summary",
@@ -142,16 +143,11 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
             "launch_phases",
             "channel_plan",
             "audience_segments",
-            "persona_cards",
             "creative_direction",
-            "influencer_strategy",
             "launch_campaign_ideas",
-            "email_and_crm_flows",
             "content_calendar_launch",
             "ad_concepts",
-            "kpi_and_budget_plan",
             "execution_roadmap",
-            "risk_analysis",
             "final_summary",
         ],
         "requires_research": True,
@@ -174,12 +170,8 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
             "channel_reset_strategy",
             "reputation_recovery_plan",
             "promotions_and_offers",
-            "email_and_crm_flows",
             "30_day_recovery_calendar",
-            "ad_concepts",
-            "kpi_and_budget_plan",
             "execution_roadmap",
-            "turnaround_milestones",
             "final_summary",
         ],
         "requires_research": True,
@@ -195,7 +187,7 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
             "customer_segments",
             "persona_cards",
             "customer_journey_map",
-            "retention_drivers",
+            "churn_diagnosis",
             "email_automation_flows",
             "sms_and_whatsapp_flows",
             "loyalty_program_concepts",
@@ -226,6 +218,7 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
             "revamp_strategy",
             "new_ad_concepts",
             "creative_direction",
+            "conversion_audit",
             "remarketing_strategy",
             "kpi_reset_plan",
             "execution_roadmap",

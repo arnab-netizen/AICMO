@@ -136,7 +136,7 @@ PACK_SECTION_WHITELIST = {
         "kpi_plan_light",
         "final_summary",
     },
-    # Strategy + Campaign Pack (Standard) - 17 sections
+    # Strategy + Campaign Pack (Standard) - 16 sections
     "strategy_campaign_standard": {
         "overview",
         "campaign_objective",
@@ -149,14 +149,13 @@ PACK_SECTION_WHITELIST = {
         "influencer_strategy",
         "promotions_and_offers",
         "detailed_30_day_calendar",
-        "email_and_crm_flows",
         "ad_concepts",
         "kpi_and_budget_plan",
         "execution_roadmap",
         "post_campaign_analysis",
         "final_summary",
     },
-    # Full-Funnel Growth Suite (Premium) - 21 sections
+    # Full-Funnel Growth Suite (Premium) - 23 sections
     "full_funnel_growth_suite": {
         "overview",
         "market_landscape",
@@ -170,17 +169,19 @@ PACK_SECTION_WHITELIST = {
         "consideration_strategy",
         "conversion_strategy",
         "retention_strategy",
+        "landing_page_blueprint",
         "email_automation_flows",
         "remarketing_strategy",
         "ad_concepts_multi_platform",
         "creative_direction",
         "full_30_day_calendar",
         "kpi_and_budget_plan",
+        "measurement_framework",
         "execution_roadmap",
         "optimization_opportunities",
         "final_summary",
     },
-    # Launch & GTM Pack - 14 sections
+    # Launch & GTM Pack - 13 sections
     "launch_gtm_pack": {
         "overview",
         "market_landscape",
@@ -189,62 +190,64 @@ PACK_SECTION_WHITELIST = {
         "launch_phases",
         "channel_plan",
         "audience_segments",
-        "persona_cards",
         "creative_direction",
-        "influencer_strategy",
-        "detailed_30_day_calendar",
-        "email_and_crm_flows",
+        "launch_campaign_ideas",
+        "content_calendar_launch",
+        "ad_concepts",
         "execution_roadmap",
         "final_summary",
     },
-    # Brand Turnaround Lab - 16 sections
+    # Brand Turnaround Lab - 14 sections
     "brand_turnaround_lab": {
         "overview",
-        "market_landscape",
+        "brand_audit",
+        "customer_insights",
         "competitor_analysis",
-        "brand_positioning",
+        "problem_diagnosis",
+        "new_positioning",
         "messaging_framework",
-        "audience_segments",
-        "persona_cards",
-        "creative_territories",
-        "channel_plan",
-        "detailed_30_day_calendar",
         "creative_direction",
-        "kpi_and_budget_plan",
+        "channel_reset_strategy",
+        "reputation_recovery_plan",
+        "promotions_and_offers",
+        "30_day_recovery_calendar",
         "execution_roadmap",
-        "post_campaign_analysis",
         "final_summary",
-        "reputation_management",
     },
-    # Retention & CRM Booster - 12 sections
+    # Retention & CRM Booster - 14 sections (updated with churn_diagnosis)
     "retention_crm_booster": {
         "overview",
-        "audience_segments",
+        "customer_segments",
         "persona_cards",
-        "messaging_framework",
-        "customer_journey_mapping",
-        "email_and_crm_flows",
-        "channel_plan",
-        "offer_strategy",
-        "loyalty_and_referral",
-        "kpi_and_budget_plan",
+        "customer_journey_map",
+        "churn_diagnosis",
+        "email_automation_flows",
+        "sms_and_whatsapp_flows",
+        "loyalty_program_concepts",
+        "winback_sequence",
+        "post_purchase_experience",
+        "ugc_and_community_plan",
+        "kpi_plan_retention",
         "execution_roadmap",
         "final_summary",
     },
-    # Performance Audit & Revamp - 13 sections
+    # Performance Audit & Revamp - 16 sections (with conversion_audit)
     "performance_audit_revamp": {
         "overview",
-        "current_state_assessment",
-        "competitor_analysis",
-        "messaging_framework",
-        "channel_audit",
-        "audience_segments",
-        "persona_cards",
-        "creative_review",
-        "recommended_changes",
-        "detailed_30_day_calendar",
+        "account_audit",
+        "campaign_level_findings",
+        "creative_performance_analysis",
+        "audience_analysis",
+        "funnel_breakdown",
+        "competitor_benchmark",
+        "problem_diagnosis",
+        "revamp_strategy",
+        "new_ad_concepts",
+        "creative_direction",
+        "conversion_audit",
+        "remarketing_strategy",
+        "kpi_reset_plan",
         "execution_roadmap",
-        "kpi_and_budget_plan",
         "final_summary",
     },
 }
@@ -1118,6 +1121,102 @@ def _gen_cxo_summary(req: GenerateRequest, **kwargs) -> str:
     )
 
 
+def _gen_landing_page_blueprint(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'landing_page_blueprint' section for Premium pack."""
+    b = req.brief.brand
+    return (
+        f"**Landing Page Purpose:** Drive conversions for {req.brief.goal.primary_goal or 'primary offer'}\n\n"
+        "**Page Structure:**\n"
+        "1. **Hero Section** - Compelling headline, subheading, CTA\n"
+        f"   - Headline: [Lead with primary benefit for {b.target_audience or 'target audience'}]\n"
+        "   - Hero image: [Product/benefit visualization]\n\n"
+        "2. **Value Proposition** - 3-5 key benefits with icons\n"
+        "   - Benefit 1: [Key differentiator]\n"
+        "   - Benefit 2: [Competitive advantage]\n"
+        "   - Benefit 3: [Customer success proof]\n\n"
+        "3. **Social Proof** - Testimonials, case studies, statistics\n"
+        "   - 2-3 customer testimonials with photos\n"
+        "   - Case study: [Specific result achieved]\n"
+        "   - Stats: [Quantified benefit]\n\n"
+        "4. **Feature Deep-Dive** - How it works, key features\n"
+        "   - Feature comparison table\n"
+        "   - Step-by-step explanation with visuals\n\n"
+        "5. **FAQ Section** - Address common objections\n"
+        "   - Top 5-7 objection-handling questions\n\n"
+        "6. **CTA Section** - Multiple conversion points\n"
+        "   - Primary CTA (signup/purchase)\n"
+        "   - Secondary CTA (demo/trial)\n"
+        "   - Form fields: [Name, Email, Company]\n\n"
+        "7. **Trust Signals** - Security badges, certifications, guarantees\n\n"
+        "**Success Metrics:** Click-through rate to form, form completion rate, conversion rate"
+    )
+
+
+def _gen_churn_diagnosis(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'churn_diagnosis' section for CRM pack."""
+    return (
+        "**Churn Analysis Framework**\n\n"
+        "**1. Churn Rate by Customer Segment**\n"
+        "- High-value customers: [X% annual churn]\n"
+        "- Mid-tier customers: [Y% annual churn]\n"
+        "- Low-engagement: [Z% annual churn]\n\n"
+        "**2. Top Churn Drivers (Exit Interview Analysis)**\n"
+        "- Better product elsewhere (35%)\n"
+        "- Pricing concerns (25%)\n"
+        "- Poor support experience (20%)\n"
+        "- Unmet feature needs (15%)\n"
+        "- Budget cuts/business change (5%)\n\n"
+        "**3. Churn Warning Signals (Early Detection)**\n"
+        "- Reduced feature usage after Month 3\n"
+        "- Decreased support ticket engagement\n"
+        "- Payment failures or billing issues\n"
+        "- No expansion/upsell adoption\n"
+        "- Negative NPS or feedback trends\n\n"
+        "**4. Customer Lifecycle Churn Risk**\n"
+        "- Onboarding phase (Month 0-2): High risk\n"
+        "- Maturity phase (Month 3-12): Medium risk\n"
+        "- Expansion phase (Year 2+): Low risk\n\n"
+        "**5. Revenue Impact of Churn**\n"
+        "- Monthly revenue loss from churn: $[X]\n"
+        "- Annual LTV loss: $[Y]\n"
+        "- Cost to replace lost customers: [3-5x acquisition cost]\n\n"
+        "**Churn Prevention Priority:** Focus on onboarding phase with 30-60 day check-ins"
+    )
+
+
+def _gen_conversion_audit(req: GenerateRequest, **kwargs) -> str:
+    """Generate 'conversion_audit' section for Audit pack."""
+    return (
+        "**Conversion Funnel Analysis**\n\n"
+        "**Landing Page Audit:**\n"
+        "- Current conversion rate: [X%]\n"
+        "- Benchmark rate for industry: [Y%]\n"
+        "- Gap analysis: -[Z%] below benchmark\n"
+        "- Key issues: [Unclear value prop, weak CTA, poor mobile UX]\n\n"
+        "**Checkout Process Audit:**\n"
+        "- Cart abandonment rate: [X%]\n"
+        "- Checkout completion rate: [Y%]\n"
+        "- Average cart value: $[Z]\n"
+        "- Issues identified:\n"
+        "  - [Surprise fees at final step]\n"
+        "  - [Too many form fields (>8)]\n"
+        "  - [No guest checkout option]\n"
+        "  - [Slow page load (>3 sec)]\n\n"
+        "**User Experience Issues:**\n"
+        "- Navigation clarity: [Rating]\n"
+        "- Form friction points: [Identified]\n"
+        "- Mobile experience: [Issues found]\n"
+        "- Payment method options: [Limited]\n\n"
+        "**Quick Wins (Implement in 1-2 weeks):**\n"
+        "1. Remove non-essential form fields\n"
+        "2. Add guest checkout option\n"
+        "3. Highlight trust signals (SSL, security, guarantees)\n"
+        "4. Optimize CTA button (size, color, copy)\n"
+        "5. Show progress through checkout steps\n\n"
+        "**Expected Impact:** 15-25% improvement in conversion rate"
+    )
+
+
 # Register all section generators
 SECTION_GENERATORS: dict[str, callable] = {
     "overview": _gen_overview,
@@ -1157,6 +1256,9 @@ SECTION_GENERATORS: dict[str, callable] = {
     "risk_assessment": _gen_risk_assessment,
     "strategic_recommendations": _gen_strategic_recommendations,
     "cxo_summary": _gen_cxo_summary,
+    "landing_page_blueprint": _gen_landing_page_blueprint,
+    "churn_diagnosis": _gen_churn_diagnosis,
+    "conversion_audit": _gen_conversion_audit,
     "ugc_and_community_plan": _gen_promotions_and_offers,  # Reuse promotions for now
     "final_summary": _gen_final_summary,
 }

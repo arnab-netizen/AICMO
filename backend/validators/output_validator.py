@@ -133,12 +133,12 @@ class OutputValidator:
         # Define expected section counts
         expected_counts = {
             "quick_social_basic": 10,
-            "strategy_campaign_standard": 17,
-            "full_funnel_growth_suite": 21,
-            "launch_gtm_pack": 14,
-            "brand_turnaround_lab": 16,
-            "retention_crm_booster": 12,
-            "performance_audit_revamp": 13,
+            "strategy_campaign_standard": 16,
+            "full_funnel_growth_suite": 23,
+            "launch_gtm_pack": 13,
+            "brand_turnaround_lab": 14,
+            "retention_crm_booster": 14,
+            "performance_audit_revamp": 16,
         }
 
         expected = expected_counts.get(self.wow_package_key)
