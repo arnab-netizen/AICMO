@@ -7,15 +7,80 @@ Ensures reports meet quality standards before export:
 - Cross-field validation (no field substitution, e.g., goal as persona)
 - Industry alignment (personas/channels match industry)
 - PDF parity (PDF has all sections from preview)
+- Negative constraints validation (brand "don'ts" enforcement)
 
 FIX #6: Comprehensive validation to catch errors before export
 """
 
+import re
 from typing import Optional, List
 from dataclasses import dataclass
 from enum import Enum
 
 from aicmo.io.client_reports import AICMOOutputReport, ClientInputBrief
+
+
+# ============================================================
+# NEGATIVE CONSTRAINTS VALIDATION
+# ============================================================
+
+
+def parse_constraints(raw: str) -> List[str]:
+    """
+    Parse raw constraint text into individual constraints.
+
+    Handles multiple separators: semicolons, newlines, periods.
+
+    Args:
+        raw: Raw constraint text from operator
+
+    Returns:
+        List of individual constraint strings
+    """
+    if not raw:
+        return []
+
+    # Split on semicolons, newlines, or periods
+    parts = re.split(r"[;\n.]+", raw)
+    return [p.strip() for p in parts if p.strip()]
+
+
+def validate_negative_constraints(output_text: str, negative_constraints_raw: str) -> List[str]:
+    """
+    Validate that output doesn't violate negative constraints.
+
+    Simple keyword-based checking: if a constraint mentions a word,
+    flag if that word appears in the output.
+
+    Args:
+        output_text: The generated output content to validate
+        negative_constraints_raw: Raw constraint text from operator
+
+    Returns:
+        List of violation messages (empty if all constraints passed)
+    """
+    violations = []
+    constraints = parse_constraints(negative_constraints_raw)
+    lower_output = output_text.lower()
+
+    for c in constraints:
+        if not c:
+            continue
+
+        # Extract keywords from constraint
+        # Strategy: take the last meaningful word as the keyword
+        tokens = c.split()
+        if not tokens:
+            continue
+
+        # Skip common words, take the last substantive word
+        keyword = tokens[-1].strip("'., ").lower()
+
+        # Very simple check: if keyword appears in output, flag it
+        if keyword and keyword in lower_output:
+            violations.append(f"Constraint violation: '{c}' (keyword '{keyword}' found in output).")
+
+    return violations
 
 
 class ValidationSeverity(str, Enum):
