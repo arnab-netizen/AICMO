@@ -17,5 +17,6 @@ weasyprint>=61.0
 jinja2>=3.1.0
 openai>=2.0.0
 numpy>=1.26.0
+requests>=2.31.0
 
 -e ./capsule-core
