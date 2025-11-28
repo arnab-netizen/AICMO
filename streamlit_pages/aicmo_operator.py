@@ -22,7 +22,6 @@ if str(project_root) not in sys.path:
 
 import requests  # noqa: E402
 import streamlit as st  # noqa: E402
-from openai import OpenAI  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402
 from sqlalchemy.engine import Engine  # noqa: E402
 
@@ -656,82 +655,63 @@ def call_backend_generate(
     st.session_state["last_backend_payload"] = payload
 
     # Backend URL resolution: prefer AICMO_BACKEND_URL, fall back to BACKEND_URL
-    base_url = os.environ.get("AICMO_BACKEND_URL") or os.environ.get("BACKEND_URL") or ""
+    base_url = (
+        st.secrets.get("AICMO_BACKEND_URL")
+        if hasattr(st, "secrets") and "AICMO_BACKEND_URL" in st.secrets
+        else os.environ.get("AICMO_BACKEND_URL") or os.environ.get("BACKEND_URL") or ""
+    )
     base_url = base_url.rstrip("/")
 
     # ----------------------------
-    # 1) Try backend HTTP endpoint
+    # Backend HTTP endpoint (no auto-fallback)
     # ----------------------------
     if base_url:
+        url = f"{base_url}/api/aicmo/generate_report"
+
+        # Connection attempt with detailed error reporting
         try:
-            # Slightly longer read timeout for Render cold starts / agency-grade runs
             resp = requests.post(
-                f"{base_url}/api/aicmo/generate_report",
+                url,
                 json=payload,
                 timeout=(10, 300),  # (connect_timeout, read_timeout)
             )
-            resp.raise_for_status()
-            data = resp.json()
-            if isinstance(data, dict) and "report_markdown" in data:
-                st.session_state["generation_mode"] = "http-backend"
-                return data["report_markdown"]
-            else:
-                st.warning("Backend returned an unexpected payload. Falling back to direct model.")
-        except requests.exceptions.ReadTimeout:
-            st.warning(
-                "Backend took too long to respond (read timeout). "
-                "Falling back to direct OpenAI generation for this run."
-            )
-        except requests.exceptions.RequestException as e:
-            st.warning(f"Backend HTTP error: {e}. Falling back to direct model.")
-        except Exception as e:  # pragma: no cover - UX only
-            st.error("Backend API call failed, falling back to direct model.")
-            st.exception(e)
-
-    # ---------------------------------
-    # 2) Fallback: direct OpenAI model
-    # ---------------------------------
-    try:
-        api_key = os.environ.get("OPENAI_API_KEY")
-        if not api_key:
-            st.error("OPENAI_API_KEY not set; cannot generate report.")
+        except requests.RequestException as e:
+            st.error(f"❌ Backend connection error: {e}")
+            st.error("Cannot reach backend. Check AICMO_BACKEND_URL and network.")
             return None
 
-        client = OpenAI(api_key=api_key)
+        # HTTP status check – show exact error, no fallback
+        if resp.status_code != 200:
+            st.error(
+                f"❌ Backend returned HTTP {resp.status_code} for /api/aicmo/generate_report\n\n"
+                f"**Raw response (first 2000 chars):**\n```\n{resp.text[:2000]}\n```"
+            )
+            return None
 
-        system_prompt = (
-            "You are AICMO, a senior strategist at a top-tier global marketing agency. "
-            "You create structured, client-ready marketing deliverables: marketing plans, "
-            "campaign blueprints, social calendars, performance reviews, and creative directions. "
-            "Your writing is clear, structured, and presentation-ready."
-        )
+        # JSON parsing
+        try:
+            data = resp.json()
+        except Exception:
+            st.error(
+                f"❌ Backend returned non-JSON response.\n\n"
+                f"**Raw body (first 1000 chars):**\n```\n{resp.text[:1000]}\n```"
+            )
+            return None
 
-        user_prompt = (
-            "Generate a client-ready marketing deliverable in markdown based on the JSON below.\n\n"
-            "JSON payload:\n"
-            f"{json.dumps(payload, ensure_ascii=False, indent=2)}\n\n"
-            "Output guidelines:\n"
-            "- Use H1/H2/H3 headings\n"
-            "- Use bullet lists where helpful\n"
-            "- Include channel-wise recommendations\n"
-            "- Make it directly usable as a client deck outline or report."
-        )
+        # Validate response structure
+        if isinstance(data, dict) and "report_markdown" in data:
+            st.session_state["generation_mode"] = "http-backend"
+            st.success("✅ Report generated using backend with Phase-L learning.")
+            return data["report_markdown"]
+        else:
+            st.error(
+                f"❌ Backend returned unexpected structure. Expected 'report_markdown' key.\n\n"
+                f"**Got keys:** {list(data.keys()) if isinstance(data, dict) else type(data)}"
+            )
+            return None
 
-        completion = client.chat.completions.create(
-            model=os.environ.get("AICMO_OPENAI_MODEL", "gpt-4.1-mini"),
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            max_tokens=refinement_cfg.get("max_tokens", 6000),
-            temperature=refinement_cfg.get("temperature", 0.7),
-        )
-
-        st.session_state["generation_mode"] = "direct-openai-fallback"
-        return completion.choices[0].message.content or ""
-    except Exception as e:  # pragma: no cover - UX only
-        st.error("Model call failed.")
-        st.exception(e)
+    else:
+        st.error("⚠️  AICMO_BACKEND_URL is not configured. Backend pipeline cannot be used.")
         return None
 
 
