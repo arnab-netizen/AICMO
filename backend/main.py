@@ -3638,24 +3638,24 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
         "status": "success"
     }
     """
-    # Extract top-level payload fields
-    package_name = payload.get("package_name")
-    stage = payload.get("stage", "draft")
-    services = payload.get("services", {})
-    client_brief_dict = payload.get("client_brief", {})
-    wow_enabled = payload.get("wow_enabled", False)
-    wow_package_key = payload.get("wow_package_key")
-    use_learning = payload.get("use_learning", False)
-    industry_key = payload.get("industry_key")
-    refinement_mode = payload.get("refinement_mode", {})
-
-    include_agency_grade = services.get("include_agency_grade", False)
-
-    # 🔥 FIX #3️⃣: Convert display name to preset_key using PACKAGE_NAME_TO_KEY mapping
-    resolved_preset_key = PACKAGE_NAME_TO_KEY.get(package_name, package_name)
-    logger.info(f"🔥 [PRESET MAPPING] {package_name} → {resolved_preset_key}")
-
     try:
+        # Extract top-level payload fields
+        package_name = payload.get("package_name")
+        stage = payload.get("stage", "draft")
+        services = payload.get("services", {})
+        client_brief_dict = payload.get("client_brief", {})
+        wow_enabled = payload.get("wow_enabled", False)
+        wow_package_key = payload.get("wow_package_key")
+        use_learning = payload.get("use_learning", False)
+        industry_key = payload.get("industry_key")
+        refinement_mode = payload.get("refinement_mode", {})
+
+        include_agency_grade = services.get("include_agency_grade", False)
+
+        # 🔥 FIX #3️⃣: Convert display name to preset_key using PACKAGE_NAME_TO_KEY mapping
+        resolved_preset_key = PACKAGE_NAME_TO_KEY.get(package_name, package_name)
+        logger.info(f"🔥 [PRESET MAPPING] {package_name} → {resolved_preset_key}")
+
         # BUILD COMPLETE ClientInputBrief from flattened Streamlit payload
         # This is THE KEY FIX: construct ALL required nested structures with sensible defaults
         from aicmo.io.client_reports import (
@@ -3827,10 +3827,14 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
             "report_markdown": report_markdown,
             "status": "success",
         }
-
+    except HTTPException:
+        # Already handled (from llm_client or other handlers)
+        raise
     except Exception as e:
-        logger.error(f"❌ [HTTP ENDPOINT] generate_report failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Report generation failed: {str(e)}")
+        logger.exception("Unhandled error in /api/aicmo/generate_report: %s", type(e).__name__)
+        raise HTTPException(
+            status_code=500, detail=f"Report generation failed: {type(e).__name__}: {str(e)[:100]}"
+        )
 
 
 @app.get("/aicmo/industries")
