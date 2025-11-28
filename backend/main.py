@@ -317,6 +317,7 @@ class GenerateRequest(BaseModel):
     generate_social_calendar: bool = True
     generate_performance_review: bool = False
     generate_creatives: bool = True
+    generate_personas: bool = True  # 🔥 FIX #5: Persona card generation flag
     industry_key: Optional[str] = None  # Phase 5: Optional industry preset key
     package_preset: Optional[str] = None  # TURBO: package name
     include_agency_grade: bool = False  # TURBO: enable agency-grade enhancements
