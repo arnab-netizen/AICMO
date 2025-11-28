@@ -17,7 +17,7 @@ from aicmo.io.client_reports import (
     BrandBrief,
     AudienceBrief,
     GoalBrief,
-    StrategyExtras,
+    StrategyExtrasBrief,
     AICMOOutputReport,
     MarketingPlanView,
     CampaignBlueprintView,
@@ -46,7 +46,7 @@ def sample_brief():
             primary_goal="Generate 500 qualified leads per month",
             timeline="6 months",
         ),
-        strategy_extras=StrategyExtras(
+        strategy_extras=StrategyExtrasBrief(
             brand_adjectives=["innovative", "reliable"],
         ),
     )
@@ -58,6 +58,8 @@ def sample_output():
     return AICMOOutputReport(
         marketing_plan=MarketingPlanView(
             executive_summary="Sample executive summary",
+            situation_analysis="Market situation analysis",
+            strategy="Strategic approach overview",
         ),
         campaign_blueprint=CampaignBlueprintView(
             campaign_name="Sample Campaign",
@@ -112,7 +114,7 @@ class TestOutputValidator:
             ),
             audience=AudienceBrief(primary_customer="Users"),
             goal=GoalBrief(primary_goal="Growth"),
-            strategy_extras=StrategyExtras(),
+            strategy_extras=StrategyExtrasBrief(),
         )
 
         validator = OutputValidator(sample_output, bad_brief)
@@ -169,7 +171,7 @@ class TestOutputValidator:
             ),
             audience=AudienceBrief(primary_customer="CTOs"),
             goal=GoalBrief(primary_goal="Growth"),
-            strategy_extras=StrategyExtras(),
+            strategy_extras=StrategyExtrasBrief(),
         )
 
         validator = OutputValidator(sample_output, saas_brief)
@@ -245,7 +247,7 @@ class TestFieldValidation:
             ),
             audience=AudienceBrief(primary_customer="Users"),
             goal=GoalBrief(primary_goal=""),  # Empty!
-            strategy_extras=StrategyExtras(),
+            strategy_extras=StrategyExtrasBrief(),
         )
 
         validator = OutputValidator(sample_output, brief)
@@ -266,7 +268,7 @@ class TestFieldValidation:
             ),
             audience=AudienceBrief(primary_customer="Users"),
             goal=GoalBrief(primary_goal="Growth"),
-            strategy_extras=StrategyExtras(),
+            strategy_extras=StrategyExtrasBrief(),
         )
 
         validator = OutputValidator(sample_output, brief)
