@@ -469,3 +469,41 @@ def get_default_personas_for_industry(
     if config:
         return config["default_personas"]
     return []
+
+
+def convert_industry_persona_to_persona_card(
+    persona_config: IndustryPersonaConfig,
+) -> "PersonaCard":  # noqa: F821
+    """
+    Convert IndustryPersonaConfig to PersonaCard model for output.
+
+    Args:
+        persona_config: Industry-specific persona template
+
+    Returns:
+        PersonaCard with all required fields populated
+    """
+    from aicmo.io.client_reports import PersonaCard
+
+    # Build demographics from role and age_range
+    demographics = f"{persona_config.get('role', 'Professional')}, {persona_config.get('age_range', '25-45')}"
+
+    # Build psychographics from decision factors and goals
+    decision_factors = persona_config.get("decision_factors", [])
+    primary_goals = persona_config.get("primary_goals", [])
+    psychographics_items = decision_factors[:2] if decision_factors else []
+    if primary_goals and len(psychographics_items) < 2:
+        psychographics_items.extend(primary_goals[: 2 - len(psychographics_items)])
+    psychographics = "; ".join(psychographics_items) if psychographics_items else "Results-oriented, quality-focused"
+
+    return PersonaCard(
+        name=persona_config.get("name", "Default Persona"),
+        demographics=demographics,
+        psychographics=psychographics,
+        pain_points=persona_config.get("primary_pain_points", []),
+        triggers=[],  # Not provided in industry config, using empty
+        objections=[],  # Not provided in industry config, using empty
+        content_preferences=[],  # Not provided in industry config, using empty
+        primary_platforms=[persona_config.get("channel_preference", "LinkedIn")],
+        tone_preference="Professional",
+    )
