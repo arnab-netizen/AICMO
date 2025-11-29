@@ -285,15 +285,18 @@ class OfferAngle(BaseModel):
 
 
 class PersonaCard(BaseModel):
+    # Required headline fields
     name: str
-    demographics: str
-    psychographics: str
+
+    # Optional fields with safe defaults to tolerate partial LLM-generated personas
+    demographics: str = ""
+    psychographics: str = ""
+    tone_preference: str = ""
     pain_points: List[str] = Field(default_factory=list)
     triggers: List[str] = Field(default_factory=list)
     objections: List[str] = Field(default_factory=list)
     content_preferences: List[str] = Field(default_factory=list)
     primary_platforms: List[str] = Field(default_factory=list)
-    tone_preference: str
 
 
 class ActionPlan(BaseModel):

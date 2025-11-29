@@ -1,4 +1,5 @@
 """Regression test: GenerateRequest must have generate_personas attribute."""
+
 import pytest
 from backend.main import GenerateRequest
 from aicmo.io.client_reports import (
@@ -66,7 +67,7 @@ def test_generate_request_has_generate_personas_attribute(sample_brief):
         brief=sample_brief,
         generate_personas=True,
     )
-    
+
     assert hasattr(req, "generate_personas")
     assert isinstance(req.generate_personas, bool)
     assert req.generate_personas is True
@@ -75,7 +76,7 @@ def test_generate_request_has_generate_personas_attribute(sample_brief):
 def test_generate_request_generate_personas_defaults_to_true(sample_brief):
     """Regression test: generate_personas should default to True."""
     req = GenerateRequest(brief=sample_brief)
-    
+
     assert req.generate_personas is True, "generate_personas should default to True"
 
 
@@ -85,5 +86,5 @@ def test_generate_request_generate_personas_can_be_false(sample_brief):
         brief=sample_brief,
         generate_personas=False,
     )
-    
+
     assert req.generate_personas is False, "generate_personas should be False when set explicitly"

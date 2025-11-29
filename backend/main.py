@@ -3085,6 +3085,25 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
                 action_plan=action_plan,
             )
 
+    # 🔥 FIX #8: Normalize persona_cards before instantiation to handle partial LLM-generated personas
+    if persona_cards:
+        normalised_personas = []
+        for p in persona_cards:
+            if not isinstance(p, dict):
+                continue
+            normalised_personas.append({
+                "name": p.get("name") or "Primary Persona",
+                "demographics": p.get("demographics", ""),
+                "psychographics": p.get("psychographics", ""),
+                "tone_preference": p.get("tone_preference", ""),
+                "pain_points": p.get("pain_points", []),
+                "triggers": p.get("triggers", []),
+                "objections": p.get("objections", []),
+                "content_preferences": p.get("content_preferences", []),
+                "primary_platforms": p.get("primary_platforms", []),
+            })
+        persona_cards = normalised_personas
+
     out = AICMOOutputReport(
         marketing_plan=mp,
         campaign_blueprint=cb,
