@@ -1,0 +1,326 @@
+{
+  "$schema": "aicmo.section_benchmarks.schema.json",
+  "pack_key": "launch_gtm_pack",
+  "strict": true,
+  "sections": {
+    "overview": {
+      "id": "overview",
+      "label": "Client Overview",
+      "min_words": 120,
+      "max_words": 280,
+      "min_bullets": 3,
+      "max_bullets": 8,
+      "min_headings": 1,
+      "max_headings": 3,
+      "required_headings": [
+        "Brand",
+        "Industry",
+        "Primary Goal"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "your business",
+        "insert brand name",
+        "[Brand]",
+        "lorem ipsum",
+        "to be provided"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.2,
+      "max_avg_sentence_length": 30,
+      "format": "markdown_block"
+    },
+    "market_landscape": {
+      "id": "market_landscape",
+      "label": "Market Landscape",
+      "min_words": 260,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Market Size",
+        "Trends",
+        "Opportunities"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "growing market",
+        "huge opportunity",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "product_positioning": {
+      "id": "product_positioning",
+      "label": "Product Positioning",
+      "min_words": 240,
+      "max_words": 650,
+      "min_bullets": 5,
+      "max_bullets": 18,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Positioning Statement",
+        "Target Audience"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "for everyone",
+        "best in class",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "messaging_framework": {
+      "id": "messaging_framework",
+      "label": "Messaging Framework",
+      "min_words": 200,
+      "max_words": 550,
+      "min_bullets": 4,
+      "max_bullets": 15,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Core Message",
+        "Key Themes"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "generic message",
+        "to be determined",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "launch_phases": {
+      "id": "launch_phases",
+      "label": "Launch Phases",
+      "min_words": 260,
+      "max_words": 750,
+      "min_bullets": 8,
+      "max_bullets": 25,
+      "min_headings": 3,
+      "max_headings": 9,
+      "required_headings": [
+        "Pre-Launch",
+        "Launch",
+        "Post-Launch"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "launch when ready",
+        "no specific phases",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "channel_plan": {
+      "id": "channel_plan",
+      "label": "Channel Plan",
+      "min_words": 260,
+      "max_words": 750,
+      "min_bullets": 6,
+      "max_bullets": 22,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Primary Channels",
+        "Channel Strategy"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "use all channels",
+        "be everywhere",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "audience_segments": {
+      "id": "audience_segments",
+      "label": "Audience Segments",
+      "min_words": 180,
+      "max_words": 500,
+      "min_bullets": 4,
+      "max_bullets": 15,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Primary Audience",
+        "Secondary Audience"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "everyone",
+        "mass market",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "creative_direction": {
+      "id": "creative_direction",
+      "label": "Creative Direction",
+      "min_words": 260,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Visual Style",
+        "Tone of Voice"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "modern and clean",
+        "professional yet approachable",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "launch_campaign_ideas": {
+      "id": "launch_campaign_ideas",
+      "label": "Launch Campaign Ideas",
+      "min_words": 280,
+      "max_words": 800,
+      "min_bullets": 8,
+      "max_bullets": 25,
+      "min_headings": 3,
+      "max_headings": 9,
+      "required_headings": [
+        "Campaign Concepts",
+        "Activation Ideas"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "go viral",
+        "create buzz",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "content_calendar_launch": {
+      "id": "content_calendar_launch",
+      "label": "Launch Content Calendar",
+      "min_words": 280,
+      "max_words": 900,
+      "min_bullets": 10,
+      "max_bullets": 35,
+      "min_headings": 4,
+      "max_headings": 10,
+      "required_headings": [
+        "Week 1",
+        "Week 2"
+      ],
+      "required_substrings": [
+        "|"
+      ],
+      "forbidden_substrings": [
+        "post daily",
+        "figure it out later",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.35,
+      "max_avg_sentence_length": 28,
+      "format": "markdown_table"
+    },
+    "ad_concepts": {
+      "id": "ad_concepts",
+      "label": "Ad Concepts",
+      "min_words": 280,
+      "max_words": 800,
+      "min_bullets": 8,
+      "max_bullets": 25,
+      "min_headings": 3,
+      "max_headings": 9,
+      "required_headings": [
+        "Ad Concepts",
+        "Messaging"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "buy now",
+        "generic ad",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "execution_roadmap": {
+      "id": "execution_roadmap",
+      "label": "Execution Roadmap",
+      "min_words": 260,
+      "max_words": 800,
+      "min_bullets": 8,
+      "max_bullets": 30,
+      "min_headings": 3,
+      "max_headings": 9,
+      "required_headings": [
+        "Phase 1",
+        "Phase 2",
+        "Key Milestones"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "start whenever",
+        "no clear timeline",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_table"
+    },
+    "final_summary": {
+      "id": "final_summary",
+      "label": "Final Summary",
+      "min_words": 180,
+      "max_words": 400,
+      "min_bullets": 3,
+      "max_bullets": 10,
+      "min_headings": 1,
+      "max_headings": 4,
+      "required_headings": [
+        "Key Takeaways"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "in conclusion",
+        "to summarize",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 28,
+      "format": "markdown_block"
+    }
+  }
+}

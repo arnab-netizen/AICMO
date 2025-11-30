@@ -1,0 +1,350 @@
+{
+  "$schema": "aicmo.section_benchmarks.schema.json",
+  "pack_key": "brand_turnaround_lab",
+  "strict": true,
+  "sections": {
+    "overview": {
+      "id": "overview",
+      "label": "Client Overview",
+      "min_words": 120,
+      "max_words": 280,
+      "min_bullets": 3,
+      "max_bullets": 8,
+      "min_headings": 1,
+      "max_headings": 3,
+      "required_headings": [
+        "Brand",
+        "Industry",
+        "Primary Goal"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "your business",
+        "insert brand name",
+        "[Brand]",
+        "lorem ipsum",
+        "to be provided"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.2,
+      "max_avg_sentence_length": 30,
+      "format": "markdown_block"
+    },
+    "brand_audit": {
+      "id": "brand_audit",
+      "label": "Brand Audit",
+      "min_words": 260,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Current Brand Perception",
+        "Brand Strengths",
+        "Brand Weaknesses"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "brand is doing well",
+        "no major issues",
+        "everything is fine",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "customer_insights": {
+      "id": "customer_insights",
+      "label": "Customer Insights",
+      "min_words": 240,
+      "max_words": 650,
+      "min_bullets": 5,
+      "max_bullets": 18,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Customer Pain Points",
+        "Motivations"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "customers want quality",
+        "everyone loves",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "competitor_analysis": {
+      "id": "competitor_analysis",
+      "label": "Competitor Analysis",
+      "min_words": 260,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 2,
+      "max_headings": 8,
+      "required_headings": [],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "no competitors",
+        "we are the best",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "problem_diagnosis": {
+      "id": "problem_diagnosis",
+      "label": "Problem Diagnosis",
+      "min_words": 260,
+      "max_words": 750,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Root Causes",
+        "Impact",
+        "Diagnosis"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "no clear problems",
+        "everything working fine",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "new_positioning": {
+      "id": "new_positioning",
+      "label": "New Brand Positioning",
+      "min_words": 240,
+      "max_words": 650,
+      "min_bullets": 5,
+      "max_bullets": 18,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Target Audience",
+        "Positioning Statement"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "be everything to everyone",
+        "for everyone",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "messaging_framework": {
+      "id": "messaging_framework",
+      "label": "Messaging Framework",
+      "min_words": 200,
+      "max_words": 550,
+      "min_bullets": 4,
+      "max_bullets": 15,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Core Message",
+        "Key Themes"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "generic message",
+        "to be determined",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "creative_direction": {
+      "id": "creative_direction",
+      "label": "Creative Direction",
+      "min_words": 260,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Visual Style",
+        "Tone of Voice"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "modern and clean",
+        "professional yet approachable",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "channel_reset_strategy": {
+      "id": "channel_reset_strategy",
+      "label": "Channel Reset Strategy",
+      "min_words": 260,
+      "max_words": 750,
+      "min_bullets": 6,
+      "max_bullets": 22,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Channel Strategy",
+        "Reset Actions"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "post more often",
+        "be everywhere",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "reputation_recovery_plan": {
+      "id": "reputation_recovery_plan",
+      "label": "Reputation Recovery Plan",
+      "min_words": 260,
+      "max_words": 750,
+      "min_bullets": 6,
+      "max_bullets": 22,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Recovery Actions",
+        "Timeline"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "ignore the problem",
+        "it will blow over",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "promotions_and_offers": {
+      "id": "promotions_and_offers",
+      "label": "Promotions & Offers",
+      "min_words": 240,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 2,
+      "max_headings": 8,
+      "required_headings": [
+        "Promotional Strategy",
+        "Offer Types"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "deep discounts only",
+        "constant sales",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "30_day_recovery_calendar": {
+      "id": "30_day_recovery_calendar",
+      "label": "30-Day Recovery Calendar",
+      "min_words": 280,
+      "max_words": 900,
+      "min_bullets": 10,
+      "max_bullets": 35,
+      "min_headings": 4,
+      "max_headings": 10,
+      "required_headings": [
+        "Week 1",
+        "Week 2",
+        "Week 3",
+        "Week 4"
+      ],
+      "required_substrings": [
+        "|"
+      ],
+      "forbidden_substrings": [
+        "no specific plan",
+        "figure it out later",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.35,
+      "max_avg_sentence_length": 28,
+      "format": "markdown_table"
+    },
+    "execution_roadmap": {
+      "id": "execution_roadmap",
+      "label": "Execution Roadmap",
+      "min_words": 260,
+      "max_words": 800,
+      "min_bullets": 8,
+      "max_bullets": 30,
+      "min_headings": 3,
+      "max_headings": 9,
+      "required_headings": [
+        "Phase 1",
+        "Phase 2",
+        "Key Milestones"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "start whenever",
+        "no clear timeline",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_table"
+    },
+    "final_summary": {
+      "id": "final_summary",
+      "label": "Final Summary",
+      "min_words": 180,
+      "max_words": 400,
+      "min_bullets": 3,
+      "max_bullets": 10,
+      "min_headings": 1,
+      "max_headings": 4,
+      "required_headings": [
+        "Key Takeaways"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "in conclusion",
+        "to summarize",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 28,
+      "format": "markdown_block"
+    }
+  }
+}

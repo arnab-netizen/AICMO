@@ -496,8 +496,10 @@ def generate_output_report_markdown(
         md += "\n### 3.4 Detailed persona cards\n\n"
         for p in output.persona_cards:
             md += f"**{p.name}**\n\n"
-            md += f"- Demographics: {p.demographics}\n"
-            md += f"- Psychographics: {p.psychographics}\n"
+            if getattr(p, "demographics", None) and str(p.demographics).strip():
+                md += f"- Demographics: {p.demographics}\n"
+            if getattr(p, "psychographics", None) and str(p.psychographics).strip():
+                md += f"- Psychographics: {p.psychographics}\n"
             if p.pain_points:
                 md += f"- Pain points: {', '.join(p.pain_points)}\n"
             if p.triggers:
@@ -508,7 +510,8 @@ def generate_output_report_markdown(
                 md += f"- Content preferences: {', '.join(p.content_preferences)}\n"
             if p.primary_platforms:
                 md += f"- Primary platforms: {', '.join(p.primary_platforms)}\n"
-            md += f"- Tone preference: {p.tone_preference}\n\n"
+            if getattr(p, "tone_preference", None) and str(p.tone_preference).strip():
+                md += f"- Tone preference: {p.tone_preference}\n\n"
 
     # --- Calendar ---
     md += dedent(

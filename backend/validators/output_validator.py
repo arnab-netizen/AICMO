@@ -18,6 +18,91 @@ from dataclasses import dataclass
 from enum import Enum
 
 from aicmo.io.client_reports import AICMOOutputReport, ClientInputBrief
+from backend.validators.pack_schemas import get_pack_schema
+
+
+# ============================================================
+# PACK CONTRACT VALIDATION
+# ============================================================
+
+
+def validate_pack_contract(pack_key: str, report: dict | AICMOOutputReport) -> None:
+    """
+    Validate that a generated report matches the pack contract for the specified pack.
+
+    Validates:
+    - All required sections are present
+    - Required sections are non-empty
+    - Section order matches schema (if enforce_order is True)
+
+    Args:
+        pack_key: Package preset key (e.g., "quick_social_basic", "strategy_campaign_standard")
+        report: Generated report as dict or AICMOOutputReport instance
+
+    Raises:
+        ValueError: If validation fails (missing sections, empty sections, wrong order)
+    """
+    # Get schema for this pack
+    schema = get_pack_schema(pack_key)
+    if not schema:
+        # Pack not recognized - skip validation rather than fail
+        # This allows new packs to be added without breaking existing code
+        return
+
+    # Convert report to dict if it's an AICMOOutputReport instance
+    if isinstance(report, AICMOOutputReport):
+        report_dict = report.model_dump()
+    else:
+        report_dict = report
+
+    # Extract sections from report structure
+    # AICMO reports store sections in extra_sections dict
+    extra_sections = report_dict.get("extra_sections", {})
+
+    required_sections = schema.get("required_sections", [])
+    enforce_order = schema.get("enforce_order", False)
+
+    # Validation 1: Check all required sections are present
+    missing_sections = []
+    for section_id in required_sections:
+        if section_id not in extra_sections:
+            missing_sections.append(section_id)
+
+    if missing_sections:
+        raise ValueError(
+            f"Pack '{pack_key}' missing required sections: {', '.join(missing_sections)}"
+        )
+
+    # Validation 2: Check required sections are non-empty
+    empty_sections = []
+    for section_id in required_sections:
+        content = extra_sections.get(section_id, "")
+        if not content or (isinstance(content, str) and not content.strip()):
+            empty_sections.append(section_id)
+
+    if empty_sections:
+        raise ValueError(
+            f"Pack '{pack_key}' has empty required sections: {', '.join(empty_sections)}"
+        )
+
+    # Validation 3: Check section order (if enforce_order is True)
+    if enforce_order:
+        # Get actual order of sections in report
+        actual_order = [sid for sid in extra_sections.keys() if sid in required_sections]
+
+        # Get expected order from schema
+        expected_order = [sid for sid in required_sections if sid in extra_sections]
+
+        if actual_order != expected_order:
+            # Build helpful error message showing mismatch
+            mismatches = []
+            for i, (actual, expected) in enumerate(zip(actual_order, expected_order)):
+                if actual != expected:
+                    mismatches.append(f"Position {i}: expected '{expected}', got '{actual}'")
+
+            raise ValueError(
+                f"Pack '{pack_key}' section order incorrect. First mismatches: {'; '.join(mismatches[:3])}"
+            )
 
 
 # ============================================================

@@ -66,33 +66,35 @@ def test_persona_card_has_all_required_fields():
     assert persona.psychographics == "Values efficiency and results"
 
 
-def test_persona_card_validation_fails_without_demographics():
-    """Test that PersonaCard requires demographics field."""
-    with pytest.raises(Exception):  # Should raise validation error
-        PersonaCard(
-            name="Test",
-            # Missing demographics
-            psychographics="Values results",
-            pain_points=[],
-            triggers=[],
-            objections=[],
-            content_preferences=[],
-            primary_platforms=[],
-            tone_preference="Professional",
-        )
+def test_persona_card_allows_missing_demographics():
+    """PersonaCard tolerates missing demographics and normalizes to empty string."""
+    persona = PersonaCard(
+        name="Test",
+        # Missing demographics
+        psychographics="Values results",
+        pain_points=[],
+        triggers=[],
+        objections=[],
+        content_preferences=[],
+        primary_platforms=[],
+        tone_preference="Professional",
+    )
+
+    assert persona.demographics == ""
 
 
-def test_persona_card_validation_fails_without_psychographics():
-    """Test that PersonaCard requires psychographics field."""
-    with pytest.raises(Exception):  # Should raise validation error
-        PersonaCard(
-            name="Test",
-            demographics="Professional",
-            # Missing psychographics
-            pain_points=[],
-            triggers=[],
-            objections=[],
-            content_preferences=[],
-            primary_platforms=[],
-            tone_preference="Professional",
-        )
+def test_persona_card_allows_missing_psychographics():
+    """PersonaCard tolerates missing psychographics and normalizes to empty string."""
+    persona = PersonaCard(
+        name="Test",
+        demographics="Professional",
+        # Missing psychographics
+        pain_points=[],
+        triggers=[],
+        objections=[],
+        content_preferences=[],
+        primary_platforms=[],
+        tone_preference="Professional",
+    )
+
+    assert persona.psychographics == ""

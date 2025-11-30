@@ -1,0 +1,96 @@
+{
+  "$id": "aicmo.section_benchmarks.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AICMO Section Benchmarks",
+  "type": "object",
+  "required": ["pack_key", "sections"],
+  "properties": {
+    "pack_key": {
+      "type": "string",
+      "description": "Internal pack key, e.g. quick_social_pack_basic"
+    },
+    "strict": {
+      "type": "boolean",
+      "description": "If true, unknown sections fail validation",
+      "default": false
+    },
+    "sections": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["id", "min_words", "max_words"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Section id / key used in SECTION_GENERATORS"
+          },
+          "label": {
+            "type": "string",
+            "description": "Human readable name"
+          },
+          "min_words": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "max_words": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "min_bullets": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "max_bullets": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "min_headings": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "max_headings": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "required_headings": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Plain-text headings that must appear"
+          },
+          "required_substrings": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Phrases that must appear at least once"
+          },
+          "forbidden_substrings": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "forbidden_regex": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Compiled as re patterns, any match = error"
+          },
+          "max_repeated_line_ratio": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "default": 0.5
+          },
+          "max_avg_sentence_length": {
+            "type": "number",
+            "minimum": 1.0,
+            "description": "Average tokens per sentence soft upper bound"
+          },
+          "format": {
+            "type": "string",
+            "enum": ["markdown_block", "markdown_list", "markdown_table"],
+            "default": "markdown_block"
+          }
+        }
+      }
+    }
+  }
+}

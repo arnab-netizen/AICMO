@@ -270,6 +270,22 @@ PACK_SECTION_WHITELIST = {
 }
 
 
+def _safe_persona_label(label: str | None, primary_goal: str | None = None) -> str:
+    """Prevent misrouting of goal text into persona / audience labels.
+
+    - If label is empty or equals the primary goal, return a safe generic label.
+    - Otherwise return the trimmed label.
+    """
+    if not label:
+        return "ideal customers"
+    lbl = label.strip()
+    if not lbl:
+        return "ideal customers"
+    if primary_goal and primary_goal.strip() and lbl == primary_goal.strip():
+        return "ideal customers"
+    return lbl
+
+
 def get_allowed_sections_for_pack(wow_package_key: str) -> set[str]:
     """
     Get the set of allowed section IDs for a given WOW package.
@@ -602,11 +618,15 @@ def _gen_audience_segments(req: GenerateRequest, **kwargs) -> str:
     """Generate 'audience_segments' section."""
     b = req.brief.brand
     a = req.brief.audience
+    # Use safe persona label to avoid goal text being echoed as audience
+    primary_label = _safe_persona_label(a.primary_customer, getattr(req.brief.goal, 'primary_goal', None))
+    secondary_label = a.secondary_customer or "Referral sources and advocates"
+
     raw = (
-        f"**Primary Audience:** {a.primary_customer}\n"
-        f"- {a.primary_customer} actively seeking {b.product_service or 'solutions'}\n"
+        f"**Primary Audience:** {primary_label}\n"
+        f"- {primary_label} actively seeking {b.product_service or 'solutions'}\n"
         f"- Values clarity, proof, and low friction\n\n"
-        f"**Secondary Audience:** {a.secondary_customer or 'Referral sources and advocates'}\n"
+        f"**Secondary Audience:** {secondary_label}\n"
         f"- Decision influencers and advocates\n"
         f"- Shares and amplifies proof-driven content\n\n"
         "**Messaging Approach:** Speak to the specific challenges and aspirations of each segment."
@@ -2473,6 +2493,10 @@ def generate_sections(
     This is the core Layer 2 function - it takes a list of requested section_ids
     and returns only those sections' content. Works for any pack size (Basic, Standard, Premium, Enterprise).
 
+    QUALITY ENFORCEMENT: All generated sections are validated against benchmarks.
+    Failing sections are regenerated once. If validation still fails after regeneration,
+    an HTTPException is raised with details.
+
     Args:
         section_ids: List of section IDs to generate (e.g., ["overview", "persona_cards"])
         req: GenerateRequest with brief and config
@@ -2480,7 +2504,12 @@ def generate_sections(
 
     Returns:
         Dict mapping section_id -> content (markdown string)
+
+    Raises:
+        HTTPException: If sections fail benchmark validation after regeneration
     """
+    from backend.validators.report_gate import validate_report_sections
+
     results = {}
     context = {
         "req": req,
@@ -2492,6 +2521,7 @@ def generate_sections(
         "action_plan": action_plan,
     }
 
+    # PASS 1: Generate all sections
     for section_id in section_ids:
         generator_fn = SECTION_GENERATORS.get(section_id)
         if generator_fn:
@@ -2506,6 +2536,101 @@ def generate_sections(
         else:
             # Section not yet implemented - skip rather than output placeholder
             continue
+
+    # QUALITY GATE: Validate all generated sections against benchmarks
+    pack_key = req.package_preset or req.wow_package_key
+    if pack_key and results:
+        # Build sections list for validation
+        sections_for_validation = [
+            {"id": section_id, "content": content}
+            for section_id, content in results.items()
+            if content  # Skip empty sections
+        ]
+
+        if sections_for_validation:
+            validation_result = validate_report_sections(
+                pack_key=pack_key,
+                sections=sections_for_validation
+            )
+
+            logger.info(
+                f"[BENCHMARK VALIDATION] Pack: {pack_key}, "
+                f"Status: {validation_result.status}, "
+                f"Sections validated: {len(sections_for_validation)}"
+            )
+
+            if validation_result.status == "FAIL":
+                # Get failing sections
+                failing_sections = validation_result.failing_sections()
+                failing_ids = [s.section_id for s in failing_sections]
+
+                logger.warning(
+                    f"[BENCHMARK VALIDATION] {len(failing_ids)} section(s) failed: {failing_ids}. "
+                    "Regenerating..."
+                )
+
+                # PASS 2: Regenerate failing sections
+                for section_id in failing_ids:
+                    generator_fn = SECTION_GENERATORS.get(section_id)
+                    if generator_fn:
+                        try:
+                            results[section_id] = generator_fn(**context)
+                            logger.info(f"[REGENERATION] Regenerated section: {section_id}")
+                        except Exception as e:
+                            logger.error(
+                                f"[REGENERATION] Failed to regenerate '{section_id}': {e}",
+                                exc_info=True
+                            )
+
+                # Re-validate regenerated sections
+                regenerated_sections = [
+                    {"id": section_id, "content": results[section_id]}
+                    for section_id in failing_ids
+                    if section_id in results and results[section_id]
+                ]
+
+                if regenerated_sections:
+                    revalidation_result = validate_report_sections(
+                        pack_key=pack_key,
+                        sections=regenerated_sections
+                    )
+
+                    logger.info(
+                        f"[REVALIDATION] Status: {revalidation_result.status}, "
+                        f"Sections: {len(regenerated_sections)}"
+                    )
+
+                    if revalidation_result.status == "FAIL":
+                        # Still failing after regeneration - block export
+                        still_failing = revalidation_result.failing_sections()
+                        still_failing_ids = [s.section_id for s in still_failing]
+
+                        error_summary = revalidation_result.get_error_summary()
+                        logger.error(
+                            f"[BENCHMARK VALIDATION] Report failed after regeneration. "
+                            f"Failing sections: {still_failing_ids}"
+                        )
+
+                        raise HTTPException(
+                            status_code=500,
+                            detail=(
+                                f"Report failed benchmark validation after regeneration. "
+                                f"Failing sections: {', '.join(still_failing_ids)}. "
+                                f"{error_summary}"
+                            )
+                        )
+                    else:
+                        logger.info(
+                            "[BENCHMARK VALIDATION] All regenerated sections now pass validation"
+                        )
+            elif validation_result.status == "PASS_WITH_WARNINGS":
+                # Log warnings but continue
+                logger.warning(
+                    f"[BENCHMARK VALIDATION] Report passed with warnings for pack: {pack_key}"
+                )
+            else:
+                # PASS - all good
+                logger.info(f"[BENCHMARK VALIDATION] All sections passed for pack: {pack_key}")
 
     return results
 
@@ -2795,6 +2920,9 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
 
     # Campaign blueprint
     big_idea_industry = b.industry or "your category"
+    # Ensure persona label is safe (never a verbatim copy of the goal)
+    safe_primary_label = _safe_persona_label(a.primary_customer, g.primary_goal)
+
     cb = CampaignBlueprintView(
         big_idea=f"Whenever your ideal buyer thinks of {big_idea_industry}, they remember {b.brand_name} first.",
         objective=CampaignObjectiveView(
@@ -2804,18 +2932,22 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
         audience_persona=AudiencePersonaView(
             name="Core Buyer",
             description=(
-                f"{a.primary_customer} who is actively looking for better options and wants "
+                f"{safe_primary_label} who is actively looking for better options and wants "
                 "less friction, more clarity, and trustworthy proof before committing."
             ),
         ),
     )
 
-    # Social calendar (7 days) - brief-driven hooks and CTAs
-    posts = generate_social_calendar(req.brief, start_date=today, days=7)
+    # Social calendar - for Quick Social packs we produce a 30-day calendar, otherwise default 7 days
+    calendar_days = 30 if (req.package_preset and str(req.package_preset).startswith("quick_social")) or (
+        req.wow_package_key and str(req.wow_package_key).startswith("quick_social")
+    ) else 7
+
+    posts = generate_social_calendar(req.brief, start_date=today, days=calendar_days)
 
     cal = SocialCalendarView(
         start_date=today,
-        end_date=today + timedelta(days=6),
+        end_date=today + timedelta(days=calendar_days - 1),
         posts=posts,
     )
 
@@ -3244,6 +3376,70 @@ def _apply_wow_to_output(
         )
         logger.debug(f"WOW report built successfully: {req.wow_package_key}")
         logger.info(f"WOW system used {len(sections)} sections for {req.wow_package_key}")
+
+        # 🔥 PHASE 1: Validate pack contract after WOW report is built
+        try:
+            from backend.validators.output_validator import validate_pack_contract
+
+            validate_pack_contract(req.wow_package_key, output)
+            logger.info(
+                f"✅ Pack contract validation passed for {req.wow_package_key}"
+            )
+        except ValueError as ve:
+            logger.warning(
+                f"⚠️  Pack contract validation failed for {req.wow_package_key}: {ve}"
+            )
+            # Non-breaking: log warning but don't fail report generation
+        except Exception as e:
+            logger.debug(f"Pack contract validation error (non-critical): {e}")
+
+        # 🔥 PHASE 2: Validate section quality against benchmarks
+        try:
+            from backend.validators.report_gate import validate_report_sections
+
+            # Prepare sections for validation (convert from output format)
+            validation_sections = [
+                {"id": s["id"], "content": s["content"]}
+                for s in sections
+                if isinstance(s, dict) and "id" in s and "content" in s
+            ]
+
+            if validation_sections:
+                validation_result = validate_report_sections(
+                    pack_key=req.wow_package_key,
+                    sections=validation_sections
+                )
+
+                logger.info(
+                    f"✅ Benchmark validation completed for {req.wow_package_key}: "
+                    f"status={validation_result.status}, "
+                    f"sections={len(validation_result.section_results)}, "
+                    f"issues={sum(len(r.issues) for r in validation_result.section_results)}"
+                )
+
+                # If validation fails, log detailed error summary
+                if validation_result.status in ["FAIL", "PASS_WITH_WARNINGS"]:
+                    error_summary = validation_result.get_error_summary()
+                    if validation_result.status == "FAIL":
+                        logger.warning(
+                            f"⚠️  Quality gate FAILED for {req.wow_package_key}:\n{error_summary}"
+                        )
+                    else:
+                        logger.info(
+                            f"ℹ️  Quality warnings for {req.wow_package_key}:\n{error_summary}"
+                        )
+
+                    # Optional: Store validation results in output for debugging
+                    # You could add a new field to output object to track quality issues
+            else:
+                logger.debug("No sections available for benchmark validation")
+
+        except Exception as e:
+            logger.warning(
+                f"Benchmark validation error (non-critical) for {req.wow_package_key}: {e}"
+            )
+            # Non-breaking: log warning but don't fail report generation
+
     except Exception as e:
         logger.warning(
             "WOW_APPLICATION_FAILED",
@@ -3690,31 +3886,41 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
             StrategyExtrasBrief,
         )
 
+        # Build ClientInputBrief from payload — be explicit about which payload keys map to which fields.
+        # IMPORTANT: Never use the primary_goal text as a fallback for persona/audience fields.
+        primary_goal_val = (
+            client_brief_dict.get("primary_goal", "").strip()
+            or client_brief_dict.get("objectives", "").strip()
+            or "Achieve your business goal"
+        )
+
+        primary_customer_val = (
+            client_brief_dict.get("primary_customer", "").strip()
+            or client_brief_dict.get("primary_audience", "").strip()
+            or "ideal customers"
+        )
+
         brief = ClientInputBrief(
             brand=BrandBrief(
                 brand_name=client_brief_dict.get("brand_name", "").strip() or "Your Brand",
                 industry=client_brief_dict.get("industry", "").strip() or "your industry",
                 product_service=client_brief_dict.get("product_service", "").strip()
                 or "your main product/service",
-                primary_goal=client_brief_dict.get("objectives", "").strip()
-                or "Achieve your business goal",
-                primary_customer=client_brief_dict.get("objectives", "").strip()
-                or "your target customer",
+                primary_goal=primary_goal_val,
+                primary_customer=primary_customer_val,
                 location=client_brief_dict.get("geography", "").strip() or None,
                 timeline=client_brief_dict.get("timeline", "").strip() or None,
                 business_type=client_brief_dict.get("business_type", "").strip() or None,
                 description=client_brief_dict.get("product_service", "").strip() or None,
             ),
             audience=AudienceBrief(
-                primary_customer=client_brief_dict.get("objectives", "").strip()
-                or "target audience",
-                pain_points=[],
+                primary_customer=primary_customer_val,
+                pain_points=client_brief_dict.get("pain_points", []) or [],
             ),
             goal=GoalBrief(
-                primary_goal=client_brief_dict.get("objectives", "").strip()
-                or "achieve your business goal",
+                primary_goal=primary_goal_val,
                 timeline=client_brief_dict.get("timeline", "").strip() or None,
-                kpis=[],
+                kpis=client_brief_dict.get("kpis", []) or [],
             ),
             voice=VoiceBrief(tone_of_voice=[]),
             product_service=ProductServiceBrief(

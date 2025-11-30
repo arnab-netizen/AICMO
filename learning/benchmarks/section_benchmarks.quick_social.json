@@ -1,0 +1,251 @@
+{
+  "$schema": "aicmo.section_benchmarks.schema.json",
+  "pack_key": "quick_social_basic",
+  "strict": true,
+  "sections": {
+    "overview": {
+      "id": "overview",
+      "label": "Client Overview",
+      "min_words": 120,
+      "max_words": 260,
+      "min_bullets": 3,
+      "max_bullets": 8,
+      "min_headings": 1,
+      "max_headings": 3,
+      "required_headings": [
+        "Brand",
+        "Industry",
+        "Primary Goal"
+      ],
+      "required_substrings": [
+        "Brand:",
+        "Industry:",
+        "Primary Goal:"
+      ],
+      "forbidden_substrings": [
+        "your business",
+        "insert brand name",
+        "[Brand]",
+        "lorem ipsum",
+        "to be provided"
+      ],
+      "forbidden_regex": [
+        "(?i)in today's digital age",
+        "(?i)content is king",
+        "(?i)as a leading brand"
+      ],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 32,
+      "format": "markdown_block"
+    },
+    "audience_segments": {
+      "id": "audience_segments",
+      "label": "Audience Segments",
+      "min_words": 80,
+      "max_words": 200,
+      "min_bullets": 2,
+      "max_bullets": 6,
+      "min_headings": 1,
+      "max_headings": 2,
+      "required_headings": [
+        "Primary Audience",
+        "Secondary Audience"
+      ],
+      "required_substrings": [
+        "Primary Audience:",
+        "Secondary Audience:"
+      ],
+      "forbidden_substrings": [
+        "N/A",
+        "not specified",
+        "tbd",
+        "to be decided"
+      ],
+      "forbidden_regex": [
+        "(?i)increase brand awareness without any clear metric"
+      ],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 30,
+      "format": "markdown_list"
+    },
+    "messaging_framework": {
+      "id": "messaging_framework",
+      "label": "Messaging Framework",
+      "min_words": 100,
+      "max_words": 300,
+      "min_bullets": 3,
+      "max_bullets": 10,
+      "min_headings": 1,
+      "max_headings": 3,
+      "required_headings": [],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "none",
+        "no messaging"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 28,
+      "format": "markdown_block"
+    },
+    "content_buckets": {
+      "id": "content_buckets",
+      "label": "Content Buckets",
+      "min_words": 100,
+      "max_words": 280,
+      "min_bullets": 4,
+      "max_bullets": 10,
+      "min_headings": 3,
+      "max_headings": 5,
+      "required_headings": [
+        "Bucket"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "random mix"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 28,
+      "format": "markdown_list"
+    },
+    "weekly_social_calendar": {
+      "id": "weekly_social_calendar",
+      "label": "Weekly Social Calendar",
+      "min_words": 150,
+      "max_words": 500,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 10,
+      "required_headings": [
+        "Monday",
+        "Wednesday",
+        "Friday"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "repeat previous week",
+        "same as above"
+      ],
+      "forbidden_regex": [
+        "(?i)post whatever is trending"
+      ],
+      "max_repeated_line_ratio": 0.35,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_list"
+    },
+    "creative_direction_light": {
+      "id": "creative_direction_light",
+      "label": "Creative Direction",
+      "min_words": 100,
+      "max_words": 300,
+      "min_bullets": 5,
+      "max_bullets": 15,
+      "min_headings": 2,
+      "max_headings": 5,
+      "required_headings": [
+        "Brand Voice",
+        "Visual Style"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "generic direction",
+        "write your own"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "hashtag_strategy": {
+      "id": "hashtag_strategy",
+      "label": "Hashtag Strategy",
+      "min_words": 100,
+      "max_words": 300,
+      "min_bullets": 5,
+      "max_bullets": 15,
+      "min_headings": 2,
+      "max_headings": 4,
+      "required_headings": [
+        "Brand Hashtags",
+        "Industry Hashtags"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "use random hashtags"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 24,
+      "format": "markdown_list"
+    },
+    "platform_guidelines": {
+      "id": "platform_guidelines",
+      "label": "Platform Guidelines",
+      "min_words": 150,
+      "max_words": 400,
+      "min_bullets": 8,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 6,
+      "required_headings": [
+        "LinkedIn",
+        "Facebook",
+        "Instagram"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "post anywhere",
+        "use all platforms"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_list"
+    },
+    "kpi_plan_light": {
+      "id": "kpi_plan_light",
+      "label": "KPI Plan",
+      "min_words": 120,
+      "max_words": 300,
+      "min_bullets": 6,
+      "max_bullets": 15,
+      "min_headings": 3,
+      "max_headings": 5,
+      "required_headings": [
+        "Reach",
+        "Engagement"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "can't be measured",
+        "measure everything"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_list"
+    },
+    "final_summary": {
+      "id": "final_summary",
+      "label": "Final Summary",
+      "min_words": 100,
+      "max_words": 260,
+      "min_bullets": 0,
+      "max_bullets": 8,
+      "min_headings": 0,
+      "max_headings": 2,
+      "required_headings": [],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "do social media consistently",
+        "post regularly"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    }
+  }
+}

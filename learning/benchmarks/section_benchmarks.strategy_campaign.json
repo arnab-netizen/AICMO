@@ -1,0 +1,970 @@
+{
+  "$schema": "aicmo.section_benchmarks.schema.json",
+  "pack_key": "strategy_campaign_premium",
+  "strict": true,
+  "sections": {
+    "campaign_objective": {
+      "id": "campaign_objective",
+      "label": "Campaign Objectives",
+      "min_words": 180,
+      "max_words": 380,
+      "min_bullets": 3,
+      "max_bullets": 10,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Primary Objective",
+        "Secondary Objectives",
+        "Time Horizon"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "increase brand awareness without any clear metric",
+        "do better on social media",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_list"
+    },
+    "core_campaign_idea": {
+      "id": "core_campaign_idea",
+      "label": "Big Campaign Idea & Creative Territory",
+      "min_words": 250,
+      "max_words": 700,
+      "min_bullets": 3,
+      "max_bullets": 14,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Big Idea",
+        "Creative Territory",
+        "Why It Works"
+      ],
+      "required_substrings": [
+        "Big Idea:"
+      ],
+      "forbidden_substrings": [
+        "viral",
+        "make it go viral",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "channel_plan": {
+      "id": "channel_plan",
+      "label": "Channel & Tactic Strategy",
+      "min_words": 350,
+      "max_words": 900,
+      "min_bullets": 6,
+      "max_bullets": 24,
+      "min_headings": 3,
+      "max_headings": 10,
+      "required_headings": [
+        "Priority Channels",
+        "Role of Each Channel",
+        "Key Tactics",
+        "Budget Focus"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "be present on all channels",
+        "do everything everywhere",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 28,
+      "format": "markdown_block"
+    },
+    "value_proposition_map": {
+      "id": "value_proposition_map",
+      "label": "Positioning & Messaging",
+      "min_words": 250,
+      "max_words": 650,
+      "min_bullets": 5,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Positioning Statement",
+        "Core Value Proposition",
+        "Messaging Pillars",
+        "Proof Points"
+      ],
+      "required_substrings": [
+        "Positioning Statement:",
+        "Core Value Proposition:"
+      ],
+      "forbidden_substrings": [
+        "we provide the best service",
+        "high quality at low cost",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "detailed_30_day_calendar": {
+      "id": "detailed_30_day_calendar",
+      "label": "Campaign Calendar & Phasing",
+      "min_words": 350,
+      "max_words": 1200,
+      "min_bullets": 8,
+      "max_bullets": 30,
+      "min_headings": 3,
+      "max_headings": 12,
+      "required_headings": [
+        "Phase 1",
+        "Phase 2",
+        "Phase 3"
+      ],
+      "required_substrings": [
+        "Week",
+        "Phase"
+      ],
+      "forbidden_substrings": [
+        "do this whenever possible",
+        "run as needed",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_table"
+    },
+    "kpi_and_budget_plan": {
+      "id": "kpi_and_budget_plan",
+      "label": "Budget & Investment Focus",
+      "min_words": 200,
+      "max_words": 500,
+      "min_bullets": 4,
+      "max_bullets": 14,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Budget Split by Channel",
+        "Testing vs Always-On",
+        "Guardrails"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "spend whatever is possible",
+        "spend more on ads",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_list"
+    },
+    "measurement_framework": {
+      "id": "measurement_framework",
+      "label": "Measurement Framework & KPIs",
+      "min_words": 250,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "North Star Metric",
+        "Supporting KPIs",
+        "Reporting Cadence",
+        "Attribution Notes"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "track everything",
+        "just monitor insights",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "risk_assessment": {
+      "id": "risk_assessment",
+      "label": "Risks, Assumptions & Dependencies",
+      "min_words": 200,
+      "max_words": 500,
+      "min_bullets": 4,
+      "max_bullets": 14,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Key Risks",
+        "Core Assumptions",
+        "Dependencies"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "no major risks",
+        "no assumptions",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_list"
+    },
+    "market_analysis": {
+      "id": "market_analysis",
+      "label": "Situation Analysis",
+      "min_words": 350,
+      "max_words": 800,
+      "min_bullets": 4,
+      "max_bullets": 12,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Market Context",
+        "Current Performance",
+        "Competitive Landscape",
+        "Key Challenges"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "no data available",
+        "information not provided",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 32,
+      "format": "markdown_block"
+    },
+    "persona_cards": {
+      "id": "persona_cards",
+      "label": "Audience & Personas",
+      "min_words": 300,
+      "max_words": 900,
+      "min_bullets": 6,
+      "max_bullets": 24,
+      "min_headings": 3,
+      "max_headings": 10,
+      "required_headings": [
+        "Primary Persona",
+        "Secondary Persona",
+        "Pain Points",
+        "Motivations"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "generic persona",
+        "target everyone",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "cxo_summary": {
+      "id": "cxo_summary",
+      "label": "Executive Summary",
+      "min_words": 220,
+      "max_words": 450,
+      "min_bullets": 3,
+      "max_bullets": 8,
+      "min_headings": 1,
+      "max_headings": 4,
+      "required_headings": [
+        "Context",
+        "Core Strategy",
+        "Expected Outcomes"
+      ],
+      "required_substrings": [
+        "Context:",
+        "Core Strategy:",
+        "Expected Outcomes:"
+      ],
+      "forbidden_substrings": [
+        "in today's digital age",
+        "content is king",
+        "as a leading brand",
+        "lorem ipsum",
+        "your business"
+      ],
+      "forbidden_regex": [
+        "(?i)in today['']s digital world",
+        "(?i)this report will help you"
+      ],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 30,
+      "format": "markdown_block"
+    },
+    "overview": {
+      "id": "overview",
+      "label": "Client Overview",
+      "min_words": 120,
+      "max_words": 280,
+      "min_bullets": 3,
+      "max_bullets": 8,
+      "min_headings": 1,
+      "max_headings": 3,
+      "required_headings": [
+        "Brand",
+        "Industry",
+        "Primary Goal"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "your business",
+        "insert brand name",
+        "[Brand]",
+        "lorem ipsum",
+        "to be provided"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.2,
+      "max_avg_sentence_length": 30,
+      "format": "markdown_block"
+    },
+    "messaging_framework": {
+      "id": "messaging_framework",
+      "label": "Messaging Framework",
+      "min_words": 200,
+      "max_words": 550,
+      "min_bullets": 4,
+      "max_bullets": 15,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Core Message",
+        "Key Themes"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "generic message",
+        "to be determined",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "audience_segments": {
+      "id": "audience_segments",
+      "label": "Audience Segments",
+      "min_words": 180,
+      "max_words": 500,
+      "min_bullets": 4,
+      "max_bullets": 15,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Primary Audience",
+        "Secondary Audience"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "everyone",
+        "mass market",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "final_summary": {
+      "id": "final_summary",
+      "label": "Final Summary",
+      "min_words": 180,
+      "max_words": 400,
+      "min_bullets": 3,
+      "max_bullets": 10,
+      "min_headings": 1,
+      "max_headings": 4,
+      "required_headings": [
+        "Key Takeaways"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "in conclusion",
+        "to summarize",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 28,
+      "format": "markdown_block"
+    },
+    "creative_direction": {
+      "id": "creative_direction",
+      "label": "Creative Direction",
+      "min_words": 260,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Visual Style",
+        "Tone of Voice"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "modern and clean",
+        "professional yet approachable",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "creative_territories": {
+      "id": "creative_territories",
+      "label": "Creative Territories",
+      "min_words": 240,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 2,
+      "max_headings": 8,
+      "required_headings": [
+        "Creative Themes"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "generic creative",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "copy_variants": {
+      "id": "copy_variants",
+      "label": "Copy Variants",
+      "min_words": 240,
+      "max_words": 700,
+      "min_bullets": 8,
+      "max_bullets": 25,
+      "min_headings": 2,
+      "max_headings": 8,
+      "required_headings": [
+        "Copy Variations"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "same copy everywhere",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "influencer_strategy": {
+      "id": "influencer_strategy",
+      "label": "Influencer Strategy",
+      "min_words": 240,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Influencer Tiers",
+        "Activation Strategy"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "work with anyone",
+        "all influencers",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "ugc_and_community_plan": {
+      "id": "ugc_and_community_plan",
+      "label": "UGC & Community Building",
+      "min_words": 240,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "UGC Strategy",
+        "Community Tactics"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "ask for reviews",
+        "hope for engagement",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "promotions_and_offers": {
+      "id": "promotions_and_offers",
+      "label": "Promotions & Offers",
+      "min_words": 240,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 2,
+      "max_headings": 8,
+      "required_headings": [
+        "Promotional Strategy",
+        "Offer Types"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "deep discounts only",
+        "constant sales",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "funnel_breakdown": {
+      "id": "funnel_breakdown",
+      "label": "Funnel Breakdown",
+      "min_words": 250,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 4,
+      "max_headings": 10,
+      "required_headings": [
+        "Awareness",
+        "Consideration",
+        "Conversion",
+        "Retention"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "funnel may vary",
+        "no clear stages",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_table"
+    },
+    "awareness_strategy": {
+      "id": "awareness_strategy",
+      "label": "Awareness Strategy",
+      "min_words": 250,
+      "max_words": 650,
+      "min_bullets": 5,
+      "max_bullets": 18,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Objective",
+        "Key Channels",
+        "Core Tactics"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "go viral",
+        "just post more often",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "consideration_strategy": {
+      "id": "consideration_strategy",
+      "label": "Consideration Strategy",
+      "min_words": 250,
+      "max_words": 700,
+      "min_bullets": 5,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Nurture Strategy"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "discount everything",
+        "copy competitors",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "conversion_strategy": {
+      "id": "conversion_strategy",
+      "label": "Conversion Strategy",
+      "min_words": 250,
+      "max_words": 700,
+      "min_bullets": 5,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Conversion Tactics"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "lower prices",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "retention_strategy": {
+      "id": "retention_strategy",
+      "label": "Retention Strategy",
+      "min_words": 260,
+      "max_words": 700,
+      "min_bullets": 5,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Retention Drivers",
+        "Engagement Moments"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "just send more emails",
+        "frequent discounts",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "email_and_crm_flows": {
+      "id": "email_and_crm_flows",
+      "label": "Email & CRM Flows",
+      "min_words": 280,
+      "max_words": 900,
+      "min_bullets": 8,
+      "max_bullets": 30,
+      "min_headings": 4,
+      "max_headings": 10,
+      "required_headings": [
+        "Welcome Series",
+        "Nurture Flows"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "send daily emails",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_table"
+    },
+    "sms_and_whatsapp_strategy": {
+      "id": "sms_and_whatsapp_strategy",
+      "label": "SMS & WhatsApp Strategy",
+      "min_words": 240,
+      "max_words": 750,
+      "min_bullets": 6,
+      "max_bullets": 22,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "SMS Strategy",
+        "WhatsApp Strategy"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "spam messages",
+        "send constantly",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "ad_concepts": {
+      "id": "ad_concepts",
+      "label": "Ad Concepts",
+      "min_words": 280,
+      "max_words": 800,
+      "min_bullets": 8,
+      "max_bullets": 25,
+      "min_headings": 3,
+      "max_headings": 9,
+      "required_headings": [
+        "Ad Concepts",
+        "Messaging"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "buy now",
+        "generic ad",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "execution_roadmap": {
+      "id": "execution_roadmap",
+      "label": "Execution Roadmap",
+      "min_words": 260,
+      "max_words": 800,
+      "min_bullets": 8,
+      "max_bullets": 30,
+      "min_headings": 3,
+      "max_headings": 9,
+      "required_headings": [
+        "Phase 1",
+        "Phase 2",
+        "Key Milestones"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "start whenever",
+        "no clear timeline",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_table"
+    },
+    "post_campaign_analysis": {
+      "id": "post_campaign_analysis",
+      "label": "Post-Campaign Analysis",
+      "min_words": 240,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Results",
+        "Learnings"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "everything worked great",
+        "no issues",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "optimization_opportunities": {
+      "id": "optimization_opportunities",
+      "label": "Optimization Opportunities",
+      "min_words": 260,
+      "max_words": 800,
+      "min_bullets": 8,
+      "max_bullets": 30,
+      "min_headings": 2,
+      "max_headings": 8,
+      "required_headings": [
+        "High-Impact Experiments",
+        "Quick Wins"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "test everything",
+        "random experiments",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_table"
+    },
+    "industry_landscape": {
+      "id": "industry_landscape",
+      "label": "Industry Landscape",
+      "min_words": 260,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Market Trends",
+        "Industry Dynamics"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "growing market",
+        "huge opportunity",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "competitor_analysis": {
+      "id": "competitor_analysis",
+      "label": "Competitor Analysis",
+      "min_words": 260,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 2,
+      "max_headings": 8,
+      "required_headings": [],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "no competitors",
+        "we are the best",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "customer_insights": {
+      "id": "customer_insights",
+      "label": "Customer Insights",
+      "min_words": 240,
+      "max_words": 650,
+      "min_bullets": 5,
+      "max_bullets": 18,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Customer Pain Points",
+        "Motivations"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "customers want quality",
+        "everyone loves",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "brand_positioning": {
+      "id": "brand_positioning",
+      "label": "Brand Positioning",
+      "min_words": 240,
+      "max_words": 650,
+      "min_bullets": 5,
+      "max_bullets": 18,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Positioning Statement"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "be everything to everyone",
+        "for everyone",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "customer_journey_map": {
+      "id": "customer_journey_map",
+      "label": "Customer Journey Map",
+      "min_words": 280,
+      "max_words": 800,
+      "min_bullets": 8,
+      "max_bullets": 25,
+      "min_headings": 5,
+      "max_headings": 12,
+      "required_headings": [
+        "Awareness",
+        "Consideration",
+        "Purchase",
+        "Retention"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "simple journey",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_table"
+    },
+    "strategic_recommendations": {
+      "id": "strategic_recommendations",
+      "label": "Strategic Recommendations",
+      "min_words": 280,
+      "max_words": 900,
+      "min_bullets": 8,
+      "max_bullets": 30,
+      "min_headings": 4,
+      "max_headings": 10,
+      "required_headings": [
+        "Strategic Priorities"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "keep doing same",
+        "no changes needed",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "remarketing_strategy": {
+      "id": "remarketing_strategy",
+      "label": "Remarketing Strategy",
+      "min_words": 260,
+      "max_words": 800,
+      "min_bullets": 6,
+      "max_bullets": 22,
+      "min_headings": 3,
+      "max_headings": 9,
+      "required_headings": [
+        "Retargeting Strategy",
+        "Audience Segmentation"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "show same ads",
+        "retarget everyone",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    }
+  }
+}

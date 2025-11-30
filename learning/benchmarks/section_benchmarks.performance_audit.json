@@ -1,0 +1,423 @@
+{
+  "$schema": "aicmo.section_benchmarks.schema.json",
+  "pack_key": "performance_audit_revamp",
+  "strict": true,
+  "sections": {
+    "overview": {
+      "id": "overview",
+      "label": "Client Overview",
+      "min_words": 120,
+      "max_words": 280,
+      "min_bullets": 3,
+      "max_bullets": 8,
+      "min_headings": 1,
+      "max_headings": 3,
+      "required_headings": [
+        "Brand",
+        "Industry",
+        "Primary Goal"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "your business",
+        "insert brand name",
+        "[Brand]",
+        "lorem ipsum",
+        "to be provided"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.2,
+      "max_avg_sentence_length": 30,
+      "format": "markdown_block"
+    },
+    "account_audit": {
+      "id": "account_audit",
+      "label": "Current State Snapshot",
+      "min_words": 260,
+      "max_words": 700,
+      "min_bullets": 5,
+      "max_bullets": 18,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Account Structure",
+        "Budget & Spend Patterns",
+        "Performance Baseline"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "everything is fine",
+        "no major issues",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "campaign_level_findings": {
+      "id": "campaign_level_findings",
+      "label": "Channel-by-Channel Review",
+      "min_words": 280,
+      "max_words": 800,
+      "min_bullets": 6,
+      "max_bullets": 24,
+      "min_headings": 4,
+      "max_headings": 10,
+      "required_headings": [
+        "Channel Performance",
+        "Wins & Losses",
+        "Gaps"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "channels performing well",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_table"
+    },
+    "audience_analysis": {
+      "id": "audience_analysis",
+      "label": "Audience Analysis",
+      "min_words": 240,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Current Audiences",
+        "Performance by Segment"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "all audiences good",
+        "targeting everyone",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "funnel_breakdown": {
+      "id": "funnel_breakdown",
+      "label": "Funnel Drop-Off Analysis",
+      "min_words": 260,
+      "max_words": 750,
+      "min_bullets": 5,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Drop-Off Stages",
+        "Major Leaks",
+        "Hypotheses"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "funnel looks fine",
+        "no major drop-offs",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "competitor_benchmark": {
+      "id": "competitor_benchmark",
+      "label": "Competitive Benchmark",
+      "min_words": 240,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Competitor Performance",
+        "Our Position"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "no competitors",
+        "we are winning",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "problem_diagnosis": {
+      "id": "problem_diagnosis",
+      "label": "Problem Diagnosis",
+      "min_words": 260,
+      "max_words": 750,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Root Causes",
+        "Impact"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "no problems",
+        "all good",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "creative_performance_analysis": {
+      "id": "creative_performance_analysis",
+      "label": "Creative & Messaging Audit",
+      "min_words": 260,
+      "max_words": 700,
+      "min_bullets": 5,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Top Creatives",
+        "Underperformers",
+        "Creative Gaps"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "all creative good",
+        "just refresh creative",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "new_ad_concepts": {
+      "id": "new_ad_concepts",
+      "label": "New Ad Concepts",
+      "min_words": 280,
+      "max_words": 800,
+      "min_bullets": 8,
+      "max_bullets": 25,
+      "min_headings": 3,
+      "max_headings": 9,
+      "required_headings": [
+        "Ad Concepts",
+        "Messaging"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "same as before",
+        "generic ads",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "creative_direction": {
+      "id": "creative_direction",
+      "label": "Creative Direction",
+      "min_words": 260,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Visual Style",
+        "Tone of Voice"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "modern and clean",
+        "professional yet approachable",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "conversion_audit": {
+      "id": "conversion_audit",
+      "label": "Conversion Experience Audit",
+      "min_words": 260,
+      "max_words": 750,
+      "min_bullets": 5,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Landing Page Friction",
+        "CTA Performance",
+        "Form & Checkout Issues"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "conversion flow is good",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "remarketing_strategy": {
+      "id": "remarketing_strategy",
+      "label": "Remarketing Strategy",
+      "min_words": 240,
+      "max_words": 700,
+      "min_bullets": 6,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 8,
+      "required_headings": [
+        "Remarketing Audiences",
+        "Strategy"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "remarketing not needed",
+        "no retargeting",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "kpi_reset_plan": {
+      "id": "kpi_reset_plan",
+      "label": "KPI Quality Check",
+      "min_words": 220,
+      "max_words": 600,
+      "min_bullets": 5,
+      "max_bullets": 18,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Current KPIs",
+        "Missing Metrics",
+        "Recommended KPI Stack"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "KPIs look fine",
+        "no changes needed",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_block"
+    },
+    "optimization_opportunities": {
+      "id": "optimization_opportunities",
+      "label": "7-Day Quick Wins",
+      "min_words": 220,
+      "max_words": 650,
+      "min_bullets": 5,
+      "max_bullets": 20,
+      "min_headings": 2,
+      "max_headings": 6,
+      "required_headings": [
+        "Immediate Actions",
+        "Expected Impact"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "no quick wins",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_table"
+    },
+    "execution_roadmap": {
+      "id": "execution_roadmap",
+      "label": "30/60/90-Day Roadmap",
+      "min_words": 260,
+      "max_words": 800,
+      "min_bullets": 8,
+      "max_bullets": 30,
+      "min_headings": 3,
+      "max_headings": 9,
+      "required_headings": [
+        "30-Day Sprint",
+        "60-Day Horizon",
+        "90-Day Vision"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "wait and see",
+        "no clear roadmap",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_table"
+    },
+    "final_summary": {
+      "id": "final_summary",
+      "label": "Final Summary",
+      "min_words": 180,
+      "max_words": 400,
+      "min_bullets": 3,
+      "max_bullets": 10,
+      "min_headings": 1,
+      "max_headings": 4,
+      "required_headings": [
+        "Key Takeaways"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "in conclusion",
+        "to summarize",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.25,
+      "max_avg_sentence_length": 28,
+      "format": "markdown_block"
+    },
+    "revamp_strategy": {
+      "id": "revamp_strategy",
+      "label": "Prioritised Recommendations",
+      "min_words": 280,
+      "max_words": 900,
+      "min_bullets": 8,
+      "max_bullets": 30,
+      "min_headings": 4,
+      "max_headings": 10,
+      "required_headings": [
+        "Critical Fixes",
+        "High-Impact Opportunities",
+        "Medium-Term Improvements",
+        "Long-Term Bets"
+      ],
+      "required_substrings": [],
+      "forbidden_substrings": [
+        "everything perfect",
+        "no recommendations",
+        "lorem ipsum"
+      ],
+      "forbidden_regex": [],
+      "max_repeated_line_ratio": 0.3,
+      "max_avg_sentence_length": 26,
+      "format": "markdown_table"
+    }
+  }
+}
