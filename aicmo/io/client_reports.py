@@ -349,6 +349,44 @@ def generate_output_report_markdown(
     output: AICMOOutputReport,
 ) -> str:
     """Convert brief + output into a single client-facing Markdown report."""
+
+    # 🔥 FIX: For WOW-only packs (like Quick Social), return wow_markdown directly
+    # These packs don't need the core marketing plan sections 1-7
+    WOW_ONLY_PACKS = {
+        "quick_social_basic",
+        # Add other WOW-only packs here if needed
+    }
+
+    if output.wow_markdown and output.wow_package_key in WOW_ONLY_PACKS:
+        # Return WOW content directly without core plan
+        md = output.wow_markdown
+
+        # Apply quality guardrails and formatting pass
+        from aicmo.presets.quality_enforcer import enforce_quality
+        from aicmo.generators.output_formatter import format_final_output
+
+        brief_dict = {
+            "brand_name": brief.brand.brand_name,
+            "industry": brief.brand.industry,
+            "objectives": brief.goal.primary_goal,
+        }
+        md = enforce_quality(brief_dict, md.strip())
+        md = format_final_output(md)
+
+        # Apply Quick Social cleanup pass if needed
+        if "quick_social" in output.wow_package_key.lower():
+            from backend.utils.text_cleanup import clean_quick_social_text
+
+            class CleanupRequest:
+                def __init__(self, brief_obj):
+                    self.brief = brief_obj
+
+            req = CleanupRequest(brief)
+            md = clean_quick_social_text(md, req)
+
+        return md
+
+    # Standard path: build core marketing plan + optional WOW add-ons
     b = brief.brand
     g = brief.goal
     a = brief.audience
@@ -667,5 +705,18 @@ def generate_output_report_markdown(
     }
     md = enforce_quality(brief_dict, md.strip())
     md = format_final_output(md)
+
+    # 🔥 FIX: Apply Quick Social cleanup pass to final markdown if this is a Quick Social pack
+    # This ensures banned phrases are removed even from stub content
+    if output.extra_sections:  # Quick Social uses extra_sections
+        from backend.utils.text_cleanup import clean_quick_social_text
+
+        # Create minimal request object for cleanup function
+        class CleanupRequest:
+            def __init__(self, brief_obj):
+                self.brief = brief_obj
+
+        req = CleanupRequest(brief)
+        md = clean_quick_social_text(md, req)
 
     return md

@@ -38,35 +38,36 @@
       "max_avg_sentence_length": 32,
       "format": "markdown_block"
     },
-    "audience_segments": {
-      "id": "audience_segments",
-      "label": "Audience Segments",
-      "min_words": 80,
-      "max_words": 200,
-      "min_bullets": 2,
-      "max_bullets": 6,
-      "min_headings": 1,
-      "max_headings": 2,
+    "detailed_30_day_calendar": {
+      "id": "detailed_30_day_calendar",
+      "label": "30-Day Social Calendar",
+      "min_words": 200,
+      "max_words": 800,
+      "min_bullets": 15,
+      "max_bullets": 35,
+      "min_headings": 5,
+      "max_headings": 15,
       "required_headings": [
-        "Primary Audience",
-        "Secondary Audience"
+        "Day",
+        "Hook",
+        "Platform"
       ],
       "required_substrings": [
-        "Primary Audience:",
-        "Secondary Audience:"
+        "Education",
+        "Proof",
+        "Promo"
       ],
       "forbidden_substrings": [
-        "N/A",
-        "not specified",
-        "tbd",
-        "to be decided"
+        "repeat previous week",
+        "same as above",
+        "post whatever is trending"
       ],
       "forbidden_regex": [
-        "(?i)increase brand awareness without any clear metric"
+        "(?i)just wing it"
       ],
-      "max_repeated_line_ratio": 0.3,
-      "max_avg_sentence_length": 30,
-      "format": "markdown_list"
+      "max_repeated_line_ratio": 0.35,
+      "max_avg_sentence_length": 28,
+      "format": "markdown_table"
     },
     "messaging_framework": {
       "id": "messaging_framework",
@@ -109,54 +110,28 @@
       "max_avg_sentence_length": 28,
       "format": "markdown_list"
     },
-    "weekly_social_calendar": {
-      "id": "weekly_social_calendar",
-      "label": "Weekly Social Calendar",
-      "min_words": 150,
-      "max_words": 500,
-      "min_bullets": 6,
-      "max_bullets": 20,
-      "min_headings": 3,
-      "max_headings": 10,
-      "required_headings": [
-        "Monday",
-        "Wednesday",
-        "Friday"
-      ],
-      "required_substrings": [],
-      "forbidden_substrings": [
-        "repeat previous week",
-        "same as above"
-      ],
-      "forbidden_regex": [
-        "(?i)post whatever is trending"
-      ],
-      "max_repeated_line_ratio": 0.35,
-      "max_avg_sentence_length": 26,
-      "format": "markdown_list"
-    },
-    "creative_direction_light": {
-      "id": "creative_direction_light",
-      "label": "Creative Direction",
+    "execution_roadmap": {
+      "id": "execution_roadmap",
+      "label": "Execution Roadmap",
       "min_words": 100,
       "max_words": 300,
       "min_bullets": 5,
-      "max_bullets": 15,
-      "min_headings": 2,
-      "max_headings": 5,
+      "max_bullets": 12,
+      "min_headings": 1,
+      "max_headings": 4,
       "required_headings": [
-        "Brand Voice",
-        "Visual Style"
+        "Week 1",
+        "Next Steps"
       ],
       "required_substrings": [],
       "forbidden_substrings": [
-        "generic direction",
-        "write your own"
+        "just start posting",
+        "figure it out"
       ],
       "forbidden_regex": [],
-      "max_repeated_line_ratio": 0.25,
+      "max_repeated_line_ratio": 0.3,
       "max_avg_sentence_length": 26,
-      "format": "markdown_block"
+      "format": "markdown_list"
     },
     "hashtag_strategy": {
       "id": "hashtag_strategy",
@@ -180,30 +155,7 @@
       "max_avg_sentence_length": 24,
       "format": "markdown_list"
     },
-    "platform_guidelines": {
-      "id": "platform_guidelines",
-      "label": "Platform Guidelines",
-      "min_words": 150,
-      "max_words": 400,
-      "min_bullets": 8,
-      "max_bullets": 20,
-      "min_headings": 3,
-      "max_headings": 6,
-      "required_headings": [
-        "LinkedIn",
-        "Facebook",
-        "Instagram"
-      ],
-      "required_substrings": [],
-      "forbidden_substrings": [
-        "post anywhere",
-        "use all platforms"
-      ],
-      "forbidden_regex": [],
-      "max_repeated_line_ratio": 0.3,
-      "max_avg_sentence_length": 26,
-      "format": "markdown_list"
-    },
+
     "kpi_plan_light": {
       "id": "kpi_plan_light",
       "label": "KPI Plan",

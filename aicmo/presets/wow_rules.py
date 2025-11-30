@@ -20,14 +20,12 @@ WOW_RULES: Dict[str, WowRule] = {
     "quick_social_basic": {
         "sections": [
             {"key": "overview"},
-            {"key": "audience_segments"},
             {"key": "messaging_framework"},
+            {"key": "detailed_30_day_calendar"},
             {"key": "content_buckets"},
-            {"key": "weekly_social_calendar"},
-            {"key": "creative_direction_light"},
             {"key": "hashtag_strategy"},
-            {"key": "platform_guidelines"},
             {"key": "kpi_plan_light"},
+            {"key": "execution_roadmap"},
             {"key": "final_summary"},
         ]
     },

@@ -26,16 +26,15 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
     "quick_social_basic": {
         "label": "Quick Social Pack (Basic)",
         # All fields are required
+        # CORE sections only - lightweight social pack focused on execution
         "sections": [
-            "overview",
-            "audience_segments",
-            "messaging_framework",
-            "content_buckets",
-            "weekly_social_calendar",
-            "creative_direction_light",
-            "hashtag_strategy",
-            "platform_guidelines",
-            "kpi_plan_light",
+            "overview",  # Brand & Objectives
+            "messaging_framework",  # Strategy Lite / brand messaging pyramid
+            "detailed_30_day_calendar",  # 30-day content calendar (hero section)
+            "content_buckets",  # Hooks + caption examples
+            "hashtag_strategy",  # Simple hashtag strategy
+            "kpi_plan_light",  # Light KPIs
+            "execution_roadmap",  # 7-day execution checklist / next steps
             "final_summary",
         ],
         "requires_research": False,

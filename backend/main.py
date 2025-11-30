@@ -148,17 +148,15 @@ PACKAGE_NAME_TO_KEY = {
 # Ensures Basic packs only get 10 sections, Standard gets 17, Premium gets 21
 # Maps WOW package key → list of allowed section IDs
 PACK_SECTION_WHITELIST = {
-    # Quick Social Pack (Basic) - 10 sections only
+    # Quick Social Pack (Basic) - 8 core sections only (tightened scope)
     "quick_social_basic": {
-        "overview",
-        "audience_segments",
-        "messaging_framework",
-        "content_buckets",
-        "weekly_social_calendar",
-        "creative_direction_light",
-        "hashtag_strategy",
-        "platform_guidelines",
-        "kpi_plan_light",
+        "overview",  # Brand & Objectives
+        "messaging_framework",  # Strategy Lite / brand messaging pyramid
+        "detailed_30_day_calendar",  # 30-day content calendar (hero section)
+        "content_buckets",  # Hooks + caption examples
+        "hashtag_strategy",  # Simple hashtag strategy
+        "kpi_plan_light",  # Light KPIs
+        "execution_roadmap",  # 7-day execution checklist / next steps
         "final_summary",
     },
     # Strategy + Campaign Pack (Standard) - 16 sections
@@ -535,8 +533,33 @@ def _gen_overview(
     **kwargs,
 ) -> str:
     """Generate 'overview' section."""
+    from backend.industry_config import get_industry_profile
+
     b = req.brief.brand
     g = req.brief.goal
+    pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
+
+    # Check for industry profile (Quick Social + specific industries)
+    profile = get_industry_profile(b.industry)
+    use_industry_vocab = profile and "quick_social" in pack_key.lower()
+
+    # Build industry description
+    if use_industry_vocab and profile.vocab:
+        # Use industry-specific vocabulary (e.g., "third place" for coffeehouse)
+        vocab_sample = profile.vocab[0]  # First vocab item (e.g., "third place")
+        industry_desc = (
+            f"Operating in the {b.industry or 'competitive market'} sector, {b.brand_name} "
+            f"aims to become the go-to {vocab_sample} for {b.primary_customer or 'customers'}. "
+            f"Success in this space requires consistent brand presence, authentic community building, "
+            f"and memorable customer experiences."
+        )
+    else:
+        industry_desc = (
+            f"Operating in the {b.industry or 'competitive market'} sector, {b.brand_name} "
+            f"focuses on innovation, quality, and customer satisfaction. The industry landscape "
+            f"demands consistent brand presence, clear messaging, and proof-driven strategies."
+        )
+
     raw = (
         f"## Brand\n\n"
         f"**Brand:** {b.brand_name}\n\n"
@@ -545,9 +568,7 @@ def _gen_overview(
         f"The brand represents quality, innovation, and customer-centric values.\n\n"
         f"## Industry\n\n"
         f"**Industry:** {b.industry or 'competitive market'}\n\n"
-        f"Operating in the {b.industry or 'competitive market'} sector, {b.brand_name} "
-        f"focuses on innovation, quality, and customer satisfaction. The industry landscape "
-        f"demands consistent brand presence, clear messaging, and proof-driven strategies.\n\n"
+        f"{industry_desc}\n\n"
         f"## Primary Goal\n\n"
         f"**Primary Goal:** {g.primary_goal or 'drive growth and expand market reach'}\n\n"
         f"This strategic initiative requires a data-driven approach with measurable KPIs:\n\n"
@@ -993,7 +1014,6 @@ def _gen_ugc_and_community_plan(req: GenerateRequest, **kwargs) -> str:
     """Generate 'ugc_and_community_plan' section."""
     b = req.brief.brand
     g = req.brief.goal
-    a = req.brief.audience
 
     raw = f"""## UGC Strategy
 
@@ -1045,7 +1065,21 @@ Success metrics: UGC submission volume, community engagement rate, member retent
 
 
 def _gen_detailed_30_day_calendar(req: GenerateRequest, **kwargs) -> str:
-    """Generate 'detailed_30_day_calendar' section."""
+    """
+    Generate 'detailed_30_day_calendar' section.
+
+    For Quick Social packs: produces day-by-day 30-day table with rotating content buckets,
+    angles, platforms, and unique hooks.
+
+    For other packs: produces phase-based strategic calendar.
+    """
+    pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
+
+    # Quick Social: Day-by-day detailed calendar
+    if "quick_social" in pack_key.lower():
+        return _gen_quick_social_30_day_calendar(req)
+
+    # Default: Phase-based strategic calendar for full packs
     b = req.brief.brand
     g = req.brief.goal
 
@@ -1080,6 +1114,248 @@ def _gen_detailed_30_day_calendar(req: GenerateRequest, **kwargs) -> str:
         f"- Regular audience feedback collection through polls, surveys, and direct messages"
     )
     return sanitize_output(raw, req.brief)
+
+
+def _gen_quick_social_30_day_calendar(req: GenerateRequest) -> str:
+    """
+    Generate day-by-day 30-day calendar for Quick Social pack.
+
+    Features:
+    - Rotating content buckets (Education, Proof, Promo, Community)
+    - Rotating angles (Product spotlight, Experience, Offer, Community, BTS)
+    - Platform rotation (Instagram, LinkedIn, Twitter)
+    - Day-of-week bucket mapping
+    - Unique hooks per post based on bucket + angle + platform
+    """
+    from datetime import date, timedelta
+    from backend.industry_config import get_industry_profile
+
+    b = req.brief.brand
+    g = req.brief.goal
+    industry = b.industry or "your industry"
+    brand_name = b.brand_name
+    goal_short = g.primary_goal or "customer engagement"
+
+    # Get industry profile for specialized vocabulary
+    profile = get_industry_profile(industry)
+
+    # Content buckets
+    CONTENT_BUCKETS = ["Education", "Proof", "Promo", "Community"]
+
+    # Content angles
+    ANGLES = [
+        "Product spotlight",
+        "Experience in-store",
+        "Offer/promo",
+        "Community/UGC",
+        "Behind-the-scenes",
+    ]
+
+    # Day-of-week → default bucket mapping (0=Monday, 6=Sunday)
+    DAY_BUCKET_MAP = {
+        0: "Education",  # Monday: reset / learn something
+        1: "Proof",  # Tuesday: testimonials
+        2: "Community",  # Wednesday: engagement
+        3: "Education",  # Thursday: tips
+        4: "Promo",  # Friday: treat yourself
+        5: "Experience",  # Saturday: in-store experience
+        6: "Community",  # Sunday: chill / family
+    }
+
+    # Platforms (available for reference)
+    _ = ["Instagram", "LinkedIn", "Twitter"]  # noqa: F841
+
+    # Asset types by platform
+    ASSET_TYPES = {
+        "Instagram": ["reel", "static_post", "carousel"],
+        "LinkedIn": ["static_post", "document", "carousel"],
+        "Twitter": ["short_post", "thread"],
+    }
+
+    # CTA library by bucket
+    CTA_LIBRARY = {
+        "Education": [
+            "Save this for later.",
+            "Try this next time you visit.",
+            "Learn more in bio.",
+        ],
+        "Proof": [
+            "Read the full story.",
+            "See why regulars keep coming back.",
+            "Tap to discover more.",
+        ],
+        "Promo": [
+            "Claim this offer today.",
+            "Show this post in-store.",
+            "Limited time—tap to save.",
+        ],
+        "Community": [
+            "Tag someone you'd bring along.",
+            "Share your go-to order in comments.",
+            "Join the conversation.",
+        ],
+        "Experience": [
+            "Visit us this week.",
+            "Experience it yourself.",
+            "Come see what makes us special.",
+        ],
+    }
+
+    # Generate 30 days
+    today = date.today()
+    rows = []
+
+    for day_num in range(1, 31):
+        post_date = today + timedelta(days=day_num - 1)
+        weekday = post_date.weekday()  # 0=Mon, 6=Sun
+
+        # Determine bucket
+        bucket_default = DAY_BUCKET_MAP.get(weekday, "Education")
+        # Use "Experience" only on Saturday, otherwise default or cycle through
+        if bucket_default == "Experience":
+            bucket = "Experience"
+        else:
+            # Cycle through buckets to ensure variety
+            bucket = CONTENT_BUCKETS[(day_num - 1) % len(CONTENT_BUCKETS)]
+            # But prefer weekend promo on Friday
+            if weekday == 4:
+                bucket = "Promo"
+
+        # Determine platform (round-robin, but prioritize Instagram)
+        if day_num % 3 == 1:
+            platform = "Instagram"
+        elif day_num % 3 == 2:
+            platform = "LinkedIn"
+        else:
+            platform = "Twitter"
+
+        # Determine angle
+        angle = ANGLES[(day_num - 1 + weekday) % len(ANGLES)]
+
+        # Generate unique hook based on bucket + angle + platform
+        hook = _make_quick_social_hook(
+            brand_name=brand_name,
+            industry=industry,
+            bucket=bucket,
+            angle=angle,
+            platform=platform,
+            goal_short=goal_short,
+            day_num=day_num,
+            weekday=weekday,
+            profile=profile,
+        )
+
+        # Choose asset type
+        asset_types_list = ASSET_TYPES.get(platform, ["static_post"])
+        asset_type = asset_types_list[(day_num - 1) % len(asset_types_list)]
+
+        # Choose CTA
+        ctas = CTA_LIBRARY.get(bucket, ["Learn more."])
+        cta = ctas[(day_num - 1) % len(ctas)]
+
+        # Format date
+        date_str = post_date.strftime("%b %d")
+
+        # Build row
+        theme = f"{bucket}: {angle}"
+        rows.append(
+            f"| {date_str} | Day {day_num} | {platform} | {theme} | {hook} | {cta} | {asset_type} | Planned |"
+        )
+
+    # Build table
+    table_md = (
+        f"## 30-Day Content Calendar for {brand_name}\n\n"
+        f"A day-by-day posting plan with rotating themes, platforms, and hooks. Each post is designed to move followers "
+        f"from awareness to engagement to action, while maintaining consistent brand presence.\n\n"
+        f"| Date | Day | Platform | Theme | Hook | CTA | Asset Type | Status |\n"
+        f"|------|-----|----------|-------|------|-----|------------|--------|\n"
+    )
+    table_md += "\n".join(rows)
+
+    table_md += (
+        f"\n\n**Key:**\n"
+        f"- **Education** = Tips, how-tos, industry insights that establish {brand_name} as an authority\n"
+        f"- **Proof** = Testimonials, reviews, case studies showing real customer results\n"
+        f"- **Promo** = Offers, new items, bundles with clear calls-to-action\n"
+        f"- **Community** = UGC, staff features, customer stories fostering connection\n"
+        f'- **Experience** = In-store moments, atmosphere, "third place" positioning\n\n'
+        f"**Posting Best Practices:**\n"
+        f"- Post Instagram content between 11 AM - 1 PM and 7 PM - 9 PM for peak engagement\n"
+        f"- LinkedIn posts perform best Tuesday-Thursday 10 AM - 2 PM\n"
+        f"- Twitter threads work well early morning (7-9 AM) and evening (5-7 PM)\n"
+        f"- Respond to all comments within 4 hours to boost algorithmic reach\n"
+        f"- Use Instagram Stories daily to maintain consistent presence between feed posts"
+    )
+
+    return sanitize_output(table_md, req.brief)
+
+
+def _make_quick_social_hook(
+    brand_name: str,
+    industry: str,
+    bucket: str,
+    angle: str,
+    platform: str,
+    goal_short: str,
+    day_num: int,
+    weekday: int,
+    profile: Optional[any],
+) -> str:
+    """
+    Generate unique hook for Quick Social post based on context.
+
+    Uses templates that vary by platform + bucket + angle to ensure variety.
+    """
+    industry_lower = industry.lower() if industry else "industry"
+
+    # Use industry-specific vocab if available
+    vocab_phrase = ""
+    if profile and profile.vocab:
+        vocab_phrase = profile.vocab[day_num % len(profile.vocab)]
+
+    # Platform + Bucket + Angle combinations
+    if platform == "Instagram":
+        if bucket == "Experience":
+            if vocab_phrase and "third place" in vocab_phrase:
+                return f"Step into {brand_name}: your community's third place."
+            return f"Step into {brand_name}: your {industry_lower} escape in the neighbourhood."
+        elif bucket == "Proof" and "Community" in angle:
+            return f"What guests actually say about {brand_name}."
+        elif bucket == "Education":
+            return f"Quick tip: {angle.lower()} at {brand_name}."
+        elif bucket == "Promo":
+            if weekday == 4:  # Friday
+                return f"Friday treat: limited-time offer at {brand_name}."
+            return f"New at {brand_name}: {angle.lower()}."
+        elif bucket == "Community":
+            return f"Meet the faces behind {brand_name}."
+
+    elif platform == "LinkedIn":
+        if bucket == "Education":
+            if vocab_phrase:
+                return f"3 ways {brand_name} is rethinking {vocab_phrase} for busy professionals."
+            return f"3 ways {brand_name} is rethinking {industry_lower} for busy professionals."
+        elif bucket == "Proof":
+            return f"How {brand_name} is changing {industry_lower}: a customer story."
+        elif bucket == "Community":
+            return f"Behind the scenes: building community at {brand_name}."
+        elif bucket == "Promo":
+            return f"Special offer for our LinkedIn community from {brand_name}."
+
+    elif platform == "Twitter":
+        if bucket == "Proof":
+            return f"What customers actually say about {brand_name} ({goal_short})."
+        elif bucket == "Education":
+            return f"Thread: {angle.lower()} essentials from {brand_name}."
+        elif bucket == "Promo":
+            return f"Flash: limited-time offer from {brand_name}."
+        elif bucket == "Community":
+            return f"Your {brand_name} story: share your favorite moment."
+
+    # Fallback with day variation
+    day_phrases = ["This week at", "Today's highlight:", "Don't miss:", "Just for you:"]
+    day_phrase = day_phrases[day_num % len(day_phrases)]
+    return f"{day_phrase} {bucket.lower()} content from {brand_name}."
 
 
 def _gen_email_and_crm_flows(req: GenerateRequest, **kwargs) -> str:
@@ -1137,7 +1413,6 @@ def _gen_ad_concepts(req: GenerateRequest, **kwargs) -> str:
     """Generate 'ad_concepts' section."""
     b = req.brief.brand
     g = req.brief.goal
-    a = req.brief.audience
 
     raw = (
         f"## Ad Concepts\n\n"
@@ -1819,7 +2094,7 @@ Typical duration: 7-21 days per prospect moving through consideration stage, wit
 def _gen_conversion_strategy(req: GenerateRequest, **kwargs) -> str:
     """Generate 'conversion_strategy' section."""
     b = req.brief.brand
-    g = req.brief.goal
+    _ = req.brief.goal  # noqa: F841
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
 
     # Full-funnel pack has different requirements
@@ -1900,7 +2175,7 @@ Typical duration: Concentrated conversion push over 5-10 days, with systematic f
 def _gen_retention_strategy(req: GenerateRequest, **kwargs) -> str:
     """Generate 'retention_strategy' section."""
     b = req.brief.brand
-    g = req.brief.goal
+    _ = req.brief.goal  # noqa: F841
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
 
     # Full-funnel and enterprise packs need specific headings
@@ -1975,13 +2250,12 @@ Key performance indicators tracking retention effectiveness:
 - **Time to Value**: Reduce onboarding time from signup to first win driving early engagement and reducing abandonment
 
 Goal: Transform customers into advocates generating organic growth through referrals and testimonials while building predictable recurring revenue base supporting long-term business sustainability."""
-    return sanitize_output(raw, req.brief)
 
 
 def _gen_sms_and_whatsapp_strategy(req: GenerateRequest, **kwargs) -> str:
     """Generate 'sms_and_whatsapp_strategy' section."""
-    b = req.brief.brand
-    g = req.brief.goal
+    _ = req.brief.brand  # noqa: F841
+    _ = req.brief.goal  # noqa: F841
     return """## SMS Strategy
 
 Direct, high-urgency messaging for time-sensitive communications:
@@ -2020,7 +2294,7 @@ Integration with broader marketing strategy ensures SMS and WhatsApp complement 
 
 def _gen_remarketing_strategy(req: GenerateRequest, **kwargs) -> str:
     """Generate 'remarketing_strategy' section."""
-    b = req.brief.brand
+    _ = req.brief.brand  # noqa: F841
     g = req.brief.goal
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
 
@@ -2133,7 +2407,7 @@ Frequency capping at 2-3 ad impressions per person over 14-21 day window prevent
 def _gen_optimization_opportunities(req: GenerateRequest, **kwargs) -> str:
     """Generate 'optimization_opportunities' section (markdown table format)."""
     b = req.brief.brand
-    g = req.brief.goal
+    _ = req.brief.goal  # noqa: F841
     return f"""## High-Impact Experiments
 
 Systematic testing opportunities to improve campaign performance for {b.brand_name}.
@@ -2341,7 +2615,7 @@ Customers are motivated by both avoiding pain (fear of failure, wasted resources
 def _gen_customer_journey_map(req: GenerateRequest, **kwargs) -> str:
     """Generate 'customer_journey_map' section."""
     b = req.brief.brand
-    a = req.brief.audience
+    _ = req.brief.audience  # noqa: F841
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
 
     if "retention_crm_booster" in pack_key.lower():
@@ -2605,7 +2879,6 @@ Methodology and limitations for crediting marketing contribution:
 - **Incrementality Testing**: Running periodic holdout tests and geo-experiments to measure true marketing impact versus organic baseline growth
 - **Attribution Window**: 30-day click, 7-day view standard with understanding that complex B2B journeys may extend beyond tracking capabilities
 - **Data Limitations**: Acknowledging cross-device tracking gaps, dark social referrals, and offline influence not fully captured in digital attribution models"""
-    return sanitize_output(raw, req.brief)
 
 
 def _gen_risk_assessment(req: GenerateRequest, **kwargs) -> str:
@@ -2824,7 +3097,7 @@ def _gen_churn_diagnosis(req: GenerateRequest, **kwargs) -> str:
 
 def _gen_conversion_audit(req: GenerateRequest, **kwargs) -> str:
     """Generate 'conversion_audit' section for Audit pack."""
-    b = req.brief.brand
+    _ = req.brief.brand  # noqa: F841
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
 
     if "performance_audit" in pack_key.lower():
@@ -3079,31 +3352,58 @@ def _gen_creative_direction_light(req: GenerateRequest, **kwargs) -> str:
 
 def _gen_hashtag_strategy(req: GenerateRequest, **kwargs) -> str:
     """Generate 'hashtag_strategy' section with recommended hashtags."""
+    from backend.utils.text_cleanup import normalize_hashtag
+
     b = req.brief.brand
     industry = b.industry or "industry"
     brand_slug = b.brand_name.lower().replace(" ", "")
 
+    # Normalize brand hashtags
+    brand_tags = [
+        normalize_hashtag(brand_slug),
+        normalize_hashtag(f"{brand_slug}Community"),
+        normalize_hashtag(f"{brand_slug}Insider"),
+    ]
+    brand_tags = [t for t in brand_tags if t]  # Remove empties
+
+    # Normalize industry hashtags
+    raw_industry_tags = [
+        industry,
+        f"{industry} Trends",
+        f"{industry} Insights",
+        f"{industry} Expert",
+        f"{industry} Innovation",
+    ]
+    industry_tags = [normalize_hashtag(t) for t in raw_industry_tags]
+    industry_tags = [t for t in industry_tags if t]  # Remove empties
+
+    # Remove duplicates while preserving order
+    seen = set()
+    industry_tags = [t for t in industry_tags if not (t in seen or seen.add(t))]
+
     raw = (
         f"## Brand Hashtags\n\n"
         f"These are proprietary hashtags that build {b.brand_name} brand equity and community. Use consistently across all posts:\n\n"
-        f"- #{brand_slug}\n"
-        f"- #{brand_slug}Community\n"
-        f"- #{brand_slug}Insider\n\n"
-        f"## Industry Hashtags\n\n"
+    )
+    for tag in brand_tags:
+        raw += f"- {tag}\n"
+
+    raw += (
+        f"\n## Industry Hashtags\n\n"
         f"Target 8-12 relevant industry tags per post to maximize discoverability within {industry}:\n\n"
-        f"- #{industry.lower().replace(' ', '')}\n"
-        f"- #{industry.lower().replace(' ', '')}Trends\n"
-        f"- #{industry.lower().replace(' ', '')}Insights\n"
-        f"- #{industry.lower().replace(' ', '')}Expert\n"
-        f"- #{industry.lower().replace(' ', '')}Innovation\n\n"
-        f"## Campaign Hashtags\n\n"
-        f"Create unique hashtags for specific campaigns, launches, or seasonal initiatives. Track performance "
-        f"to measure campaign reach and engagement.\n\n"
-        f"## Best Practices\n\n"
-        f"- Research trending hashtags weekly using tools like Hashtagify or native platform insights\n"
-        f"- Mix 50% branded hashtags with 50% industry/trending tags\n"
-        f"- Avoid overusing hashtags—quality over quantity\n"
-        f"- Monitor hashtag performance and adjust strategy based on reach and engagement data"
+    )
+    for tag in industry_tags:
+        raw += f"- {tag}\n"
+
+    raw += (
+        "\n## Campaign Hashtags\n\n"
+        "Create unique hashtags for specific campaigns, launches, or seasonal initiatives. Track performance "
+        "to measure campaign reach and engagement.\n\n"
+        "## Best Practices\n\n"
+        "- Research trending hashtags weekly using tools like Hashtagify or native platform insights\n"
+        "- Mix 50% branded hashtags with 50% industry/trending tags\n"
+        "- Avoid overusing hashtags—quality over quantity\n"
+        "- Monitor hashtag performance and adjust strategy based on reach and engagement data"
     )
     return sanitize_output(raw, req.brief)
 
@@ -3143,29 +3443,67 @@ def _gen_platform_guidelines(req: GenerateRequest, **kwargs) -> str:
 
 def _gen_kpi_plan_light(req: GenerateRequest, **kwargs) -> str:
     """Generate 'kpi_plan_light' section with simplified KPI framework."""
+    from backend.industry_config import get_industry_profile
+
     b = req.brief.brand
     g = req.brief.goal
+    pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
 
-    raw = (
-        f"## Reach\n\n"
-        f"Measure how effectively {b.brand_name} expands its audience and brand awareness across platforms:\n\n"
-        f"- **Total Impressions:** Target 15,000+ impressions monthly, tracking growth month-over-month\n"
-        f"- **Follower Growth:** Aim for 8-12% monthly follower increase across all platforms\n"
-        f"- **Post Reach:** Average 800+ unique accounts reached per post\n\n"
-        f"## Engagement\n\n"
-        f"Track how the audience interacts with content and measure community building success:\n\n"
-        f"- **Engagement Rate:** Maintain 3-6% average engagement rate (likes, comments, shares, saves)\n"
-        f"- **Comments per Post:** Target average of 8-15 meaningful comments per post\n"
-        f"- **Share/Save Rate:** Track content virality with 3-8 shares/saves per post\n\n"
-        f"## Conversion\n\n"
-        f"Measure how social media drives business outcomes aligned with {g.primary_goal or 'core objectives'}:\n\n"
-        f"- **Link Clicks:** Target 40-80 link clicks per month driving traffic to key pages\n"
-        f"- **Website Traffic:** Generate 150+ website sessions monthly from social channels\n"
-        f"- **Lead Generation:** Capture 8-15 qualified leads per month through social campaigns\n\n"
-        f"## Measurement Approach\n\n"
-        f"Review KPIs weekly for trends, conduct monthly deep-dive analysis, and adjust strategy quarterly "
-        f"based on performance data. Focus on metrics that directly tie to business objectives rather than vanity metrics."
-    )
+    # Check for industry-specific KPIs (Quick Social + specific industries)
+    profile = get_industry_profile(b.industry)
+    use_industry_kpis = profile and "quick_social" in pack_key.lower()
+
+    if use_industry_kpis:
+        # Use industry-specific KPIs (e.g., coffeehouse retail metrics)
+        kpis = profile.kpi_overrides
+        raw = (
+            f"## Store Performance Metrics\n\n"
+            f"Track {b.brand_name} retail performance and customer behavior:\n\n"
+        )
+        for kpi in kpis[:4]:  # First 4 KPIs
+            raw += (
+                f"- **{kpi.title()}:** Monitor weekly to identify trends and optimize operations\n"
+            )
+
+        raw += (
+            f"\n## Customer Engagement\n\n"
+            f"Measure how customers interact with {b.brand_name} across channels:\n\n"
+        )
+        for kpi in kpis[4:]:  # Remaining KPIs
+            raw += f"- **{kpi.title()}:** Track monthly to measure customer loyalty and retention\n"
+
+        raw += (
+            f"\n## Social Media Impact\n\n"
+            f"Connect social presence to real business outcomes:\n\n"
+            f"- **Social-to-Store Attribution:** Track promo code redemptions from social posts\n"
+            f"- **Location Tags:** Monitor Instagram check-ins and location mentions\n"
+            f"- **User-Generated Content:** Count customer posts featuring {b.brand_name}\n\n"
+            f"## Measurement Approach\n\n"
+            f"Review KPIs weekly for trends, conduct monthly deep-dive analysis, and adjust strategy quarterly "
+            f"based on performance data. Focus on metrics that directly tie to in-store traffic and revenue rather than vanity metrics."
+        )
+    else:
+        # Default social KPIs for generic Quick Social or other packs
+        raw = (
+            f"## Reach\n\n"
+            f"Measure how effectively {b.brand_name} expands its audience and brand awareness across platforms:\n\n"
+            f"- **Total Impressions:** Target 15,000+ impressions monthly, tracking growth month-over-month\n"
+            f"- **Follower Growth:** Aim for 8-12% monthly follower increase across all platforms\n"
+            f"- **Post Reach:** Average 800+ unique accounts reached per post\n\n"
+            f"## Engagement\n\n"
+            f"Track how the audience interacts with content and measure community building success:\n\n"
+            f"- **Engagement Rate:** Maintain 3-6% average engagement rate (likes, comments, shares, saves)\n"
+            f"- **Comments per Post:** Target average of 8-15 meaningful comments per post\n"
+            f"- **Share/Save Rate:** Track content virality with 3-8 shares/saves per post\n\n"
+            f"## Conversion\n\n"
+            f"Measure how social media drives business outcomes aligned with {g.primary_goal or 'core objectives'}:\n\n"
+            f"- **Link Clicks:** Target 40-80 link clicks per month driving traffic to key pages\n"
+            f"- **Website Traffic:** Generate 150+ website sessions monthly from social channels\n"
+            f"- **Lead Generation:** Capture 8-15 qualified leads per month through social campaigns\n\n"
+            f"## Measurement Approach\n\n"
+            f"Review KPIs weekly for trends, conduct monthly deep-dive analysis, and adjust strategy quarterly "
+            f"based on performance data. Focus on metrics that directly tie to business objectives rather than vanity metrics."
+        )
     return sanitize_output(raw, req.brief)
 
 
@@ -3210,7 +3548,7 @@ def _gen_30_day_recovery_calendar(req: GenerateRequest, **kwargs) -> str:
 
 def _gen_account_audit(req: GenerateRequest, **kwargs) -> str:
     """Generate 'account_audit' section - audit of existing account performance."""
-    b = req.brief.brand
+    _ = req.brief.brand  # noqa: F841
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
 
     # Performance audit pack needs detailed structure
@@ -3275,7 +3613,7 @@ Immediate priorities: Fix tracking gaps, redistribute budget to winning campaign
 def _gen_ad_concepts_multi_platform(req: GenerateRequest, **kwargs) -> str:
     """Generate 'ad_concepts_multi_platform' - multi-platform ad concepts."""
     b = req.brief.brand
-    g = req.brief.goal
+    _ = req.brief.goal  # noqa: F841
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
 
     # Full-funnel pack needs comprehensive platform strategy
@@ -3355,7 +3693,7 @@ Platform-specific testing optimizes for each environment's user behavior, creati
 def _gen_audience_analysis(req: GenerateRequest, **kwargs) -> str:
     """Generate 'audience_analysis' section."""
     b = req.brief.brand
-    a = req.brief.audience
+    _ = req.brief.audience  # noqa: F841
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
 
     # Performance audit pack needs detailed audience breakdown
@@ -3898,7 +4236,7 @@ def _gen_customer_segments(req: GenerateRequest, **kwargs) -> str:
 
 def _gen_email_automation_flows(req: GenerateRequest, **kwargs) -> str:
     """Generate 'email_automation_flows' section - automated email workflows."""
-    b = req.brief.brand
+    _ = req.brief.brand  # noqa: F841
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
 
     # Retention-CRM pack needs table format with lifecycle flows
@@ -4035,7 +4373,7 @@ Monthly A/B testing of subject lines, send times, content formats, and CTA place
 
 def _gen_full_30_day_calendar(req: GenerateRequest, **kwargs) -> str:
     """Generate 'full_30_day_calendar' section - comprehensive 30-day content calendar."""
-    b = req.brief.brand
+    _ = req.brief.brand  # noqa: F841
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
 
     # Full-funnel pack needs detailed weekly table format
@@ -4251,7 +4589,7 @@ def _gen_kpi_plan_retention(req: GenerateRequest, **kwargs) -> str:
 
 def _gen_kpi_reset_plan(req: GenerateRequest, **kwargs) -> str:
     """Generate 'kpi_reset_plan' section - reset KPI targets."""
-    b = req.brief.brand
+    _ = req.brief.brand  # noqa: F841
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
 
     # Performance audit pack needs detailed KPI analysis
@@ -5457,6 +5795,15 @@ def generate_sections(
             # Section not yet implemented - skip rather than output placeholder
             continue
 
+    # PASS 1.5: Quick Social cleanup pass (remove template leaks)
+    pack_key = req.package_preset or req.wow_package_key
+    if pack_key and "quick_social" in pack_key.lower():
+        from backend.utils.text_cleanup import clean_quick_social_text
+
+        for section_id in list(results.keys()):
+            if results[section_id]:  # Only clean non-empty sections
+                results[section_id] = clean_quick_social_text(results[section_id], req)
+
     # QUALITY GATE: Enforce benchmarks using the enforcer pattern
     pack_key = req.package_preset or req.wow_package_key
     if pack_key and results:
@@ -5477,6 +5824,8 @@ def generate_sections(
 
                 regenerated = []
                 for section_id in failing_ids:
+                    content = None
+
                     # STUB MODE: Try stub content first before calling generators
                     if is_stub_mode():
                         pack_key_for_stub = req.package_preset or req.wow_package_key
@@ -5484,24 +5833,34 @@ def generate_sections(
                             pack_key_for_stub, section_id, req.brief
                         )
                         if stub_content is not None:
-                            regenerated.append({"id": section_id, "content": stub_content})
+                            content = stub_content
                             logger.info(
                                 f"[REGENERATION] Regenerated section with stub: {section_id}"
                             )
-                            continue  # Skip generator function, use stub
 
-                    # Normal generator path
-                    generator_fn = SECTION_GENERATORS.get(section_id)
-                    if generator_fn:
-                        try:
-                            content = generator_fn(**context)
-                            regenerated.append({"id": section_id, "content": content})
-                            logger.info(f"[REGENERATION] Regenerated section: {section_id}")
-                        except Exception as e:
-                            logger.error(
-                                f"[REGENERATION] Failed to regenerate '{section_id}': {e}",
-                                exc_info=True,
-                            )
+                    # Normal generator path (if stub didn't provide content)
+                    if content is None:
+                        generator_fn = SECTION_GENERATORS.get(section_id)
+                        if generator_fn:
+                            try:
+                                content = generator_fn(**context)
+                                logger.info(f"[REGENERATION] Regenerated section: {section_id}")
+                            except Exception as e:
+                                logger.error(
+                                    f"[REGENERATION] Failed to regenerate '{section_id}': {e}",
+                                    exc_info=True,
+                                )
+
+                    # Apply Quick Social cleanup pass to regenerated content
+                    if content:
+                        pack_key_for_cleanup = req.package_preset or req.wow_package_key
+                        if pack_key_for_cleanup and "quick_social" in pack_key_for_cleanup.lower():
+                            from backend.utils.text_cleanup import clean_quick_social_text
+
+                            content = clean_quick_social_text(content, req)
+
+                        regenerated.append({"id": section_id, "content": content})
+
                 return regenerated
 
             # STUB MODE: Skip benchmark enforcement entirely
@@ -6233,11 +6592,10 @@ def _apply_wow_to_output(
             # No sections defined for this package - return stub output
             return output
 
-        print(f"[WOW DEBUG] Using WOW pack: {req.wow_package_key}")
-        print(f"[WOW DEBUG] Sections in WOW rule: {[s['key'] for s in sections]}")
-
         # Build the WOW report using the new unified system
-        wow_markdown = build_wow_report(req=req, wow_rule=wow_rule)
+        wow_markdown = build_wow_report(
+            req=req, wow_rule=wow_rule, extra_sections=output.extra_sections
+        )
 
         # Apply humanization layer: light style cleanup, no structural changes
         try:

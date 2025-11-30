@@ -205,6 +205,13 @@ def build_default_placeholders(
         if key in base_blocks and base_blocks.get(key) is not None:
             placeholders[key] = base_blocks[key]
 
+    # 🔥 FIX: Copy ALL section content from base_blocks (extra_sections)
+    # This enables WOW templates to use section placeholders like {{overview}}, {{messaging_framework}}, etc.
+    if base_blocks:
+        for section_key, section_content in base_blocks.items():
+            if section_content and section_key not in placeholders:
+                placeholders[section_key] = section_content
+
     # Some sensible numeric / checklist defaults if not provided upstream
     placeholders.setdefault("posting_frequency", "1 post per day")
     placeholders.setdefault("weekly_posts_target", 5)
@@ -311,6 +318,7 @@ def resolve_wow_package_key(service_pack_label: Optional[str]) -> Optional[str]:
 def build_wow_report(
     req: Any,
     wow_rule: Dict[str, Any],
+    extra_sections: Dict[str, str] = None,
 ) -> str:
     """
     Build a complete WOW report using the section structure from wow_rules.
@@ -324,14 +332,16 @@ def build_wow_report(
     Args:
         req: GenerateRequest with brief, wow_package_key, etc.
         wow_rule: Dict with "sections" list from WOW_RULES
+        extra_sections: Optional dict of section_id -> markdown content
 
     Returns:
         Markdown string with placeholders replaced and ready for display
     """
     # Build placeholder map from brief + existing output blocks
+    base_blocks = extra_sections or {}
     placeholder_values = build_default_placeholders(
         brief=req.brief.model_dump() if hasattr(req.brief, "model_dump") else req.brief,
-        base_blocks={},  # Could extend with sections from output if desired
+        base_blocks=base_blocks,
     )
 
     # Apply WOW template with safe placeholder replacement

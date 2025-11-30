@@ -4,9 +4,91 @@ Industry-Specific Configuration for AICMO
 Maps industries to appropriate personas, channels, and messaging styles.
 
 FIX #4: Ensures personas and channels are tailored to industry, not generic.
+
+Extended with IndustryProfile for Quick Social pack - provides industry-specific
+vocabulary, KPIs, and context for better content generation (especially coffeehouse/cafe).
 """
 
+from dataclasses import dataclass
 from typing import TypedDict, List, Dict, Optional
+
+
+# ============================================================
+# IndustryProfile for Quick Social Content Personalization
+# ============================================================
+
+
+@dataclass
+class IndustryProfile:
+    """Industry-specific configuration for Quick Social content personalization."""
+
+    keywords: List[str]  # Keywords to match against brand.industry field
+    vocab: List[str]  # Industry-specific terminology to sprinkle in content
+    kpi_overrides: List[str]  # Industry-appropriate KPIs instead of generic metrics
+
+
+# Industry profile database for Quick Social pack
+INDUSTRY_PROFILES: List[IndustryProfile] = [
+    IndustryProfile(
+        keywords=["Coffeehouse", "Cafe", "Coffee", "Beverage Retail", "Coffee Shop"],
+        vocab=[
+            "third place",
+            "handcrafted beverages",
+            "neighbourhood store",
+            "espresso bar",
+            "seasonal drinks",
+            "barista-crafted",
+            "daily ritual",
+            "coffee culture",
+            "artisan coffee",
+            "community gathering space",
+        ],
+        kpi_overrides=[
+            "daily in-store transactions",
+            "visit frequency per customer",
+            "average ticket size (basket value)",
+            "in-store offer redemptions",
+            "customer repeat visit rate",
+            "peak hour foot traffic",
+            "seasonal drink attachment rate",
+            "loyalty program active members",
+        ],
+    ),
+    # Future: Add more industry profiles (restaurants, retail, SaaS, etc.)
+]
+
+
+def get_industry_profile(industry: str | None) -> IndustryProfile | None:
+    """
+    Get industry profile matching the given industry string.
+
+    Args:
+        industry: Industry string from brand brief (e.g., "Coffeehouse / Beverage Retail")
+
+    Returns:
+        Matching IndustryProfile or None if no match found
+
+    Example:
+        >>> profile = get_industry_profile("Coffeehouse / Beverage Retail")
+        >>> if profile:
+        ...     print(profile.vocab[0])  # "third place"
+    """
+    if not industry:
+        return None
+
+    industry_lower = industry.lower()
+
+    for profile in INDUSTRY_PROFILES:
+        # Match if ANY keyword is contained in the industry string
+        if any(keyword.lower() in industry_lower for keyword in profile.keywords):
+            return profile
+
+    return None
+
+
+# ============================================================
+# Existing Industry Config (for full packs)
+# ============================================================
 
 
 class IndustryChannelConfig(TypedDict):
@@ -486,7 +568,9 @@ def convert_industry_persona_to_persona_card(
     from aicmo.io.client_reports import PersonaCard
 
     # Build demographics from role and age_range
-    demographics = f"{persona_config.get('role', 'Professional')}, {persona_config.get('age_range', '25-45')}"
+    demographics = (
+        f"{persona_config.get('role', 'Professional')}, {persona_config.get('age_range', '25-45')}"
+    )
 
     # Build psychographics from decision factors and goals
     decision_factors = persona_config.get("decision_factors", [])
@@ -494,7 +578,11 @@ def convert_industry_persona_to_persona_card(
     psychographics_items = decision_factors[:2] if decision_factors else []
     if primary_goals and len(psychographics_items) < 2:
         psychographics_items.extend(primary_goals[: 2 - len(psychographics_items)])
-    psychographics = "; ".join(psychographics_items) if psychographics_items else "Results-oriented, quality-focused"
+    psychographics = (
+        "; ".join(psychographics_items)
+        if psychographics_items
+        else "Results-oriented, quality-focused"
+    )
 
     return PersonaCard(
         name=persona_config.get("name", "Default Persona"),

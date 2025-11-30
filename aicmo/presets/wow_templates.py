@@ -22,15 +22,15 @@ WOW_TEMPLATES: Dict[str, str] = {
 
 ---
 
-## 2. Audience Snapshot
+## 2. Messaging Framework
 
-{{audience_segments}}
+{{messaging_framework}}
 
 ---
 
-## 3. Messaging Framework
+## 3. 30-Day Content Calendar
 
-{{messaging_framework}}
+{{detailed_30_day_calendar}}
 
 ---
 
@@ -40,37 +40,25 @@ WOW_TEMPLATES: Dict[str, str] = {
 
 ---
 
-## 5. Weekly Social Calendar
-
-{{weekly_social_calendar}}
-
----
-
-## 6. Lightweight Creative Direction
-
-{{creative_direction_light}}
-
----
-
-## 7. Hashtag Strategy
+## 5. Hashtag Strategy
 
 {{hashtag_strategy}}
 
 ---
 
-## 8. Platform-by-Platform Guidelines
-
-{{platform_guidelines}}
-
----
-
-## 9. KPIs & Lightweight Measurement Plan
+## 6. KPIs & Lightweight Measurement Plan
 
 {{kpi_plan_light}}
 
 ---
 
-## 10. Final Summary & Next Steps
+## 7. Execution Roadmap
+
+{{execution_roadmap}}
+
+---
+
+## 8. Final Summary & Next Steps
 
 {{final_summary}}
 """,

@@ -44,6 +44,8 @@ def _stub_section_for_pack(pack_key: str, section_id: str, brief: Any) -> str | 
             return _stub_quick_social_overview(brand_name, primary_goal, industry)
         elif section_id == "final_summary":
             return _stub_quick_social_final_summary(brand_name, primary_goal)
+        elif section_id == "detailed_30_day_calendar":
+            return _stub_quick_social_30_day_calendar(brand_name, industry)
         elif section_id == "weekly_social_calendar":
             return _stub_quick_social_calendar(brand_name)
         elif section_id == "content_buckets":
@@ -52,6 +54,12 @@ def _stub_section_for_pack(pack_key: str, section_id: str, brief: Any) -> str | 
             return _stub_quick_social_platform_guidelines(brand_name)
         elif section_id == "hashtag_strategy":
             return _stub_quick_social_hashtag_strategy(brand_name, industry)
+        elif section_id == "messaging_framework":
+            return _stub_quick_social_messaging_framework(brand_name, industry)
+        elif section_id == "kpi_plan_light":
+            return _stub_quick_social_kpi_plan_light(brand_name, primary_goal)
+        elif section_id == "execution_roadmap":
+            return _stub_quick_social_execution_roadmap(brand_name)
 
     # Strategy Campaign stubs (basic, standard, premium, enterprise)
     if pack_key in (
@@ -100,9 +108,7 @@ def _stub_section_for_pack(pack_key: str, section_id: str, brief: Any) -> str | 
 
 def _stub_quick_social_overview(brand: str, goal: str, industry: str) -> str:
     """Quick Social overview: ~200 words, 2 headings, 6 bullets."""
-    return f"""## Quick Social Strategy for {brand}
-
-This plan delivers a focused social media approach for {brand} to achieve {goal}. Rather than spreading efforts thin across every platform and tactic, this strategy concentrates on proven content themes, consistent publishing rhythm, and measurable growth indicators.
+    return f"""This plan delivers a focused social media approach for {brand} to achieve {goal}. Rather than spreading efforts thin across every platform and tactic, this strategy concentrates on proven content themes, consistent publishing rhythm, and measurable growth indicators.
 
 The framework emphasizes quality over quantity, building sustainable momentum through repeatable systems rather than one-off viral attempts. Each element connects directly to business outcomes while remaining achievable for small teams.
 
@@ -124,9 +130,9 @@ def _stub_quick_social_final_summary(brand: str, goal: str) -> str:
 
 Success comes from consistent execution across all channels. Maintain the defined brand voice, follow the recommended content calendar, and monitor performance metrics weekly. Track what resonates with your audience and adapt based on data insights. This systematic approach replaces random activity with strategic content that builds audience loyalty and drives sustainable growth for {brand}.
 
-## Key Takeaways
+### Key Takeaways
 
-- **Focus on Quality**: Prioritize high-performing content themes over posting frequency to maximize engagement and reach
+- **Focus on Quality**: Prioritize high-performing content themes over posting frequency. This maximizes engagement and reach.
 - **Stay Consistent**: Follow the content calendar and maintain brand voice across all channels for cohesive messaging
 - **Track Performance**: Monitor key metrics weekly and double down on what works best for your specific audience
 - **Engage Authentically**: Respond to comments and build genuine connections with {brand}'s audience to foster community
@@ -160,7 +166,7 @@ Batch-create content on Mondays and Thursdays to maintain efficiency. Repurpose 
 
 def _stub_quick_social_content_buckets(brand: str, industry: str) -> str:
     """Content buckets: ~220 words, 3 headings, 9 bullets."""
-    return f"""## Education & Value
+    return f"""### Education & Value
 
 Content that teaches, informs, and positions {brand} as an authority in {industry}. These posts solve specific problems and answer common questions your audience asks regularly.
 
@@ -227,7 +233,7 @@ Optimize posting times based on when your specific audience is most active. Revi
 
 def _stub_quick_social_hashtag_strategy(brand: str, industry: str) -> str:
     """Hashtag strategy: ~180 words, 4 headings, 12 bullets."""
-    return f"""## Brand Hashtags
+    return f"""### Brand Hashtags
 
 Proprietary hashtags that build {brand} equity and community. Use consistently across all posts to create searchable brand content.
 
@@ -255,6 +261,153 @@ Balance hashtag reach by mixing popular, medium, and niche tags to maximize visi
 ## Best Practices
 
 Research competitor hashtags monthly to discover new opportunities. Avoid banned or spam-associated hashtags that limit post reach. Update mix quarterly based on performance analytics and trending topics."""
+
+
+def _stub_quick_social_30_day_calendar(brand: str, industry: str) -> str:
+    """30-day social calendar with proper table format matching calendar generator."""
+    return f"""This calendar provides a complete monthly content roadmap for {brand} with rotating content buckets (Education, Proof, Promo, Community, Experience) across platforms.
+
+| Day | Platform | Hook | Bucket | CTA |
+|-----|----------|------|--------|-----|
+| 1 | Instagram | How to maximize morning productivity with great coffee | Education | DM us for tips |
+| 2 | LinkedIn | Behind the scenes: Our sourcing process | Education | Learn more at link |
+| 3 | Twitter | Customer spotlight: Sarah's success story | Proof | Read full story |
+| 4 | Instagram | Special: 20% off all pastries this week | Promo | Use code PASTRY20 |
+| 5 | LinkedIn | Join us for Friday community meetup | Community | RSVP now |
+| 6 | Instagram | The perfect latte art tutorial | Education | Try it yourself |
+| 7 | Twitter | 5-star review from local foodie blogger | Proof | Check reviews |
+| 8 | Instagram | New seasonal menu item reveal | Experience | Visit this week |
+| 9 | LinkedIn | Industry trend: Rise of specialty coffee | Education | Read article |
+| 10 | Instagram | Customer photo feature from last week | Community | Tag us to be featured |
+| 11 | Twitter | Limited time: Free pastry with any drink | Promo | Show this tweet |
+| 12 | Instagram | Meet our head barista interview | Education | Learn more |
+| 13 | LinkedIn | Case study: Corporate catering success | Proof | Get quote |
+| 14 | Instagram | Weekend vibes at {brand} | Experience | Visit us |
+| 15 | Twitter | Monthly loyalty program update | Community | Join rewards |
+| 16 | Instagram | Coffee brewing mistakes to avoid | Education | Save this post |
+| 17 | LinkedIn | Team spotlight: Behind the counter | Education | Meet the team |
+| 18 | Instagram | Before/after: Our renovation journey | Proof | See the transformation |
+| 19 | Twitter | Flash sale: Buy 2 get 1 free drinks | Promo | Valid today only |
+| 20 | Instagram | Host your next event with us | Experience | Book now |
+| 21 | LinkedIn | Partner spotlight: Local bakery collab | Community | Learn about partnership |
+| 22 | Instagram | Coffee origin story: Ethiopia beans | Education | Explore our beans |
+| 23 | Twitter | Customer testimonial video | Proof | Watch full video |
+| 24 | Instagram | New merchandise just dropped | Promo | Shop now |
+| 25 | LinkedIn | Sustainability: Our eco-friendly practices | Education | Read commitment |
+| 26 | Instagram | Community poll: What's your favorite drink? | Community | Vote now |
+| 27 | Twitter | Weekend hours extended announcement | Experience | See you soon |
+| 28 | Instagram | Barista training: What goes into your cup | Education | Appreciate the craft |
+| 29 | LinkedIn | Month in review: Highlights and thank you | Community | See recap |
+| 30 | Instagram | Next month sneak peek | Experience | Stay tuned |
+
+## Implementation Notes
+
+Batch-create content weekly. Adjust timing based on platform analytics. Maintain 70% educational/community, 30% promotional balance."""
+
+
+def _stub_quick_social_messaging_framework(brand: str, industry: str) -> str:
+    """Messaging framework: ~250 words, 3 headings, 8 bullets."""
+    return f"""### Core Message
+
+{brand} delivers authentic {industry.lower()} experiences that transform daily routines into meaningful moments. The brand voice balances approachability with expertise, making premium quality accessible to everyday customers.
+
+## Key Pillars
+
+Strategic messaging organized into distinct themes that address different audience motivations and use cases:
+
+- **Quality & Craft**: Emphasize artisanal methods, premium ingredients, and attention to detail that differentiate from mass-market competitors
+- **Community & Connection**: Position {brand} as gathering space where relationships form and thrive, not just transactional retail
+- **Accessibility**: Demonstrate that premium quality doesn't require premium prices, making excellence approachable for regular customers
+- **Expertise**: Showcase team knowledge and passion without condescension, educating customers while respecting their intelligence
+
+## Voice & Tone
+
+{brand}'s communication style maintains consistency across platforms while adapting to context and audience expectations:
+
+- **Warm & Welcoming**: Friendly without being overly casual, professional without being stiff or corporate
+- **Confident & Knowledgeable**: Share expertise generously but avoid jargon or pretension that alienates customers
+- **Authentic & Transparent**: Honest about sourcing, processes, and values, building trust through consistency
+- **Engaging & Conversational**: Write like you speak to customers in-store, maintaining human connection at scale
+
+This framework ensures {brand} maintains distinct personality across all touchpoints while remaining flexible enough to adapt messaging for different platforms, campaigns, and audience segments."""
+
+
+def _stub_quick_social_kpi_plan_light(brand: str, goal: str) -> str:
+    """Light KPI plan: ~220 words, 4 headings, 12 bullets."""
+    return f"""### Reach Metrics
+
+Track how many people see {brand} content across platforms to measure top-of-funnel awareness:
+
+- Instagram reach and impressions per post
+- LinkedIn post views and unique visitors
+- Twitter impressions and profile visits
+- Overall follower growth rate month-over-month
+
+## Engagement Metrics
+
+Measure how audiences interact with content, indicating message resonance and community strength:
+
+- Instagram saves, shares, and comment depth
+- LinkedIn reactions, comments, and reshares
+- Twitter retweets, replies, and bookmark rate
+- Engagement rate per post (interactions/reach)
+
+## Traffic & Conversion
+
+Connect social activity to business outcomes and bottom-line impact for {goal}:
+
+- Website traffic from social channels
+- Link clicks per post and CTR rates
+- Store visits tracked through location tags
+- Conversion rate from social visitors to customers
+
+## Growth Indicators
+
+Long-term health metrics that show sustainable audience building and brand strength:
+
+- Follower growth velocity and quality
+- Brand mention volume and sentiment
+- User-generated content quantity
+- Average engagement rate trending upward
+
+Track these metrics weekly in simple spreadsheet. Review monthly to identify winning content patterns and adjust strategy based on performance data."""
+
+
+def _stub_quick_social_execution_roadmap(brand: str) -> str:
+    """Execution roadmap: ~240 words, 3 headings, 9 bullets."""
+    return f"""### Week 1: Foundation Setup
+
+Establish core systems and content infrastructure to enable efficient execution:
+
+- Audit current social profiles and optimize bios, links, highlights
+- Create content calendar template and populate first 2 weeks
+- Set up analytics tracking and baseline metrics dashboard
+- Batch-create first week of content (5-7 posts)
+
+## Weeks 2-4: Momentum Building
+
+Execute consistently while refining approach based on early performance signals:
+
+- Maintain posting schedule across all platforms
+- Engage with comments within 24 hours daily
+- Review weekly analytics and document learnings
+- Test 2-3 variations in content format or messaging
+- Build content library with top performers for repurposing
+- Identify brand advocates and collaboration opportunities
+
+## Ongoing Optimization
+
+Systematic improvement cycle that compounds results month over month:
+
+- Monthly strategy review analyzing what worked and what didn't
+- Quarterly refresh of content buckets based on performance
+- Regular competitor analysis to identify gaps and opportunities
+- Continuous A/B testing of hooks, formats, and posting times
+- Community nurture through consistent engagement and features
+
+## Next Steps
+
+Start by auditing existing profiles this week. Set up tracking systems before creating new content. Batch-produce content weekly to maintain consistency without daily creative pressure. {brand} should see measurable engagement improvements within 30 days of consistent execution."""
 
 
 # ============================================================
