@@ -11,7 +11,7 @@ This is a minimal test suite to confirm the quality gate is working.
 
 import pytest
 import warnings
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from datetime import date, timedelta
 
 # Suppress FastAPI deprecation warnings during import
@@ -109,12 +109,12 @@ class TestBenchmarkEnforcementSmoke:
     def test_valid_report_passes_validation(self):
         """
         Test that a valid report with properly formatted sections passes validation.
-        
+
         This verifies that:
         - Benchmark validation is executed during report generation
         - Valid content passes without errors
         - generate_sections() returns successfully
-        
+
         NOTE: This test may fail if the generators produce content that doesn't meet
         benchmark requirements. That's actually good - it means validation is working!
         We accept either success or the expected validation failure as proof that
@@ -152,7 +152,7 @@ class TestBenchmarkEnforcementSmoke:
             # If we got here, validation passed
             validation_executed = True
             assert isinstance(results, dict), "generate_sections should return a dict"
-            
+
             # Sections may be empty if generator isn't implemented - that's ok for this test
             # The key is that validation ran without crashing
 
@@ -160,16 +160,16 @@ class TestBenchmarkEnforcementSmoke:
             # Validation ran and failed - this is also acceptable
             # It proves the validation system is working!
             validation_executed = True
-            assert "benchmark validation" in e.detail.lower(), (
-                "HTTPException should mention benchmark validation"
-            )
+            assert (
+                "benchmark validation" in e.detail.lower()
+            ), "HTTPException should mention benchmark validation"
 
         assert validation_executed, "Validation should have executed"
 
     def test_invalid_content_fails_validation(self):
         """
         Test that deliberately invalid content fails validation and raises an error.
-        
+
         This verifies that:
         - Benchmark validation catches quality issues
         - Invalid reports are blocked from export
@@ -206,13 +206,14 @@ class TestBenchmarkEnforcementSmoke:
 
                 # Verify error details
                 assert exc_info.value.status_code == 500
-                assert "failed benchmark validation" in exc_info.value.detail.lower()
-                assert section_to_break in exc_info.value.detail
+                # New enforcer error message format
+                assert "benchmark validation failed" in exc_info.value.detail.lower()
+                assert section_to_break in exc_info.value.detail.lower()
 
     def test_validation_regenerates_failing_sections(self):
         """
         Test that failing sections are regenerated once before final failure.
-        
+
         This verifies the regeneration logic is working:
         - First generation fails validation
         - System attempts regeneration
@@ -260,7 +261,7 @@ class TestBenchmarkEnforcementSmoke:
     def test_validation_directly(self):
         """
         Direct test of the validate_report_sections function.
-        
+
         This is a unit test to verify the validator itself works correctly.
         """
         # Valid content that meets benchmark requirements

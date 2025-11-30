@@ -25,6 +25,12 @@ import streamlit as st  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402
 from sqlalchemy.engine import Engine  # noqa: E402
 
+# Import benchmark error UI helper
+try:
+    from aicmo.ui.benchmark_errors import render_benchmark_error_ui
+except ImportError:
+    render_benchmark_error_ui = None  # type: ignore
+
 # Try to import creative directions if available
 if TYPE_CHECKING:
     from aicmo.creative.directions_engine import CreativeDirection
@@ -682,9 +688,26 @@ def call_backend_generate(
 
         # HTTP status check – show exact error, no fallback
         if resp.status_code != 200:
+            # Parse error detail for user-friendly display
+            try:
+                error_data = resp.json()
+                detail = error_data.get("detail", resp.text)
+            except Exception:
+                detail = resp.text or f"HTTP {resp.status_code}"
+
+            # If this is a benchmark failure (HTTP 500), use friendly error UI
+            if resp.status_code == 500 and "benchmark validation failed" in detail.lower():
+                render_benchmark_error_ui(
+                    error_detail=detail,
+                    request_payload=payload,
+                    retry_callback_key=f"retry_{stage}",
+                )
+                return None
+
+            # Otherwise show raw error
             st.error(
                 f"❌ Backend returned HTTP {resp.status_code} for /api/aicmo/generate_report\n\n"
-                f"**Raw response (first 2000 chars):**\n```\n{resp.text[:2000]}\n```"
+                f"**Raw response (first 2000 chars):**\n```\n{detail[:2000]}\n```"
             )
             return None
 

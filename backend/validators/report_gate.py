@@ -18,6 +18,7 @@ from backend.validators.benchmark_validator import (
 @dataclass
 class ReportValidationResult:
     """Result of validating all sections in a report."""
+
     pack_key: str
     status: str  # "PASS" | "PASS_WITH_WARNINGS" | "FAIL"
     section_results: List[SectionValidationResult] = field(default_factory=list)
@@ -48,9 +49,7 @@ class ReportValidationResult:
 
 
 def validate_report_sections(
-    *,
-    pack_key: str,
-    sections: List[Dict[str, Any]]
+    *, pack_key: str, sections: List[Dict[str, Any]]
 ) -> ReportValidationResult:
     """
     Validate all sections of a report against benchmarks.

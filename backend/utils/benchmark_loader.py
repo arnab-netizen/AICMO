@@ -15,6 +15,7 @@ BENCHMARKS_DIR = Path(__file__).resolve().parents[2] / "learning" / "benchmarks"
 
 class BenchmarkNotFoundError(Exception):
     """Raised when no benchmark file can be found for a given pack."""
+
     pass
 
 
@@ -65,10 +66,7 @@ def load_benchmarks_for_pack(pack_key: str) -> Dict[str, Any]:
     return data
 
 
-def get_section_benchmark(
-    pack_key: str,
-    section_id: str
-) -> Optional[Dict[str, Any]]:
+def get_section_benchmark(pack_key: str, section_id: str) -> Optional[Dict[str, Any]]:
     """
     Return benchmark config for a specific section or None if not defined.
 

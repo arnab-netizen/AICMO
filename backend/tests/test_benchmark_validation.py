@@ -13,11 +13,9 @@ from backend.utils.benchmark_loader import (
 )
 from backend.validators.benchmark_validator import (
     validate_section_against_benchmark,
-    SectionValidationResult,
 )
 from backend.validators.report_gate import (
     validate_report_sections,
-    ReportValidationResult,
 )
 
 
@@ -80,9 +78,7 @@ def test_benchmark_caching():
 def test_validate_empty_content():
     """Test validation of empty content."""
     result = validate_section_against_benchmark(
-        pack_key="quick_social_basic",
-        section_id="overview",
-        content=""
+        pack_key="quick_social_basic", section_id="overview", content=""
     )
     assert result.status == "FAIL"
     assert result.has_errors()
@@ -116,9 +112,7 @@ to business needs and market position. Additional strategic insights help ensure
 results and continuous improvement throughout implementation.
 """
     result = validate_section_against_benchmark(
-        pack_key="quick_social_basic",
-        section_id="overview",
-        content=content
+        pack_key="quick_social_basic", section_id="overview", content=content
     )
     # Should pass or have only warnings
     assert result.status in ["PASS", "PASS_WITH_WARNINGS"]
@@ -128,9 +122,7 @@ def test_validate_too_short():
     """Test validation detects content that's too short."""
     content = "**Brand:** Test\n\nShort content."
     result = validate_section_against_benchmark(
-        pack_key="quick_social_basic",
-        section_id="overview",
-        content=content
+        pack_key="quick_social_basic", section_id="overview", content=content
     )
     assert result.has_errors()
     assert any(issue.code == "TOO_SHORT" for issue in result.issues)
@@ -139,12 +131,11 @@ def test_validate_too_short():
 def test_validate_too_long():
     """Test validation detects content that's too long."""
     # Generate very long content (>260 words for overview)
-    long_content = "**Brand:** Test\n\n**Industry:** Test\n\n**Primary Goal:** Test\n\n" + \
-                   " ".join(["word"] * 300)
+    long_content = "**Brand:** Test\n\n**Industry:** Test\n\n**Primary Goal:** Test\n\n" + " ".join(
+        ["word"] * 300
+    )
     result = validate_section_against_benchmark(
-        pack_key="quick_social_basic",
-        section_id="overview",
-        content=long_content
+        pack_key="quick_social_basic", section_id="overview", content=long_content
     )
     assert result.has_errors()
     assert any(issue.code == "TOO_LONG" for issue in result.issues)
@@ -152,17 +143,18 @@ def test_validate_too_long():
 
 def test_validate_missing_required_heading():
     """Test validation detects missing required headings."""
-    content = """
+    content = (
+        """
 This content has enough words to pass the length check. It talks about marketing strategy
 and social media engagement in detail. However, it's missing the required headings like
 Brand, Industry, and Primary Goal. This should trigger validation errors for missing headings.
 Let me add more words to ensure we're well above the minimum word count requirement so that
 the only issue is the missing headings and not the length.
-""" * 2
+"""
+        * 2
+    )
     result = validate_section_against_benchmark(
-        pack_key="quick_social_basic",
-        section_id="overview",
-        content=content
+        pack_key="quick_social_basic", section_id="overview", content=content
     )
     assert result.has_errors()
     # Should detect either MISSING_HEADING or MISSING_PHRASE (both check for required content)
@@ -189,9 +181,7 @@ you achieve your goals through innovative approaches and data-driven decisions. 
 builds upon the last to create cohesive strategy alignment with market opportunities today.
 """
     result = validate_section_against_benchmark(
-        pack_key="quick_social_basic",
-        section_id="overview",
-        content=content
+        pack_key="quick_social_basic", section_id="overview", content=content
     )
     assert result.has_errors()
     assert any(issue.code == "FORBIDDEN_PHRASE" for issue in result.issues)
@@ -219,9 +209,7 @@ touchpoints. We'll help you achieve your goals through innovative approaches and
 decisions that resonate with your target audience segments effectively.
 """
     result = validate_section_against_benchmark(
-        pack_key="quick_social_basic",
-        section_id="overview",
-        content=content
+        pack_key="quick_social_basic", section_id="overview", content=content
     )
     # Should detect cliché pattern
     if any(issue.code == "FORBIDDEN_PATTERN" for issue in result.issues):
@@ -250,9 +238,7 @@ def test_validate_high_repetition():
 {repeated_line * 20}
 """
     result = validate_section_against_benchmark(
-        pack_key="quick_social_basic",
-        section_id="overview",
-        content=content
+        pack_key="quick_social_basic", section_id="overview", content=content
     )
     # Should detect high repetition (code is TOO_REPETITIVE)
     assert any(issue.code == "TOO_REPETITIVE" for issue in result.issues)
@@ -275,9 +261,7 @@ that will help the business succeed in the competitive marketplace through innov
 and data-driven decision making processes that align with brand values and objectives.
 """
     result = validate_section_against_benchmark(
-        pack_key="quick_social_basic",
-        section_id="overview",
-        content=content
+        pack_key="quick_social_basic", section_id="overview", content=content
     )
     # Should detect too few bullets (needs 3-8, has 0) or too short
     assert any(issue.code in ["TOO_FEW_BULLETS", "TOO_SHORT"] for issue in result.issues)
@@ -285,17 +269,18 @@ and data-driven decision making processes that align with brand values and objec
 
 def test_validate_too_few_headings():
     """Test validation detects insufficient headings."""
-    content = """
+    content = (
+        """
 This is content without proper markdown headings. It has enough words to meet the length
 requirement for the overview section. We discuss marketing strategy, social media engagement,
 and business growth opportunities in detail. However, we're not using proper markdown headings
 with the asterisk format, which should trigger a validation error for insufficient headings.
 Let me continue writing to ensure we have well over the minimum word count required.
-""" * 2
+"""
+        * 2
+    )
     result = validate_section_against_benchmark(
-        pack_key="quick_social_basic",
-        section_id="overview",
-        content=content
+        pack_key="quick_social_basic", section_id="overview", content=content
     )
     # Should detect too few headings
     assert any(issue.code == "TOO_FEW_HEADINGS" for issue in result.issues)
@@ -307,7 +292,7 @@ def test_validate_section_no_benchmark():
     result = validate_section_against_benchmark(
         pack_key="quick_social_basic",  # strict pack
         section_id="nonexistent_section",
-        content="Some content"
+        content="Some content",
     )
     # Strict packs will FAIL when section benchmark is missing
     assert result.status == "FAIL"
@@ -317,9 +302,7 @@ def test_validate_section_no_benchmark():
 def test_validate_pack_no_benchmark():
     """Test validation when pack has no benchmark file."""
     result = validate_section_against_benchmark(
-        pack_key="nonexistent_pack",
-        section_id="overview",
-        content="Some content"
+        pack_key="nonexistent_pack", section_id="overview", content="Some content"
     )
     # Should pass when no benchmark file exists (may have warnings)
     assert result.status in ["PASS", "PASS_WITH_WARNINGS"]
@@ -357,14 +340,11 @@ the target audience. Each section builds upon previous ones creating cohesive st
 guides implementation through specific tactics and measurable outcomes for success in the
 digital marketplace. Strategic initiatives ensure alignment with business goals while
 maintaining brand consistency across all touchpoints and channels for maximum impact.
-"""
+""",
         }
     ]
 
-    result = validate_report_sections(
-        pack_key="quick_social_basic",
-        sections=sections
-    )
+    result = validate_report_sections(pack_key="quick_social_basic", sections=sections)
 
     assert result.status in ["PASS", "PASS_WITH_WARNINGS"]
     assert len(result.section_results) == 1
@@ -373,10 +353,7 @@ maintaining brand consistency across all touchpoints and channels for maximum im
 def test_validate_report_some_fail():
     """Test report validation when some sections fail."""
     sections = [
-        {
-            "id": "overview",
-            "content": "Too short"  # Will fail
-        },
+        {"id": "overview", "content": "Too short"},  # Will fail
         {
             "id": "audience_segments",
             "content": """
@@ -386,14 +363,11 @@ def test_validate_report_some_fail():
 
 This section describes our target audience segments with detailed demographic and psychographic
 information that helps guide our content strategy and messaging approach effectively.
-"""  # Should pass
-        }
+""",  # Should pass
+        },
     ]
 
-    result = validate_report_sections(
-        pack_key="quick_social_basic",
-        sections=sections
-    )
+    result = validate_report_sections(pack_key="quick_social_basic", sections=sections)
 
     assert result.status == "FAIL"
     assert len(result.section_results) == 2
@@ -406,13 +380,10 @@ def test_validate_report_error_summary():
     """Test that error summary is generated correctly."""
     sections = [
         {"id": "overview", "content": "Too short"},
-        {"id": "audience_segments", "content": "Also too short"}
+        {"id": "audience_segments", "content": "Also too short"},
     ]
 
-    result = validate_report_sections(
-        pack_key="quick_social_basic",
-        sections=sections
-    )
+    result = validate_report_sections(pack_key="quick_social_basic", sections=sections)
 
     error_summary = result.get_error_summary()
     assert error_summary
@@ -423,10 +394,7 @@ def test_validate_report_error_summary():
 
 def test_validate_report_empty_sections_list():
     """Test report validation with empty sections list."""
-    result = validate_report_sections(
-        pack_key="quick_social_basic",
-        sections=[]
-    )
+    result = validate_report_sections(pack_key="quick_social_basic", sections=[])
 
     assert result.status == "PASS"
     assert len(result.section_results) == 0
@@ -434,14 +402,9 @@ def test_validate_report_empty_sections_list():
 
 def test_validate_report_missing_content_field():
     """Test report validation handles missing content field gracefully."""
-    sections = [
-        {"id": "overview"}  # Missing 'content' field
-    ]
+    sections = [{"id": "overview"}]  # Missing 'content' field
 
-    result = validate_report_sections(
-        pack_key="quick_social_basic",
-        sections=sections
-    )
+    result = validate_report_sections(pack_key="quick_social_basic", sections=sections)
 
     # Should handle gracefully and treat as empty content
     assert len(result.section_results) == 1
@@ -450,14 +413,9 @@ def test_validate_report_missing_content_field():
 
 def test_validate_report_no_benchmark_file():
     """Test report validation when pack has no benchmark file."""
-    sections = [
-        {"id": "overview", "content": "Some content"}
-    ]
+    sections = [{"id": "overview", "content": "Some content"}]
 
-    result = validate_report_sections(
-        pack_key="nonexistent_pack",
-        sections=sections
-    )
+    result = validate_report_sections(pack_key="nonexistent_pack", sections=sections)
 
     # Should pass when no benchmark exists (may have warnings)
     assert result.status in ["PASS", "PASS_WITH_WARNINGS"]
@@ -503,27 +461,20 @@ methodologies that deliver tangible results. Implementation follows best practic
 maximize return on investment and maintain competitive advantage in the marketplace.
 """
     section_result = validate_section_against_benchmark(
-        pack_key="quick_social_basic", 
-        section_id="overview", 
-        content=content
+        pack_key="quick_social_basic", section_id="overview", content=content
     )
     assert section_result is not None
 
     # 4. Validate full report
     sections = [{"id": "overview", "content": content}]
-    report_result = validate_report_sections(
-        pack_key="quick_social_basic", 
-        sections=sections
-    )
+    report_result = validate_report_sections(pack_key="quick_social_basic", sections=sections)
     assert report_result.status in ["PASS", "PASS_WITH_WARNINGS"]
 
 
 def test_validation_result_serialization():
     """Test that validation results can be serialized to dict."""
     result = validate_section_against_benchmark(
-        pack_key="quick_social_basic",
-        section_id="overview",
-        content="Test"
+        pack_key="quick_social_basic", section_id="overview", content="Test"
     )
 
     # Ensure we can access all fields

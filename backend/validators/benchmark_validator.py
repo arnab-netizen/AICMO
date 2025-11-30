@@ -23,6 +23,7 @@ from backend.utils.benchmark_loader import (
 @dataclass
 class SectionValidationIssue:
     """Single validation issue found in a section."""
+
     code: str
     message: str
     severity: str = "error"  # "error" | "warning"
@@ -31,6 +32,7 @@ class SectionValidationIssue:
 @dataclass
 class SectionValidationResult:
     """Result of validating one section against its benchmark."""
+
     section_id: str
     status: str  # "PASS" | "PASS_WITH_WARNINGS" | "FAIL"
     issues: List[SectionValidationIssue] = field(default_factory=list)
@@ -69,9 +71,9 @@ def _analyse_structure(text: str) -> Tuple[int, int, int]:
     Bullets: lines starting with -, *, •
     Headings: lines starting with #
     """
-    lines = [l.rstrip() for l in text.splitlines() if l.strip()]
-    bullet_count = sum(1 for l in lines if l.lstrip().startswith(("-", "*", "•")))
-    heading_count = sum(1 for l in lines if l.lstrip().startswith("#"))
+    lines = [line.rstrip() for line in text.splitlines() if line.strip()]
+    bullet_count = sum(1 for line in lines if line.lstrip().startswith(("-", "*", "•")))
+    heading_count = sum(1 for line in lines if line.lstrip().startswith("#"))
     return bullet_count, heading_count, len(lines)
 
 
@@ -81,7 +83,7 @@ def _repetition_ratio(text: str) -> float:
 
     Returns value between 0.0 (all unique) and 1.0 (all duplicates).
     """
-    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
     if not lines:
         return 0.0
     unique = set(lines)
@@ -89,10 +91,7 @@ def _repetition_ratio(text: str) -> float:
 
 
 def validate_section_against_benchmark(
-    *,
-    pack_key: str,
-    section_id: str,
-    content: str
+    *, pack_key: str, section_id: str, content: str
 ) -> SectionValidationResult:
     """
     Validate one section against its benchmark criteria.

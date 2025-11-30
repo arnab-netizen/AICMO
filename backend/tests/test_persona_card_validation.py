@@ -1,5 +1,5 @@
 """Test persona card generation and field validation."""
-import pytest
+
 from backend.industry_config import (
     IndustryPersonaConfig,
     convert_industry_persona_to_persona_card,

@@ -619,7 +619,9 @@ def _gen_audience_segments(req: GenerateRequest, **kwargs) -> str:
     b = req.brief.brand
     a = req.brief.audience
     # Use safe persona label to avoid goal text being echoed as audience
-    primary_label = _safe_persona_label(a.primary_customer, getattr(req.brief.goal, 'primary_goal', None))
+    primary_label = _safe_persona_label(
+        a.primary_customer, getattr(req.brief.goal, "primary_goal", None)
+    )
     secondary_label = a.secondary_customer or "Referral sources and advocates"
 
     raw = (
@@ -2508,7 +2510,10 @@ def generate_sections(
     Raises:
         HTTPException: If sections fail benchmark validation after regeneration
     """
-    from backend.validators.report_gate import validate_report_sections
+    from backend.validators.report_enforcer import (
+        enforce_benchmarks_with_regen,
+        BenchmarkEnforcementError,
+    )
 
     results = {}
     context = {
@@ -2537,7 +2542,7 @@ def generate_sections(
             # Section not yet implemented - skip rather than output placeholder
             continue
 
-    # QUALITY GATE: Validate all generated sections against benchmarks
+    # QUALITY GATE: Enforce benchmarks using the enforcer pattern
     pack_key = req.package_preset or req.wow_package_key
     if pack_key and results:
         # Build sections list for validation
@@ -2548,89 +2553,54 @@ def generate_sections(
         ]
 
         if sections_for_validation:
-            validation_result = validate_report_sections(
-                pack_key=pack_key,
-                sections=sections_for_validation
-            )
 
-            logger.info(
-                f"[BENCHMARK VALIDATION] Pack: {pack_key}, "
-                f"Status: {validation_result.status}, "
-                f"Sections validated: {len(sections_for_validation)}"
-            )
-
-            if validation_result.status == "FAIL":
-                # Get failing sections
-                failing_sections = validation_result.failing_sections()
-                failing_ids = [s.section_id for s in failing_sections]
-
+            def regenerate_failed_sections(failing_ids, failing_issues):
+                """Regenerate only the failing sections."""
                 logger.warning(
-                    f"[BENCHMARK VALIDATION] {len(failing_ids)} section(s) failed: {failing_ids}. "
-                    "Regenerating..."
+                    f"[BENCHMARK ENFORCEMENT] Regenerating {len(failing_ids)} failing section(s): {failing_ids}"
                 )
 
-                # PASS 2: Regenerate failing sections
+                regenerated = []
                 for section_id in failing_ids:
                     generator_fn = SECTION_GENERATORS.get(section_id)
                     if generator_fn:
                         try:
-                            results[section_id] = generator_fn(**context)
+                            content = generator_fn(**context)
+                            regenerated.append({"id": section_id, "content": content})
                             logger.info(f"[REGENERATION] Regenerated section: {section_id}")
                         except Exception as e:
                             logger.error(
                                 f"[REGENERATION] Failed to regenerate '{section_id}': {e}",
-                                exc_info=True
+                                exc_info=True,
                             )
+                return regenerated
 
-                # Re-validate regenerated sections
-                regenerated_sections = [
-                    {"id": section_id, "content": results[section_id]}
-                    for section_id in failing_ids
-                    if section_id in results and results[section_id]
-                ]
-
-                if regenerated_sections:
-                    revalidation_result = validate_report_sections(
-                        pack_key=pack_key,
-                        sections=regenerated_sections
-                    )
-
-                    logger.info(
-                        f"[REVALIDATION] Status: {revalidation_result.status}, "
-                        f"Sections: {len(regenerated_sections)}"
-                    )
-
-                    if revalidation_result.status == "FAIL":
-                        # Still failing after regeneration - block export
-                        still_failing = revalidation_result.failing_sections()
-                        still_failing_ids = [s.section_id for s in still_failing]
-
-                        error_summary = revalidation_result.get_error_summary()
-                        logger.error(
-                            f"[BENCHMARK VALIDATION] Report failed after regeneration. "
-                            f"Failing sections: {still_failing_ids}"
-                        )
-
-                        raise HTTPException(
-                            status_code=500,
-                            detail=(
-                                f"Report failed benchmark validation after regeneration. "
-                                f"Failing sections: {', '.join(still_failing_ids)}. "
-                                f"{error_summary}"
-                            )
-                        )
-                    else:
-                        logger.info(
-                            "[BENCHMARK VALIDATION] All regenerated sections now pass validation"
-                        )
-            elif validation_result.status == "PASS_WITH_WARNINGS":
-                # Log warnings but continue
-                logger.warning(
-                    f"[BENCHMARK VALIDATION] Report passed with warnings for pack: {pack_key}"
+            try:
+                enforcement = enforce_benchmarks_with_regen(
+                    pack_key=pack_key,
+                    sections=sections_for_validation,
+                    regenerate_failed_sections=regenerate_failed_sections,
+                    max_attempts=2,
                 )
-            else:
-                # PASS - all good
-                logger.info(f"[BENCHMARK VALIDATION] All sections passed for pack: {pack_key}")
+
+                logger.info(
+                    f"[BENCHMARK ENFORCEMENT] Pack: {pack_key}, "
+                    f"Status: {enforcement.status}, "
+                    f"Sections: {len(enforcement.sections)}"
+                )
+
+                # Update results with validated sections
+                for section in enforcement.sections:
+                    section_id = section.get("id") or section.get("section_id")
+                    if section_id:
+                        results[section_id] = section.get("content", "")
+
+            except BenchmarkEnforcementError as exc:
+                logger.error(f"[BENCHMARK ENFORCEMENT] Failed: {exc}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=str(exc),
+                )
 
     return results
 
@@ -2939,9 +2909,12 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
     )
 
     # Social calendar - for Quick Social packs we produce a 30-day calendar, otherwise default 7 days
-    calendar_days = 30 if (req.package_preset and str(req.package_preset).startswith("quick_social")) or (
-        req.wow_package_key and str(req.wow_package_key).startswith("quick_social")
-    ) else 7
+    calendar_days = (
+        30
+        if (req.package_preset and str(req.package_preset).startswith("quick_social"))
+        or (req.wow_package_key and str(req.wow_package_key).startswith("quick_social"))
+        else 7
+    )
 
     posts = generate_social_calendar(req.brief, start_date=today, days=calendar_days)
 
@@ -3223,17 +3196,19 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
         for p in persona_cards:
             if not isinstance(p, dict):
                 continue
-            normalised_personas.append({
-                "name": p.get("name") or "Primary Persona",
-                "demographics": p.get("demographics", ""),
-                "psychographics": p.get("psychographics", ""),
-                "tone_preference": p.get("tone_preference", ""),
-                "pain_points": p.get("pain_points", []),
-                "triggers": p.get("triggers", []),
-                "objections": p.get("objections", []),
-                "content_preferences": p.get("content_preferences", []),
-                "primary_platforms": p.get("primary_platforms", []),
-            })
+            normalised_personas.append(
+                {
+                    "name": p.get("name") or "Primary Persona",
+                    "demographics": p.get("demographics", ""),
+                    "psychographics": p.get("psychographics", ""),
+                    "tone_preference": p.get("tone_preference", ""),
+                    "pain_points": p.get("pain_points", []),
+                    "triggers": p.get("triggers", []),
+                    "objections": p.get("objections", []),
+                    "content_preferences": p.get("content_preferences", []),
+                    "primary_platforms": p.get("primary_platforms", []),
+                }
+            )
         persona_cards = normalised_personas
 
     out = AICMOOutputReport(
@@ -3382,13 +3357,9 @@ def _apply_wow_to_output(
             from backend.validators.output_validator import validate_pack_contract
 
             validate_pack_contract(req.wow_package_key, output)
-            logger.info(
-                f"✅ Pack contract validation passed for {req.wow_package_key}"
-            )
+            logger.info(f"✅ Pack contract validation passed for {req.wow_package_key}")
         except ValueError as ve:
-            logger.warning(
-                f"⚠️  Pack contract validation failed for {req.wow_package_key}: {ve}"
-            )
+            logger.warning(f"⚠️  Pack contract validation failed for {req.wow_package_key}: {ve}")
             # Non-breaking: log warning but don't fail report generation
         except Exception as e:
             logger.debug(f"Pack contract validation error (non-critical): {e}")
@@ -3406,8 +3377,7 @@ def _apply_wow_to_output(
 
             if validation_sections:
                 validation_result = validate_report_sections(
-                    pack_key=req.wow_package_key,
-                    sections=validation_sections
+                    pack_key=req.wow_package_key, sections=validation_sections
                 )
 
                 logger.info(

@@ -9,6 +9,7 @@ Test strategy:
 2. Integration tests using actual report generation for key packs
 3. Golden snapshot tests to detect unintended structural changes
 """
+
 import asyncio
 import pytest
 
@@ -30,8 +31,7 @@ def test_validate_pack_contract_with_valid_report():
     # Create mock report with all required sections
     mock_report = {
         "extra_sections": {
-            section_id: f"Content for {section_id}"
-            for section_id in schema["required_sections"]
+            section_id: f"Content for {section_id}" for section_id in schema["required_sections"]
         }
     }
 
@@ -88,10 +88,7 @@ def test_validate_pack_contract_wrong_order():
     reordered = [required[-1]] + required[:-1]  # Move last to first
 
     mock_report = {
-        "extra_sections": {
-            section_id: f"Content for {section_id}"
-            for section_id in reordered
-        }
+        "extra_sections": {section_id: f"Content for {section_id}" for section_id in reordered}
     }
 
     with pytest.raises(ValueError, match="section order incorrect"):
@@ -140,8 +137,7 @@ def test_quick_social_pack_has_all_required_sections():
     assert report_markdown, "Report markdown should not be empty"
 
     # Get expected sections from schema
-    schema = get_pack_schema("quick_social_basic")
-    required_sections = schema["required_sections"]
+    get_pack_schema("quick_social_basic")
 
     # Check that all required sections appear in markdown (as headers)
     # Note: Section IDs are converted to human-readable headers in WOW templates
@@ -168,7 +164,9 @@ def test_quick_social_pack_includes_30_day_calendar():
     calendar_indicators = ["Week ", "Day ", "Monday", "Tuesday", "Wednesday"]
     found_indicators = sum(1 for ind in calendar_indicators if ind in report_markdown)
 
-    assert found_indicators >= 3, f"Expected calendar content, found only {found_indicators} indicators"
+    assert (
+        found_indicators >= 3
+    ), f"Expected calendar content, found only {found_indicators} indicators"
 
 
 # ============================================================
@@ -206,8 +204,7 @@ def test_strategy_campaign_standard_has_all_required_sections():
     assert report_markdown, "Report markdown should not be empty"
 
     # Get expected sections from schema
-    schema = get_pack_schema("strategy_campaign_standard")
-    required_sections = schema["required_sections"]
+    get_pack_schema("strategy_campaign_standard")
 
     # Verify report has substantial content for standard pack (more than basic)
     assert len(report_markdown) > 2000, "Standard pack report should have substantial content"
