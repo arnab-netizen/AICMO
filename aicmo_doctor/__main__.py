@@ -11,6 +11,9 @@ TEST_FILES = [
     "backend/tests/test_fullstack_simulation.py",
     "backend/tests/test_report_benchmark_enforcement.py",
     "backend/tests/test_benchmark_enforcement_smoke.py",
+    "backend/tests/test_request_fingerprint.py",
+    "backend/tests/test_report_cache.py",
+    "backend/tests/test_performance_smoke.py",
 ]
 
 
