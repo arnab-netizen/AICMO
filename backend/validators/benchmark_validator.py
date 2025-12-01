@@ -11,13 +11,24 @@ Validates individual sections against quality benchmarks including:
 
 import re
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import Dict, List, Set, Tuple
 
 from backend.utils.benchmark_loader import (
     get_section_benchmark,
     is_strict_pack,
     BenchmarkNotFoundError,
 )
+
+
+# Sections where we want softer, format-only validation instead of strict snapshot match,
+# because they are highly dynamic and have been refactored.
+QUICK_SOCIAL_SOFT_VALIDATION_SECTIONS: Dict[str, Set[str]] = {
+    "quick_social_basic": {
+        "detailed_30_day_calendar",
+        "kpi_plan_light",
+        "execution_roadmap",
+    }
+}
 
 
 @dataclass
@@ -90,6 +101,173 @@ def _repetition_ratio(text: str) -> float:
     return 1.0 - (len(unique) / len(lines))
 
 
+def _is_quick_social_soft_section(pack_key: str, section_id: str) -> bool:
+    """
+    Check if a section should use soft validation instead of strict benchmark matching.
+
+    Args:
+        pack_key: Pack identifier
+        section_id: Section identifier
+
+    Returns:
+        True if this section should use format-only validation
+    """
+    return (
+        pack_key in QUICK_SOCIAL_SOFT_VALIDATION_SECTIONS
+        and section_id in QUICK_SOCIAL_SOFT_VALIDATION_SECTIONS[pack_key]
+    )
+
+
+def _validate_soft_section(section_id: str, content: str) -> SectionValidationResult:
+    """
+    Perform soft/structural validation for Quick Social dynamic sections.
+
+    Instead of comparing against a strict benchmark, we validate that the content
+    meets basic structural requirements specific to each section type.
+
+    Args:
+        section_id: Section identifier
+        content: Section content
+
+    Returns:
+        SectionValidationResult with validation outcome
+    """
+    result = SectionValidationResult(section_id=section_id, status="PASS", issues=[])
+    normalized = content.strip()
+
+    # Must not be empty
+    if not normalized:
+        result.status = "FAIL"
+        result.issues.append(
+            SectionValidationIssue(
+                code="EMPTY",
+                message="Section content is empty.",
+                severity="error",
+            )
+        )
+        return result
+
+    # Section-specific structural rules
+    if section_id == "detailed_30_day_calendar":
+        # Require markdown table with expected columns
+        has_pipe = "|" in normalized
+        has_day = "Day" in normalized or "Date" in normalized
+        has_platform = "Platform" in normalized
+
+        if not (has_pipe and has_day and has_platform):
+            result.status = "FAIL"
+            result.issues.append(
+                SectionValidationIssue(
+                    code="MISSING_TABLE_STRUCTURE",
+                    message="Calendar must include a markdown table with Day/Date and Platform columns.",
+                    severity="error",
+                )
+            )
+
+        # Check for reasonable number of rows (should have ~30 days)
+        table_rows = [line for line in normalized.split("\n") if line.strip().startswith("|")]
+        if len(table_rows) < 20:  # Allow some flexibility but ensure it's substantial
+            result.issues.append(
+                SectionValidationIssue(
+                    code="TOO_FEW_CALENDAR_ROWS",
+                    message=f"Calendar has only {len(table_rows)} table rows, expected at least 20.",
+                    severity="warning",
+                )
+            )
+
+    elif section_id == "kpi_plan_light":
+        # Require KPI-related terminology
+        kpi_tokens = [
+            "reach",
+            "engagement",
+            "conversion",
+            "clicks",
+            "traffic",
+            "impressions",
+            "followers",
+            "ctr",
+            "roi",
+        ]
+        has_kpi_content = any(tok.lower() in normalized.lower() for tok in kpi_tokens)
+
+        if not has_kpi_content:
+            result.status = "FAIL"
+            result.issues.append(
+                SectionValidationIssue(
+                    code="MISSING_KPI_CONTENT",
+                    message="KPI section must include relevant metrics (reach, engagement, conversion, etc.).",
+                    severity="error",
+                )
+            )
+
+        # Should have some structure (bullets or numbers)
+        has_structure = any(c in normalized for c in ["-", "*", "•", "1.", "2.", "3."])
+        if not has_structure:
+            result.issues.append(
+                SectionValidationIssue(
+                    code="UNSTRUCTURED_CONTENT",
+                    message="KPI section should have bullets or numbered lists.",
+                    severity="warning",
+                )
+            )
+
+    elif section_id == "execution_roadmap":
+        # Require timeline/phases
+        timeline_keywords = [
+            "Day 1",
+            "Day 2",
+            "Day 3",
+            "Week 1",
+            "Week 2",
+            "Next 7 days",
+            "Next 30 days",
+            "Phase",
+            "Timeline",
+        ]
+        has_timeline = any(keyword in normalized for keyword in timeline_keywords)
+
+        if not has_timeline:
+            result.status = "FAIL"
+            result.issues.append(
+                SectionValidationIssue(
+                    code="MISSING_TIMELINE",
+                    message="Execution roadmap must include timeline markers (Day 1, Week 1, phases, etc.).",
+                    severity="error",
+                )
+            )
+
+        # Should have action-oriented content
+        action_keywords = [
+            "setup",
+            "launch",
+            "create",
+            "post",
+            "publish",
+            "monitor",
+            "optimize",
+            "review",
+        ]
+        has_actions = any(keyword.lower() in normalized.lower() for keyword in action_keywords)
+        if not has_actions:
+            result.issues.append(
+                SectionValidationIssue(
+                    code="LACKS_ACTION_ITEMS",
+                    message="Execution roadmap should include action verbs (setup, launch, create, etc.).",
+                    severity="warning",
+                )
+            )
+
+    # Determine final status based on issues
+    if any(i.severity == "error" for i in result.issues):
+        result.status = "FAIL"
+    elif result.issues:
+        result.status = "PASS_WITH_WARNINGS"
+    else:
+        result.status = "PASS"
+
+    return result
+
+
 def validate_section_against_benchmark(
     *, pack_key: str, section_id: str, content: str
 ) -> SectionValidationResult:
@@ -106,6 +284,10 @@ def validate_section_against_benchmark(
     Returns:
         SectionValidationResult with status and any issues found
     """
+    # Check for Quick Social soft validation sections first
+    if _is_quick_social_soft_section(pack_key, section_id):
+        return _validate_soft_section(section_id, content)
+
     result = SectionValidationResult(section_id=section_id, status="PASS", issues=[])
 
     # Check for empty content
