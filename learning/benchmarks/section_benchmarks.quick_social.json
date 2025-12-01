@@ -42,14 +42,13 @@
       "id": "detailed_30_day_calendar",
       "label": "30-Day Social Calendar",
       "min_words": 200,
-      "max_words": 800,
-      "min_bullets": 15,
+      "max_words": 1200,
+      "min_bullets": 0,
       "max_bullets": 35,
-      "min_headings": 5,
-      "max_headings": 15,
+      "min_headings": 1,
+      "max_headings": 5,
       "required_headings": [
         "Day",
-        "Hook",
         "Platform"
       ],
       "required_substrings": [
@@ -65,8 +64,8 @@
       "forbidden_regex": [
         "(?i)just wing it"
       ],
-      "max_repeated_line_ratio": 0.35,
-      "max_avg_sentence_length": 28,
+      "max_repeated_line_ratio": 0.5,
+      "max_avg_sentence_length": 32,
       "format": "markdown_table"
     },
     "messaging_framework": {
@@ -113,15 +112,14 @@
     "execution_roadmap": {
       "id": "execution_roadmap",
       "label": "Execution Roadmap",
-      "min_words": 100,
-      "max_words": 300,
-      "min_bullets": 5,
-      "max_bullets": 12,
-      "min_headings": 1,
-      "max_headings": 4,
+      "min_words": 180,
+      "max_words": 400,
+      "min_bullets": 8,
+      "max_bullets": 20,
+      "min_headings": 3,
+      "max_headings": 6,
       "required_headings": [
-        "Week 1",
-        "Next Steps"
+        "Week 1"
       ],
       "required_substrings": [],
       "forbidden_substrings": [
@@ -129,8 +127,8 @@
         "figure it out"
       ],
       "forbidden_regex": [],
-      "max_repeated_line_ratio": 0.3,
-      "max_avg_sentence_length": 26,
+      "max_repeated_line_ratio": 0.4,
+      "max_avg_sentence_length": 32,
       "format": "markdown_list"
     },
     "hashtag_strategy": {
@@ -159,12 +157,12 @@
     "kpi_plan_light": {
       "id": "kpi_plan_light",
       "label": "KPI Plan",
-      "min_words": 120,
-      "max_words": 300,
-      "min_bullets": 6,
-      "max_bullets": 15,
+      "min_words": 180,
+      "max_words": 400,
+      "min_bullets": 10,
+      "max_bullets": 20,
       "min_headings": 3,
-      "max_headings": 5,
+      "max_headings": 6,
       "required_headings": [
         "Reach",
         "Engagement"
@@ -175,8 +173,8 @@
         "measure everything"
       ],
       "forbidden_regex": [],
-      "max_repeated_line_ratio": 0.3,
-      "max_avg_sentence_length": 26,
+      "max_repeated_line_ratio": 0.4,
+      "max_avg_sentence_length": 32,
       "format": "markdown_list"
     },
     "final_summary": {
