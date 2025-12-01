@@ -1126,9 +1126,13 @@ def _gen_quick_social_30_day_calendar(req: GenerateRequest) -> str:
     - Platform rotation (Instagram, LinkedIn, Twitter)
     - Day-of-week bucket mapping
     - Unique hooks per post based on bucket + angle + platform
+    - Phase 1 quality upgrades: creative territories, visual concepts, genericity detection
     """
     from datetime import date, timedelta
     from backend.industry_config import get_industry_profile
+    from backend.creative_territories import get_creative_territories_for_brief
+    from backend.visual_concepts import generate_visual_concept
+    from backend.genericity_scoring import is_too_generic
 
     b = req.brief.brand
     g = req.brief.goal
@@ -1138,6 +1142,14 @@ def _gen_quick_social_30_day_calendar(req: GenerateRequest) -> str:
 
     # Get industry profile for specialized vocabulary
     profile = get_industry_profile(industry)
+
+    # Phase 1: Get creative territories for brand-aware content guidance
+    brief_dict = {
+        "brand_name": brand_name,
+        "industry": industry,
+        "geography": getattr(b, "geography", "Global"),
+    }
+    creative_territories = get_creative_territories_for_brief(brief_dict)
 
     # Content buckets
     CONTENT_BUCKETS = ["Education", "Proof", "Promo", "Community"]
@@ -1232,7 +1244,21 @@ def _gen_quick_social_30_day_calendar(req: GenerateRequest) -> str:
         # Determine angle
         angle = ANGLES[(day_num - 1 + weekday) % len(ANGLES)]
 
-        # Generate unique hook based on bucket + angle + platform
+        # Phase 1: Generate visual concept for this post
+        territory_id = (
+            creative_territories[day_num % len(creative_territories)].id
+            if creative_territories
+            else "brand_story"
+        )
+        visual_concept = generate_visual_concept(
+            platform=platform,
+            theme=f"{bucket}: {angle}",
+            creative_territory_id=territory_id,
+            brand_name=brand_name,
+            industry=industry,
+        )
+
+        # Generate unique hook based on bucket + angle + platform + visual concept
         hook = _make_quick_social_hook(
             brand_name=brand_name,
             industry=industry,
@@ -1243,7 +1269,28 @@ def _gen_quick_social_30_day_calendar(req: GenerateRequest) -> str:
             day_num=day_num,
             weekday=weekday,
             profile=profile,
+            visual_concept=visual_concept,
         )
+
+        # Phase 1: Check if hook is too generic, regenerate if needed
+        if is_too_generic(hook):
+            # Add visual concept guidance to make it more specific
+            visual_guidance = (
+                f"Include specific details: {visual_concept.setting}, {visual_concept.mood} mood"
+            )
+            hook = _make_quick_social_hook(
+                brand_name=brand_name,
+                industry=industry,
+                bucket=bucket,
+                angle=angle,
+                platform=platform,
+                goal_short=goal_short,
+                day_num=day_num,
+                weekday=weekday,
+                profile=profile,
+                visual_concept=visual_concept,
+                anti_generic_hint=visual_guidance,
+            )
 
         # Choose asset type
         asset_types_list = ASSET_TYPES.get(platform, ["static_post"])
@@ -1300,11 +1347,14 @@ def _make_quick_social_hook(
     day_num: int,
     weekday: int,
     profile: Optional[any],
+    visual_concept: Optional[any] = None,
+    anti_generic_hint: Optional[str] = None,
 ) -> str:
     """
     Generate unique hook for Quick Social post based on context.
 
     Uses templates that vary by platform + bucket + angle to ensure variety.
+    Phase 1: Incorporates visual concept guidance for specificity.
     """
     industry_lower = industry.lower() if industry else "industry"
 
@@ -1313,49 +1363,56 @@ def _make_quick_social_hook(
     if profile and profile.vocab:
         vocab_phrase = profile.vocab[day_num % len(profile.vocab)]
 
+    # Phase 1: Add visual concept specificity if available and anti-generic hint provided
+    visual_detail = ""
+    if visual_concept and anti_generic_hint:
+        visual_detail = f" ({visual_concept.setting}, {visual_concept.mood} mood)"
+
     # Platform + Bucket + Angle combinations
     if platform == "Instagram":
         if bucket == "Experience":
             if vocab_phrase and "third place" in vocab_phrase:
-                return f"Step into {brand_name}: your community's third place."
-            return f"Step into {brand_name}: your {industry_lower} escape in the neighbourhood."
+                return f"Step into {brand_name}: your community's third place{visual_detail}."
+            return f"Step into {brand_name}: your {industry_lower} escape in the neighbourhood{visual_detail}."
         elif bucket == "Proof" and "Community" in angle:
-            return f"What guests actually say about {brand_name}."
+            return f"What guests actually say about {brand_name}{visual_detail}."
         elif bucket == "Education":
-            return f"Quick tip: {angle.lower()} at {brand_name}."
+            return f"Quick tip: {angle.lower()} at {brand_name}{visual_detail}."
         elif bucket == "Promo":
             if weekday == 4:  # Friday
-                return f"Friday treat: limited-time offer at {brand_name}."
-            return f"New at {brand_name}: {angle.lower()}."
+                return f"Friday treat: limited-time offer at {brand_name}{visual_detail}."
+            return f"New at {brand_name}: {angle.lower()}{visual_detail}."
         elif bucket == "Community":
-            return f"Meet the faces behind {brand_name}."
+            return f"Meet the faces behind {brand_name}{visual_detail}."
 
     elif platform == "LinkedIn":
         if bucket == "Education":
             if vocab_phrase:
-                return f"3 ways {brand_name} is rethinking {vocab_phrase} for busy professionals."
-            return f"3 ways {brand_name} is rethinking {industry_lower} for busy professionals."
+                return f"3 ways {brand_name} is rethinking {vocab_phrase} for busy professionals{visual_detail}."
+            return f"3 ways {brand_name} is rethinking {industry_lower} for busy professionals{visual_detail}."
         elif bucket == "Proof":
-            return f"How {brand_name} is changing {industry_lower}: a customer story."
+            return (
+                f"How {brand_name} is changing {industry_lower}: a customer story{visual_detail}."
+            )
         elif bucket == "Community":
-            return f"Behind the scenes: building community at {brand_name}."
+            return f"Behind the scenes: building community at {brand_name}{visual_detail}."
         elif bucket == "Promo":
-            return f"Special offer for our LinkedIn community from {brand_name}."
+            return f"Special offer for our LinkedIn community from {brand_name}{visual_detail}."
 
     elif platform == "Twitter":
         if bucket == "Proof":
-            return f"What customers actually say about {brand_name} ({goal_short})."
+            return f"What customers actually say about {brand_name} ({goal_short}){visual_detail}."
         elif bucket == "Education":
-            return f"Thread: {angle.lower()} essentials from {brand_name}."
+            return f"Thread: {angle.lower()} essentials from {brand_name}{visual_detail}."
         elif bucket == "Promo":
-            return f"Flash: limited-time offer from {brand_name}."
+            return f"Flash: limited-time offer from {brand_name}{visual_detail}."
         elif bucket == "Community":
-            return f"Your {brand_name} story: share your favorite moment."
+            return f"Your {brand_name} story: share your favorite moment{visual_detail}."
 
     # Fallback with day variation
     day_phrases = ["This week at", "Today's highlight:", "Don't miss:", "Just for you:"]
     day_phrase = day_phrases[day_num % len(day_phrases)]
-    return f"{day_phrase} {bucket.lower()} content from {brand_name}."
+    return f"{day_phrase} {bucket.lower()} content from {brand_name}{visual_detail}."
 
 
 def _gen_email_and_crm_flows(req: GenerateRequest, **kwargs) -> str:
