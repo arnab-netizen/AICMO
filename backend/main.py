@@ -7558,7 +7558,7 @@ def aicmo_export_pdf(payload: dict):
     Convert markdown or structured sections to PDF with safe error handling.
 
     Supports three modes:
-    1. Agency-grade PDF: { "wow_enabled": True, ... }
+    1. Agency-grade PDF: { "wow_enabled": True, "wow_package_key": "...", "report": {...} }
     2. Markdown mode: { "markdown": "..." }
     3. Structured mode: { "sections": [...], "brief": {...} }
 
@@ -7567,22 +7567,47 @@ def aicmo_export_pdf(payload: dict):
         JSONResponse with error details on failure (Content-Type: application/json).
     """
     try:
-        # Check if agency-grade PDF export is enabled
+        # Extract agency PDF parameters
         wow_enabled = payload.get("wow_enabled", False)
+        wow_package_key = payload.get("wow_package_key")
+        pack_key = payload.get("pack_key") or wow_package_key
+        report = payload.get("report", {})
 
-        if wow_enabled:
-            try:
-                logger.info("🎨 [AGENCY PDF] Attempting agency-grade PDF export...")
-                return safe_export_agency_pdf(payload)
-            except Exception as e:
-                logger.warning(
-                    f"🎨 [AGENCY PDF] Agency export failed, falling back to standard: {e}"
+        print("\n" + "=" * 80)
+        print("📄 PDF DEBUG: aicmo_export_pdf() called")
+        print(f"   pack_key        = {pack_key}")
+        print(f"   wow_enabled     = {wow_enabled}")
+        print(f"   wow_package_key = {wow_package_key}")
+        print(f"   payload keys    = {list(payload.keys())}")
+        print("=" * 80 + "\n")
+
+        # STEP 1: Try agency PDF path first (WeasyPrint + HTML templates)
+        if pack_key:
+            agency_pdf_bytes = safe_export_agency_pdf(
+                pack_key=pack_key,
+                report=report,
+                wow_enabled=wow_enabled,
+                wow_package_key=wow_package_key,
+            )
+
+            if agency_pdf_bytes is not None:
+                print("📄 PDF DEBUG: ✅ using AGENCY PDF path")
+                logger.info(f"PDF exported via agency path: {len(agency_pdf_bytes)} bytes")
+                return StreamingResponse(
+                    iter([agency_pdf_bytes]),
+                    media_type="application/pdf",
+                    headers={"Content-Disposition": 'attachment; filename="AICMO_Report.pdf"'},
                 )
-                # Fall through to standard export
+            else:
+                print("📄 PDF DEBUG: agency path returned None, trying fallback...")
 
-        # Mode 1: Try structured sections first (HTML template rendering)
+        # STEP 2: Try structured sections mode (legacy HTML template rendering)
         sections = payload.get("sections")
         brief = payload.get("brief")
+
+        print(
+            f"📄 PDF DEBUG: Structured mode check - sections={bool(sections)}, brief={bool(brief)}"
+        )
 
         if sections and brief:
             try:
@@ -7608,6 +7633,7 @@ def aicmo_export_pdf(payload: dict):
                 if not pdf_bytes.startswith(b"%PDF"):
                     raise ValueError("Renderer did not produce a valid PDF stream")
 
+                print("📄 PDF DEBUG: ✅ using STRUCTURED mode")
                 logger.info(f"PDF exported via structured mode: {len(pdf_bytes)} bytes")
                 return StreamingResponse(
                     iter([pdf_bytes]),
@@ -7617,11 +7643,15 @@ def aicmo_export_pdf(payload: dict):
                     },
                 )
             except Exception as e:
+                print(f"📄 PDF DEBUG: structured mode failed: {e}")
                 logger.debug(f"Structured PDF rendering failed (not fatal): {e}")
-                # Fall through to markdown mode
 
-        # Mode 2: Fallback to markdown mode
+        # STEP 3: Fallback to markdown mode (ReportLab text_to_pdf_bytes)
         markdown = payload.get("markdown") or ""
+
+        print(
+            f"📄 PDF DEBUG: Markdown fallback mode - markdown length={len(markdown) if markdown else 0}"
+        )
 
         # If no markdown and no valid structured data, return error
         if not markdown:
@@ -7635,6 +7665,7 @@ def aicmo_export_pdf(payload: dict):
                 },
             )
 
+        print("📄 PDF DEBUG: 🔄 using MARKDOWN PATH (ReportLab text_to_pdf_bytes)")
         result = safe_export_pdf(markdown, check_placeholders=True)
 
         # If result is a dict, it's an error – return as JSON

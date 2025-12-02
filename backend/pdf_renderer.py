@@ -292,4 +292,11 @@ def render_agency_pdf(context: Dict[str, Any]) -> bytes:
     wow_package_key = context.get("wow_package_key")
     template_name = resolve_pdf_template_for_pack(wow_package_key)
 
+    print("\n" + "=" * 80)
+    print("🎨 RENDER_AGENCY_PDF DEBUG:")
+    print(f"   wow_package_key from context = {wow_package_key}")
+    print(f"   resolved template_name = {template_name}")
+    print(f"   context keys = {list(context.keys())}")
+    print("=" * 80 + "\n")
+
     return render_html_template_to_pdf(template_name, context)

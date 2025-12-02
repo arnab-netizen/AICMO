@@ -11,7 +11,7 @@ Provides:
 import logging
 import io
 import zipfile
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 
 from fastapi.responses import StreamingResponse
 
@@ -26,6 +26,53 @@ from backend.placeholder_utils import report_has_placeholders, format_placeholde
 from backend.pdf_renderer import render_agency_pdf, WEASYPRINT_AVAILABLE
 
 logger = logging.getLogger("aicmo.export")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# AGENCY PDF ROUTER
+# ──────────────────────────────────────────────────────────────────────────────
+
+AGENCY_PACKS = {
+    "quick_social_basic",  # quick_social_basic.html
+    "strategy_campaign_standard",  # campaign_strategy.html
+    # Add more pack keys here as templates are created and upgraded:
+    # "full_funnel_growth_suite",
+    # "launch_gtm_pack",
+    # "brand_turnaround_lab",
+    # "retention_crm_booster",
+    # "performance_audit_revamp",
+}
+
+
+def should_use_agency_pdf(
+    pack_key: str,
+    wow_enabled: bool,
+    wow_package_key: Optional[str],
+) -> bool:
+    """
+    Decide if we should use the agency (WeasyPrint + template) PDF path.
+
+    Conditions:
+    - WOW is enabled
+    - wow_package_key is present
+    - pack_key has a template in AGENCY_PACKS
+
+    Args:
+        pack_key: Pack identifier (e.g., "quick_social_basic")
+        wow_enabled: Whether WOW mode is enabled
+        wow_package_key: WOW package key from payload
+
+    Returns:
+        True if all conditions met, False otherwise
+    """
+    if not wow_enabled:
+        return False
+    if not wow_package_key:
+        return False
+    return pack_key in AGENCY_PACKS
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 
 
 class ExportError(Exception):
@@ -167,115 +214,80 @@ def safe_export_pdf(
         }
 
 
-def safe_export_agency_pdf(payload: Dict) -> Union[StreamingResponse, Dict[str, str]]:
+def safe_export_agency_pdf(
+    pack_key: str,
+    report: Dict,
+    wow_enabled: bool,
+    wow_package_key: Optional[str],
+) -> Optional[bytes]:
     """
-    Safely export an agency-grade PDF from a payload containing report data.
-
-    Supports optional agency mode via WeasyPrint with graceful fallback to text-based PDF.
+    Try to export a PDF using the agency (HTML+CSS) renderer.
+    Return None if anything fails so caller can fall back to markdown.
 
     Args:
-        payload: Dict with optional keys:
-            - wow_enabled (bool): If True and wow_package_key set, attempts agency PDF mode
-            - wow_package_key (str): Package key (required for agency mode)
-            - report (dict): Report data with campaign/brand/objective fields
-            - markdown (str): Fallback markdown content
+        pack_key: Pack identifier (e.g., "quick_social_basic")
+        report: Report data dictionary with campaign/brand/objective fields
+        wow_enabled: Whether WOW mode is enabled
+        wow_package_key: WOW package key (e.g., "quick_social_basic")
 
     Returns:
-        StreamingResponse with PDF content on success.
-        Dict with error details on failure.
+        PDF bytes on success, None on any failure
 
     Design:
-        1. Check if agency mode is enabled (wow_enabled=True and wow_package_key set)
-        2. If agency mode + WeasyPrint available, attempt render_agency_pdf()
-        3. On success, return PDF bytes
-        4. On any failure, silently fall back to markdown-based PDF
-        5. All existing ReportLab logic remains unchanged as fallback
+        - Only attempts agency rendering if conditions are met
+        - Returns None (not an error dict) on any failure
+        - Caller is responsible for fallback logic
     """
+    print("\n" + "=" * 80)
+    print("🎨 AGENCY PDF DEBUG: safe_export_agency_pdf()")
+    print(f"   pack_key        = {pack_key}")
+    print(f"   wow_enabled     = {wow_enabled}")
+    print(f"   wow_package_key = {wow_package_key}")
+    print("=" * 80)
+
+    # Check if we should even attempt agency rendering
+    if not should_use_agency_pdf(pack_key, wow_enabled, wow_package_key):
+        print("🎨 AGENCY PDF DEBUG: conditions not met -> skip agency path")
+        print("   - should_use_agency_pdf() returned False")
+        return None
+
+    # Check if WeasyPrint is available
+    if not WEASYPRINT_AVAILABLE:
+        print("🎨 AGENCY PDF DEBUG: WeasyPrint not available -> skip agency path")
+        return None
+
+    # Build context for template rendering
     try:
-        # Extract agency mode flags
-        wow_enabled = payload.get("wow_enabled", False)
-        wow_package_key = payload.get("wow_package_key")
-        agency_mode = bool(wow_enabled and wow_package_key)
+        # Ensure report is a dict (defensive)
+        report_data = report if isinstance(report, dict) else {}
 
-        # Build defensive context from report
-        report = payload.get("report", {}) or {}
-
-        # Build context dict with report data
-        # Template expects these as report.get('key'), so wrap in 'report' dict
-        report_data = {
-            "title": report.get("title") or "Strategy + Campaign Pack",
-            "brand_name": report.get("brand_name") or payload.get("brand_name"),
-            "location": report.get("location"),
-            "campaign_title": report.get("campaign_title") or report.get("campaign_name"),
-            "campaign_duration": report.get("campaign_duration"),
-            "brand_tone": report.get("brand_tone"),
-            "objectives_html": report.get("objectives_html") or report.get("objectives_md"),
-            "core_campaign_idea_html": report.get("core_campaign_idea_html")
-            or report.get("core_campaign_idea_md"),
-            "channel_plan_html": report.get("channel_plan_html"),
-            "audience_segments_html": report.get("audience_segments_html"),
-            "personas": report.get("personas") or [],
-            "creative_direction_html": report.get("creative_direction_html"),
-            "competitor_snapshot": report.get("competitor_snapshot") or [],
-            "roi_model": report.get("roi_model")
-            or {
-                "avg_basket_value": "₹2,000–₹3,500",
-                "conversion_target": "+20%",
-                "incremental_sales": "Estimated range",
-                "estimated_roi": "1.8x–2.3x",
-            },
-            "brand_identity": report.get("brand_identity") or {},
-            "calendar_html": report.get("calendar_html"),
-            "ad_concepts_html": report.get("ad_concepts_html"),
-            "kpi_budget_html": report.get("kpi_budget_html"),
-            "execution_html": report.get("execution_html"),
-            "post_campaign_html": report.get("post_campaign_html"),
-            "final_summary_html": report.get("final_summary_html"),
+        context = {
+            "report": report_data,
+            "wow_package_key": wow_package_key,
         }
 
-        context = {"report": report_data}
+        print(
+            f"🎨 AGENCY PDF DEBUG: calling render_agency_pdf() with wow_package_key={wow_package_key}"
+        )
+        pdf_bytes = render_agency_pdf(context)
 
-        # Attempt agency mode PDF generation if enabled
-        if agency_mode and WEASYPRINT_AVAILABLE:
-            try:
-                pdf_bytes = render_agency_pdf(context)
-                logger.info(
-                    f"Agency PDF export successful ({len(pdf_bytes)} bytes, WOW: {wow_package_key})"
-                )
-                return StreamingResponse(
-                    content=iter([pdf_bytes]),
-                    media_type="application/pdf",
-                    headers={
-                        "Content-Disposition": 'attachment; filename="AICMO_Campaign_Strategy.pdf"'
-                    },
-                )
-            except Exception as e:
-                # Fail safe: log and fall back to text-based PDF
-                logger.warning(f"Agency PDF rendering failed, falling back to text-based PDF: {e}")
-                pass
+        if not pdf_bytes:
+            print("🎨 AGENCY PDF DEBUG: render_agency_pdf() returned empty bytes")
+            return None
 
-        # Fallback to markdown-based PDF (existing ReportLab logic)
-        markdown = payload.get("markdown") or ""
-
-        if not markdown or not markdown.strip():
-            logger.warning("PDF export: no markdown content provided for fallback")
-            return {
-                "error": True,
-                "message": "Cannot export: report is empty. Please generate content first.",
-                "export_type": "pdf",
-            }
-
-        # Use existing safe_export_pdf for fallback
-        result = safe_export_pdf(markdown, check_placeholders=True)
-        return result
+        print(f"✅ AGENCY PDF DEBUG: SUCCESS - Generated {len(pdf_bytes)} bytes")
+        logger.info(
+            f"Agency PDF export successful ({len(pdf_bytes)} bytes, pack={pack_key}, WOW={wow_package_key})"
+        )
+        return pdf_bytes
 
     except Exception as e:
-        logger.error(f"Agency PDF export failed (unexpected): {e}", exc_info=True)
-        return {
-            "error": True,
-            "message": "PDF export failed. Please try again or contact support.",
-            "export_type": "pdf",
-        }
+        print(f"❌ AGENCY PDF DEBUG: FAILED in render_agency_pdf(): {e}")
+        import traceback
+
+        traceback.print_exc()
+        logger.warning(f"Agency PDF rendering failed (pack={pack_key}): {e}")
+        return None
 
 
 def safe_export_pptx(
