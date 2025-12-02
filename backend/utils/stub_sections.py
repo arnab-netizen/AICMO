@@ -309,27 +309,27 @@ def _stub_quick_social_messaging_framework(brand: str, industry: str) -> str:
     """Messaging framework: ~250 words, 3 headings, 8 bullets."""
     return f"""### Core Message
 
-{brand} delivers authentic {industry.lower()} experiences that transform daily routines into meaningful moments. The brand voice balances approachability with expertise, making premium quality accessible to everyday customers.
+{brand} delivers authentic {industry.lower()} experiences that transform daily routines into meaningful moments. The brand voice balances approachability with expertise, making quality accessible to everyday customers.
 
 ## Key Pillars
 
-Strategic messaging organized into distinct themes that address different audience motivations and use cases:
+Strategic messaging organized into distinct themes that address different audience motivations:
 
-- **Quality & Craft**: Emphasize artisanal methods, premium ingredients, and attention to detail that differentiate from mass-market competitors
-- **Community & Connection**: Position {brand} as gathering space where relationships form and thrive, not just transactional retail
-- **Accessibility**: Demonstrate that premium quality doesn't require premium prices, making excellence approachable for regular customers
-- **Expertise**: Showcase team knowledge and passion without condescension, educating customers while respecting their intelligence
+- **Quality & Craft**: Emphasize attention to detail and care that differentiate from mass-market competitors
+- **Community & Connection**: Position {brand} as gathering space where relationships thrive, not just transactions
+- **Accessibility**: Demonstrate that quality doesn't require premium prices, making excellence approachable
+- **Expertise**: Showcase team knowledge and passion, educating customers while respecting their intelligence
 
 ## Voice & Tone
 
-{brand}'s communication style maintains consistency across platforms while adapting to context and audience expectations:
+{brand}'s communication style maintains consistency across platforms while adapting to context:
 
-- **Warm & Welcoming**: Friendly without being overly casual, professional without being stiff or corporate
-- **Confident & Knowledgeable**: Share expertise generously but avoid jargon or pretension that alienates customers
+- **Warm & Welcoming**: Friendly without being overly casual, professional without being stiff
+- **Confident & Knowledgeable**: Share expertise generously but avoid jargon that alienates
 - **Authentic & Transparent**: Honest about sourcing, processes, and values, building trust through consistency
-- **Engaging & Conversational**: Write like you speak to customers in-store, maintaining human connection at scale
+- **Engaging & Conversational**: Write like you speak to customers in-store, maintaining human connection
 
-This framework ensures {brand} maintains distinct personality across all touchpoints while remaining flexible enough to adapt messaging for different platforms, campaigns, and audience segments."""
+This framework ensures {brand} maintains distinct personality across all touchpoints while remaining flexible enough to adapt messaging for different platforms and campaigns."""
 
 
 def _stub_quick_social_kpi_plan_light(brand: str, goal: str) -> str:

@@ -182,6 +182,23 @@ def sanitize_text(text: str) -> str:
     # Common cases: ss, ee, oo at end of words
     text = re.sub(r"(\w)(ss|ee|oo)\b", lambda m: m.group(1) + m.group(2)[0], text)
 
+    # Common spelling corrections (apply after repeated letter fixes)
+    # Note: These catch common misspellings that slip through
+    spelling_corrections = {
+        r"\bcoffe\b": "coffee",
+        r"\bcofee\b": "coffee",  # After double-letter reduction
+        r"\bsucces\b": "success",
+        r"\bsuccess\b": "success",  # Ensure correct
+        r"\bacros\b": "across",
+        r"\bawarenes\b": "awareness",
+        r"\bmis\b": "miss",
+        r"\bproces\b": "process",
+        r"\bprogres\b": "progress",
+        r"\basses\b": "assess",
+    }
+    for pattern, replacement in spelling_corrections.items():
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+
     # Fix broken sentence joins
     text = re.sub(r"\.\s+And\b", " and", text)
     text = re.sub(r"\.\s+Or\b", " or", text)
@@ -627,6 +644,53 @@ def remove_excessive_repetition(text: str, max_repeats: int = 2) -> str:
     text = re.sub(r"\n{3,}", "\n\n", text)
 
     return text.strip()
+
+
+def fix_broken_ctas(cta: str) -> str:
+    """
+    Fix broken or incomplete CTAs.
+
+    Common issues:
+    - Empty CTAs
+    - Trailing dashes ("Limited time—")
+    - Fragments ("Tap to ")
+    - Corrupted brand names ("Starbucksliday")
+
+    Args:
+        cta: CTA text to fix
+
+    Returns:
+        Fixed CTA or default fallback
+
+    Example:
+        >>> fix_broken_ctas("Limited time—")
+        'Limited time offer.'
+        >>> fix_broken_ctas("")
+        'Learn more.'
+    """
+    if not cta or not cta.strip():
+        return "Learn more."
+
+    cta = cta.strip()
+
+    # Fix trailing dashes
+    if cta.endswith("—") or cta.endswith("-"):
+        cta = cta.rstrip("—-").strip()
+        if not cta.endswith("."):
+            cta += " offer."
+
+    # Fix trailing "to" or "for"
+    if cta.endswith(" to") or cta.endswith(" for"):
+        cta += " learn more."
+
+    # Fix corrupted brand + word combinations (e.g., "Starbucksliday")
+    cta = re.sub(r"([a-z])([A-Z])", r"\1 \2", cta)
+
+    # Ensure ends with punctuation
+    if cta and cta[-1] not in ".!?":
+        cta += "."
+
+    return cta
 
 
 # ============================================================================

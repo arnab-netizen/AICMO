@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 from datetime import date, timedelta
 from enum import Enum
@@ -665,17 +666,18 @@ def _gen_messaging_framework(
     promise = (
         mp.messaging_pyramid.promise
         if mp.messaging_pyramid
-        else f"{b.brand_name} delivers consistent, measurable results that move the needle on {g.primary_goal or 'core business objectives'}"
+        else f"{b.brand_name} delivers exceptional {b.product_service or 'experiences'} that help customers achieve {g.primary_goal or 'their goals'}"
     )
 
+    # Generate brand-appropriate key messages (avoid agency language)
     key_messages = (
         mp.messaging_pyramid.key_messages
         if mp.messaging_pyramid
         else [
-            f"We understand the challenges facing {b.primary_customer or 'our customers'}",
-            f"Our {b.product_service or 'solutions'} are proven to drive real results",
-            "Transparent, data-driven approach with clear ROI",
-            f"Built specifically for {b.primary_customer or 'your needs'}",
+            f"Quality {b.product_service or 'experiences'} that exceed expectations",
+            f"Trusted by {b.primary_customer or 'customers'} in {b.industry or 'the industry'}",
+            f"Proven approach to achieving {g.primary_goal or 'success'}",
+            "Authentic commitment to customer satisfaction",
         ]
     )
 
@@ -683,33 +685,40 @@ def _gen_messaging_framework(
         mp.messaging_pyramid.proof_points
         if mp.messaging_pyramid
         else [
-            "Demonstrated track record of customer success",
-            "Clear metrics and measurable outcomes",
-            "Real results from real customers",
+            "Track record of customer success and satisfaction",
+            "Authentic reviews and testimonials",
+            "Consistent quality and reliability",
         ]
     )
+
+    # Remove empty bullets and fragments
+    key_messages = [
+        msg.strip()
+        for msg in key_messages
+        if msg and msg.strip() and msg.strip() not in [".", "-", "-."]
+    ]
+    proof_points = [
+        pp.strip()
+        for pp in proof_points
+        if pp and pp.strip() and pp.strip() not in [".", "-", "-."]
+    ]
 
     raw = (
         f"## Core Message\n\n"
         f"**Central Promise:** {promise}\n\n"
-        f"{b.brand_name} combines industry expertise in {b.industry or 'the market'} with proven methodologies "
-        f"to deliver exceptional {b.product_service or 'solutions'} that solve real problems for "
-        f"{b.primary_customer or 'customers'}. Our approach ensures measurable impact and sustainable growth. "
-        f"We focus on addressing {a.pain_points or 'key challenges'} with evidence-based strategies that deliver "
-        f"tangible outcomes aligned with {g.primary_goal or 'your business objectives'}. Every campaign decision "
-        f"is guided by data, customer feedback, and proven best practices that consistently drive results.\n\n"
+        f"{b.brand_name} combines expertise in {b.industry or 'the industry'} with genuine commitment to "
+        f"customer success. Every interaction delivers value to {b.primary_customer or 'customers'}, "
+        f"addressing {a.pain_points or 'their key challenges'} with practical solutions that create "
+        f"real impact for {g.primary_goal or 'their goals'}.\n\n"
         f"## Key Themes\n\n"
         f"**Strategic Pillars for All Communications:**\n\n"
-        + "\n".join(f"- {msg}" for msg in key_messages)
+        + "\n".join(f"- {msg}" for msg in key_messages if msg)
         + "\n\n"
-        "These themes reinforce our commitment to transparency, measurable results, and customer-centric innovation. "
-        "Each message is designed to build trust, demonstrate value, and create urgency through relevance and proof. "
-        "The messaging hierarchy ensures consistency across all channels while allowing flexibility for platform-specific adaptation. "
-        "Every piece of content should reinforce at least one of these core themes.\n\n"
-        "## Proof Points\n\n" + "\n".join(f"- {pp}" for pp in proof_points) + "\n\n"
-        "This messaging framework ensures all communications maintain consistency, credibility, and "
-        "compelling narratives across every touchpoint. Every piece of content reinforces these core themes, "
-        "building brand equity and customer confidence through strategic repetition and proof-driven storytelling."
+        "These themes guide all brand communications, ensuring consistency while allowing platform-specific "
+        "adaptation. Each message reinforces brand values and customer benefits.\n\n"
+        "## Proof Points\n\n" + "\n".join(f"- {pp}" for pp in proof_points if pp) + "\n\n"
+        "This messaging framework ensures all communications maintain consistency and authenticity "
+        "across every customer touchpoint."
     )
     return sanitize_output(raw, req.brief)
 
@@ -1292,6 +1301,12 @@ def _gen_quick_social_30_day_calendar(req: GenerateRequest) -> str:
                 anti_generic_hint=visual_guidance,
             )
 
+        # Remove any internal visual concept notes from hook (camera angles, mood boards, etc.)
+        hook = re.sub(
+            r"\([^)]*(?:camera|mood|setting|lighting|angle)[^)]*\)", "", hook, flags=re.IGNORECASE
+        )
+        hook = re.sub(r"\s+", " ", hook).strip()
+
         # Choose asset type
         asset_types_list = ASSET_TYPES.get(platform, ["static_post"])
         asset_type = asset_types_list[(day_num - 1) % len(asset_types_list)]
@@ -1299,6 +1314,11 @@ def _gen_quick_social_30_day_calendar(req: GenerateRequest) -> str:
         # Choose CTA
         ctas = CTA_LIBRARY.get(bucket, ["Learn more."])
         cta = ctas[(day_num - 1) % len(ctas)]
+
+        # Fix broken CTAs
+        from backend.utils.text_cleanup import fix_broken_ctas
+
+        cta = fix_broken_ctas(cta)
 
         # Format date
         date_str = post_date.strftime("%b %d")
@@ -3415,26 +3435,24 @@ def _gen_hashtag_strategy(req: GenerateRequest, **kwargs) -> str:
     industry = b.industry or "industry"
     brand_slug = b.brand_name.lower().replace(" ", "")
 
-    # Normalize brand hashtags
+    # Normalize brand hashtags with proper capitalization
     brand_tags = [
-        normalize_hashtag(brand_slug),
+        normalize_hashtag(b.brand_name),  # Preserve original capitalization
         normalize_hashtag(f"{brand_slug}Community"),
         normalize_hashtag(f"{brand_slug}Insider"),
     ]
     brand_tags = [t for t in brand_tags if t]  # Remove empties
 
-    # Normalize industry hashtags
+    # Generate realistic industry hashtags (3-5 only)
     raw_industry_tags = [
         industry,
-        f"{industry} Trends",
-        f"{industry} Insights",
-        f"{industry} Expert",
-        f"{industry} Innovation",
+        f"{industry}Life",
+        f"{industry}Lovers",
     ]
     industry_tags = [normalize_hashtag(t) for t in raw_industry_tags]
     industry_tags = [t for t in industry_tags if t]  # Remove empties
 
-    # 🎯 NEW: Clean hashtags to remove AI-looking/fake tags
+    # Clean hashtags to remove AI-looking/fake tags
     brand_tags = clean_hashtags(brand_tags)
     industry_tags = clean_hashtags(industry_tags)
 
@@ -3451,7 +3469,7 @@ def _gen_hashtag_strategy(req: GenerateRequest, **kwargs) -> str:
 
     raw += (
         f"\n## Industry Hashtags\n\n"
-        f"Target 8-12 relevant industry tags per post to maximize discoverability within {industry}:\n\n"
+        f"Target 3-5 relevant industry tags per post to maximize discoverability in {industry}:\n\n"
     )
     for tag in industry_tags:
         raw += f"- {tag}\n"
@@ -3461,10 +3479,10 @@ def _gen_hashtag_strategy(req: GenerateRequest, **kwargs) -> str:
         "Create unique hashtags for specific campaigns, launches, or seasonal initiatives. Track performance "
         "to measure campaign reach and engagement.\n\n"
         "## Best Practices\n\n"
-        "- Research trending hashtags weekly using tools like Hashtagify or native platform insights\n"
-        "- Mix 50% branded hashtags with 50% industry/trending tags\n"
-        "- Avoid overusing hashtags—quality over quantity\n"
-        "- Monitor hashtag performance and adjust strategy based on reach and engagement data"
+        "- Research trending hashtags weekly using platform insights\n"
+        "- Mix brand hashtags with relevant industry tags\n"
+        "- Keep total hashtags under 10 per post for best results\n"
+        "- Monitor hashtag performance and refine based on engagement data"
     )
     return sanitize_output(raw, req.brief)
 
