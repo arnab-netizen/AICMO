@@ -4,118 +4,124 @@
 
 <div class="doc-content">
 
-<!-- QUICK SOCIAL PACK (BASIC) - 10 SECTIONS -->
+<!-- QUICK SOCIAL PACK - Agency-Grade Deck -->
 
-<!-- 1. OVERVIEW -->
+<!-- 1. COVER -->
+<div class="section-block">
+  <h1>{{ brand_name }}</h1>
+  <p class="subtitle">{{ campaign_title }}</p>
+  <p><strong>Primary Channel:</strong> {{ primary_channel }}</p>
+</div>
+
+<div class="page-break"></div>
+
+<!-- 2. OVERVIEW -->
+{% if overview_html %}
 <div class="section-block">
   <h2>Social Media Overview</h2>
   <div class="section-body">
-    {{ report.get('title', 'Quick Social Playbook') }}<br>
-    <strong>Brand:</strong> {{ report.get('brand_name', 'Your Brand') }}<br>
-    <strong>Focus Channel:</strong> {{ report.get('primary_channel', 'Instagram') }}
+    {{ overview_html | safe }}
   </div>
 </div>
+{% endif %}
 
-<div class="page-break"></div>
-
-<!-- 2. AUDIENCE SEGMENTS -->
-{% if report.get('audience_segments_html') %}
+<!-- 3. AUDIENCE SEGMENTS -->
+{% if audience_segments_html %}
 <div class="section-block">
   <h2>Who You're Reaching</h2>
   <div class="section-body">
-    {{ report.get('audience_segments_html') }}
+    {{ audience_segments_html | safe }}
   </div>
 </div>
 {% endif %}
 
-<!-- 3. MESSAGING FRAMEWORK -->
-{% if report.get('messaging_framework_html') %}
+<!-- 4. MESSAGING FRAMEWORK -->
+{% if messaging_framework_html %}
 <div class="section-block">
   <h2>Your Core Message</h2>
   <div class="section-body">
-    {{ report.get('messaging_framework_html') }}
+    {{ messaging_framework_html | safe }}
   </div>
 </div>
 {% endif %}
 
-<!-- 4. CONTENT BUCKETS -->
-{% if report.get('content_buckets_html') %}
+<div class="page-break"></div>
+
+<!-- 5. CONTENT BUCKETS -->
+{% if content_buckets_html %}
 <div class="section-block">
   <h2>Content Themes</h2>
   <div class="section-body">
-    {{ report.get('content_buckets_html') }}
+    {{ content_buckets_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 6. WEEKLY CALENDAR -->
+{% if calendar_html %}
+<div class="section-block">
+  <h2>Weekly Posting Schedule</h2>
+  <div class="table-wrapper">
+    {{ calendar_html | safe }}
   </div>
 </div>
 {% endif %}
 
 <div class="page-break"></div>
 
-<!-- 5. WEEKLY CALENDAR -->
-{% if report.get('calendar_html') %}
-<div class="section-block">
-  <h2>Weekly Posting Schedule</h2>
-  <div class="section-body">
-    {{ report.get('calendar_html') }}
-  </div>
-</div>
-{% endif %}
-
-<!-- 6. CREATIVE DIRECTION (LIGHT) -->
-{% if report.get('creative_direction_html') %}
+<!-- 7. CREATIVE DIRECTION -->
+{% if creative_direction_html %}
 <div class="section-block">
   <h2>Visual Style Guide</h2>
   <div class="section-body">
-    {{ report.get('creative_direction_html') }}
+    {{ creative_direction_html | safe }}
   </div>
 </div>
 {% endif %}
 
-<!-- 7. HASHTAG STRATEGY -->
-{% if report.get('hashtags_html') %}
+<!-- 8. HASHTAG STRATEGY -->
+{% if hashtags_html %}
 <div class="section-block">
   <h2>Hashtags to Use</h2>
   <div class="section-body">
-    {{ report.get('hashtags_html') }}
+    {{ hashtags_html | safe }}
   </div>
 </div>
 {% endif %}
 
-<div class="page-break"></div>
-
-<!-- 8. PLATFORM GUIDELINES -->
-{% if report.get('platform_guidelines_html') %}
+<!-- 9. PLATFORM GUIDELINES -->
+{% if platform_guidelines_html %}
 <div class="section-block">
   <h2>Platform-Specific Tips</h2>
   <div class="section-body">
-    {{ report.get('platform_guidelines_html') }}
-  </div>
-</div>
-{% endif %}
-
-<!-- 9. KPI PLAN (LIGHT) -->
-{% if report.get('kpi_plan_html') %}
-<div class="section-block">
-  <h2>Success Metrics</h2>
-  <div class="section-body">
-    {{ report.get('kpi_plan_html') }}
-  </div>
-</div>
-{% endif %}
-
-<!-- 10. FINAL SUMMARY -->
-{% if report.get('final_summary_html') %}
-<div class="section-block">
-  <h2>Next Steps</h2>
-  <div class="section-body">
-    {{ report.get('final_summary_html') }}
+    {{ platform_guidelines_html | safe }}
   </div>
 </div>
 {% endif %}
 
 <div class="page-break"></div>
 
-<p><em>Quick Social Pack – 10-section social media playbook for immediate implementation.</em></p>
+<!-- 10. KPI PLAN -->
+{% if kpi_plan_html %}
+<div class="section-block">
+  <h2>Success Metrics</h2>
+  <div class="section-body">
+    {{ kpi_plan_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 11. FINAL SUMMARY -->
+{% if final_summary_html %}
+<div class="section-block">
+  <h2>Next Steps</h2>
+  <div class="section-body">
+    {{ final_summary_html | safe }}
+  </div>
+</div>
+{% endif %}
 
 </div>
 
 {% endblock %}
+

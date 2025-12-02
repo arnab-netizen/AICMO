@@ -261,15 +261,10 @@ def safe_export_agency_pdf(
         # Ensure report is a dict (defensive)
         report_data = report if isinstance(report, dict) else {}
 
-        context = {
-            "report": report_data,
-            "wow_package_key": wow_package_key,
-        }
-
         print(
             f"🎨 AGENCY PDF DEBUG: calling render_agency_pdf() with wow_package_key={wow_package_key}"
         )
-        pdf_bytes = render_agency_pdf(context)
+        pdf_bytes = render_agency_pdf(report_data, wow_package_key)
 
         if not pdf_bytes:
             print("🎨 AGENCY PDF DEBUG: render_agency_pdf() returned empty bytes")

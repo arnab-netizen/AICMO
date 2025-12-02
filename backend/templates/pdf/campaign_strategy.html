@@ -4,40 +4,41 @@
 
 <div class="doc-content">
 
-<!-- 1. OVERVIEW / EXECUTIVE SUMMARY -->
+<!-- CAMPAIGN STRATEGY - Agency-Grade Deck -->
+
+<!-- 1. COVER / OVERVIEW -->
 <div class="section-block">
-  <div class="section-title">CAMPAIGN OVERVIEW</div>
-  <div class="section-body">
-    {{ report.get('campaign_title', 'Campaign Title') }}
-    {% if report.get('campaign_duration') %}
-      | {{ report.get('campaign_duration') }}
-    {% endif %}
-  </div>
+  <h1>{{ brand_name }}</h1>
+  <p class="subtitle">{{ campaign_title }}</p>
+  {% if campaign_duration %}
+  <p><strong>Duration:</strong> {{ campaign_duration }}</p>
+  {% endif %}
 </div>
 
 <div class="page-break"></div>
 
-{% if report.get('objectives_html') or report.get('objectives_md') %}
+<!-- 2. OBJECTIVES -->
+{% if objectives_html %}
 <div class="section-block">
   <h2>Objectives</h2>
   <div class="section-body">
-    {{ report.get('objectives_html') or report.get('objectives_md', '') }}
+    {{ objectives_html | safe }}
   </div>
 </div>
 {% endif %}
 
-<!-- 2. CORE IDEA & MESSAGING -->
-{% if report.get('core_campaign_idea_html') or report.get('core_campaign_idea_md') %}
+<!-- 3. CORE CAMPAIGN IDEA -->
+{% if core_campaign_idea_html %}
 <div class="section-block">
   <h2>Core Campaign Idea</h2>
   <div class="section-body">
-    {{ report.get('core_campaign_idea_html') or report.get('core_campaign_idea_md', '') }}
+    {{ core_campaign_idea_html | safe }}
   </div>
 </div>
 {% endif %}
 
-<!-- BASE UPGRADE #1: Competitor Snapshot Table -->
-{% if report.get('competitor_snapshot') %}
+<!-- 4. COMPETITIVE LANDSCAPE -->
+{% if competitor_snapshot %}
 <div class="section-block">
   <h2>Competitive Landscape</h2>
   <div class="table-wrapper">
@@ -51,7 +52,7 @@
         </tr>
       </thead>
       <tbody>
-        {% for competitor in report.get('competitor_snapshot', []) %}
+        {% for competitor in competitor_snapshot %}
         <tr>
           <td>{{ competitor.get('name', 'N/A') }}</td>
           <td>{{ competitor.get('position', 'N/A') }}</td>
@@ -67,38 +68,38 @@
 
 <div class="page-break"></div>
 
-<!-- 3. CHANNEL PLAN -->
-{% if report.get('channel_plan_html') or report.get('channel_plan_md') %}
+<!-- 5. CHANNEL STRATEGY -->
+{% if channel_plan_html %}
 <div class="section-block">
   <h2>Channel Strategy</h2>
   <div class="section-body">
-    {{ report.get('channel_plan_html') or report.get('channel_plan_md', '') }}
+    {{ channel_plan_html | safe }}
   </div>
 </div>
 {% endif %}
 
-<!-- 4. AUDIENCE & PERSONAS -->
-{% if report.get('audience_segments_html') or report.get('audience_segments_md') %}
+<!-- 6. AUDIENCE SEGMENTS -->
+{% if audience_segments_html %}
 <div class="section-block">
   <h2>Audience Segments</h2>
   <div class="section-body">
-    {{ report.get('audience_segments_html') or report.get('audience_segments_md', '') }}
+    {{ audience_segments_html | safe }}
   </div>
 </div>
 {% endif %}
 
-<!-- PERSONAS -->
-{% if report.get('personas') %}
+<!-- 7. KEY PERSONAS -->
+{% if personas %}
 <div class="section-block">
   <h2>Key Personas</h2>
-  {% for persona in report.get('personas', []) %}
+  {% for persona in personas %}
   <div class="persona-card">
-  <div class="persona-header">{{ persona.get('name', 'Persona') }}</div>
-  <div class="persona-detail">
-    <strong>Role:</strong> {{ persona.get('role', 'N/A') }}<br>
-    <strong>Goals:</strong> {{ persona.get('goals', 'N/A') }}<br>
-    <strong>Challenges:</strong> {{ persona.get('challenges', 'N/A') }}
-  </div>
+    <div class="persona-header">{{ persona.get('name', 'Persona') }}</div>
+    <div class="persona-detail">
+      <strong>Role:</strong> {{ persona.get('role', 'N/A') }}<br>
+      <strong>Goals:</strong> {{ persona.get('goals', 'N/A') }}<br>
+      <strong>Challenges:</strong> {{ persona.get('challenges', 'N/A') }}
+    </div>
   </div>
   {% endfor %}
 </div>
@@ -106,71 +107,71 @@
 
 <div class="page-break"></div>
 
-<!-- BASE UPGRADE #2: ROI Model Table -->
-{% if report.get('roi_model') %}
+<!-- 8. ROI MODEL -->
+{% if roi_model %}
 <div class="section-block">
   <h2>ROI Model</h2>
   <div class="table-wrapper">
     <table>
-  <thead>
-    <tr>
-      <th>Metric</th>
-      <th>Q1</th>
-      <th>Q2</th>
-      <th>Q3</th>
-      <th>Q4</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% set roi = report.get('roi_model', {}) %}
-    {% if roi.get('reach') %}
-    <tr>
-      <td>Estimated Reach</td>
-      <td>{{ roi.reach.get('q1', '—') }}</td>
-      <td>{{ roi.reach.get('q2', '—') }}</td>
-      <td>{{ roi.reach.get('q3', '—') }}</td>
-      <td>{{ roi.reach.get('q4', '—') }}</td>
-    </tr>
-    {% endif %}
-    {% if roi.get('engagement') %}
-    <tr>
-      <td>Engagement Rate</td>
-      <td>{{ roi.engagement.get('q1', '—') }}</td>
-      <td>{{ roi.engagement.get('q2', '—') }}</td>
-      <td>{{ roi.engagement.get('q3', '—') }}</td>
-      <td>{{ roi.engagement.get('q4', '—') }}</td>
-    </tr>
-    {% endif %}
-    {% if roi.get('conversion') %}
-    <tr>
-      <td>Conversion Rate</td>
-      <td>{{ roi.conversion.get('q1', '—') }}</td>
-      <td>{{ roi.conversion.get('q2', '—') }}</td>
-      <td>{{ roi.conversion.get('q3', '—') }}</td>
-      <td>{{ roi.conversion.get('q4', '—') }}</td>
-    </tr>
-    {% endif %}
-    </tbody>
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Q1</th>
+          <th>Q2</th>
+          <th>Q3</th>
+          <th>Q4</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set roi = roi_model %}
+        {% if roi.get('reach') %}
+        <tr>
+          <td>Estimated Reach</td>
+          <td>{{ roi.reach.get('q1', '—') }}</td>
+          <td>{{ roi.reach.get('q2', '—') }}</td>
+          <td>{{ roi.reach.get('q3', '—') }}</td>
+          <td>{{ roi.reach.get('q4', '—') }}</td>
+        </tr>
+        {% endif %}
+        {% if roi.get('engagement') %}
+        <tr>
+          <td>Engagement Rate</td>
+          <td>{{ roi.engagement.get('q1', '—') }}</td>
+          <td>{{ roi.engagement.get('q2', '—') }}</td>
+          <td>{{ roi.engagement.get('q3', '—') }}</td>
+          <td>{{ roi.engagement.get('q4', '—') }}</td>
+        </tr>
+        {% endif %}
+        {% if roi.get('conversion') %}
+        <tr>
+          <td>Conversion Rate</td>
+          <td>{{ roi.conversion.get('q1', '—') }}</td>
+          <td>{{ roi.conversion.get('q2', '—') }}</td>
+          <td>{{ roi.conversion.get('q3', '—') }}</td>
+          <td>{{ roi.conversion.get('q4', '—') }}</td>
+        </tr>
+        {% endif %}
+      </tbody>
     </table>
   </div>
 </div>
 {% endif %}
 
-<!-- 5. CREATIVE DIRECTION -->
-{% if report.get('creative_direction_html') or report.get('creative_direction_md') %}
+<!-- 9. CREATIVE DIRECTION -->
+{% if creative_direction_html %}
 <div class="section-block">
   <h2>Creative Direction</h2>
   <div class="section-body">
-    {{ report.get('creative_direction_html') or report.get('creative_direction_md', '') }}
+    {{ creative_direction_html | safe }}
   </div>
 </div>
 {% endif %}
 
-<!-- BASE UPGRADE #3: Brand Visual Identity Section -->
-{% if report.get('brand_identity') %}
+<!-- 10. BRAND VISUAL IDENTITY -->
+{% if brand_identity %}
 <div class="section-block">
   <h2>Brand Visual Identity</h2>
-  {% set identity = report.get('brand_identity', {}) %}
+  {% set identity = brand_identity %}
   
   {% if identity.get('primary_color') or identity.get('secondary_color') %}
   <div style="margin-bottom: 0.3cm;">
@@ -206,97 +207,66 @@
 </div>
 {% endif %}
 
-<!-- BASE UPGRADE #4: Mockup Placeholders -->
-<div class="section-block">
-  <h2>Creative Mockups</h2>
-  <div class="mockup-card">
-  <strong>Desktop Advertisement</strong>
-  <div class="chart-placeholder">
-    <em>[Desktop Creative Mockup - 1200x400px]</em>
-  </div>
-</div>
-
-<div class="mockup-card">
-  <strong>Mobile Advertisement</strong>
-  <div class="chart-placeholder" style="min-height: 4cm;">
-    <em>[Mobile Creative Mockup - 360x600px]</em>
-  </div>
-  </div>
-</div>
-
 <div class="page-break"></div>
 
-<!-- BASE UPGRADE #5: Chart Placeholders -->
-<div class="section-block">
-  <h2>Performance Projections</h2>
-  <div class="chart-placeholder">
-  <em>[Reach & Engagement Chart]</em>
-</div>
-  <div class="chart-placeholder">
-    <em>[Budget Allocation Breakdown]</em>
-  </div>
-</div>
-
-<div class="page-break"></div>
-
-<!-- 6. CALENDAR -->
-{% if report.get('calendar_html') or report.get('calendar_md') %}
+<!-- 11. CAMPAIGN CALENDAR -->
+{% if calendar_html %}
 <div class="section-block">
   <h2>30-Day Campaign Calendar</h2>
-  <div class="section-body">
-    {{ report.get('calendar_html') or report.get('calendar_md', '') }}
+  <div class="table-wrapper">
+    {{ calendar_html | safe }}
   </div>
 </div>
 {% endif %}
 
-<!-- 7. AD CONCEPTS -->
-{% if report.get('ad_concepts_html') or report.get('ad_concepts_md') %}
+<!-- 12. AD CONCEPTS -->
+{% if ad_concepts_html %}
 <div class="section-block">
   <h2>Ad Concepts & Variations</h2>
   <div class="section-body">
-    {{ report.get('ad_concepts_html') or report.get('ad_concepts_md', '') }}
+    {{ ad_concepts_html | safe }}
   </div>
 </div>
 {% endif %}
 
-<!-- 8. KPI & BUDGET -->
-{% if report.get('kpi_budget_html') or report.get('kpi_budget_md') %}
+<!-- 13. KPI & BUDGET -->
+{% if kpi_budget_html %}
 <div class="section-block">
   <h2>KPIs & Budget Allocation</h2>
   <div class="section-body">
-    {{ report.get('kpi_budget_html') or report.get('kpi_budget_md', '') }}
+    {{ kpi_budget_html | safe }}
   </div>
 </div>
 {% endif %}
 
 <div class="page-break"></div>
 
-<!-- 9. EXECUTION ROADMAP -->
-{% if report.get('execution_html') or report.get('execution_md') %}
+<!-- 14. EXECUTION ROADMAP -->
+{% if execution_html %}
 <div class="section-block">
   <h2>Execution Roadmap</h2>
   <div class="section-body">
-    {{ report.get('execution_html') or report.get('execution_md', '') }}
+    {{ execution_html | safe }}
   </div>
 </div>
 {% endif %}
 
-<!-- 10. POST-CAMPAIGN -->
-{% if report.get('post_campaign_html') or report.get('post_campaign_md') %}
+<!-- 15. POST-CAMPAIGN ANALYSIS -->
+{% if post_campaign_html %}
 <div class="section-block">
   <h2>Post-Campaign Analysis</h2>
   <div class="section-body">
-    {{ report.get('post_campaign_html') or report.get('post_campaign_md', '') }}
+    {{ post_campaign_html | safe }}
   </div>
 </div>
 {% endif %}
 
-<!-- 11. FINAL SUMMARY -->
-{% if report.get('final_summary_html') or report.get('final_summary_md') %}
+<!-- 16. FINAL SUMMARY -->
+{% if final_summary_html %}
 <div class="section-block">
   <h2>Campaign Summary</h2>
   <div class="section-body">
-    {{ report.get('final_summary_html') or report.get('final_summary_md', '') }}
+    {{ final_summary_html | safe }}
   </div>
 </div>
 {% endif %}
@@ -304,3 +274,4 @@
 </div>
 
 {% endblock %}
+

@@ -242,10 +242,13 @@ def render_html_template_to_pdf(template_name: str, context: Dict[str, Any]) -> 
         raise RuntimeError(f"PDF generation failed: {e}") from e
 
 
-# FIX #3: Map WOW package to appropriate PDF template
-TEMPLATE_BY_WOW_PACKAGE = {
+# ============================================================================
+# PDF TEMPLATE MAP - One canonical template per WOW package
+# ============================================================================
+
+PDF_TEMPLATE_MAP = {
     "quick_social_basic": "quick_social_basic.html",
-    "strategy_campaign_standard": "campaign_strategy.html",  # Default/standard
+    "strategy_campaign_standard": "campaign_strategy.html",
     "full_funnel_growth_suite": "full_funnel_growth.html",
     "launch_gtm_pack": "launch_gtm.html",
     "brand_turnaround_lab": "brand_turnaround.html",
@@ -254,9 +257,11 @@ TEMPLATE_BY_WOW_PACKAGE = {
 }
 
 
-def resolve_pdf_template_for_pack(wow_package_key: Optional[str]) -> str:
+def resolve_pdf_template_for_pack(wow_package_key: str) -> str:
     """
     Resolve which PDF template to use for a given WOW package.
+
+    This is the ONLY source of truth for pack → template mapping.
 
     Args:
         wow_package_key: The WOW package key (e.g., "quick_social_basic")
@@ -265,38 +270,156 @@ def resolve_pdf_template_for_pack(wow_package_key: Optional[str]) -> str:
         Template filename to use (defaults to "campaign_strategy.html" if unknown)
     """
     if not wow_package_key:
-        return "campaign_strategy.html"
+        template_name = "campaign_strategy.html"
+    else:
+        template_name = PDF_TEMPLATE_MAP.get(wow_package_key, "campaign_strategy.html")
 
-    return TEMPLATE_BY_WOW_PACKAGE.get(wow_package_key, "campaign_strategy.html")
+    print(
+        "📋 PDF TEMPLATE DEBUG:",
+        "wow_package_key=",
+        wow_package_key,
+        "template=",
+        template_name,
+    )
+    return template_name
 
 
-def render_agency_pdf(context: Dict[str, Any]) -> bytes:
+# ============================================================================
+# PDF CONTEXT BUILDER - Flatten report data into template-friendly context
+# ============================================================================
+
+
+def build_pdf_context_for_wow_package(
+    report_data: Dict[str, Any], wow_package_key: str
+) -> Dict[str, Any]:
+    """
+    Take raw report_data dict and flatten it into a template-friendly context
+    depending on the WOW package.
+
+    This is the ONLY place that knows how to map internal report structure
+    to PDF template variables.
+
+    Args:
+        report_data: Raw report dict (may be nested)
+        wow_package_key: WOW package identifier
+
+    Returns:
+        Flattened context dict with template-ready keys
+
+    Design:
+        Each WOW package gets a specific set of context keys that match
+        what its template expects. This decouples report structure from
+        template expectations.
+    """
+    # Quick Social Pack - lightweight social media playbook
+    if wow_package_key == "quick_social_basic":
+        return {
+            "brand_name": report_data.get("brand_name")
+            or report_data.get("brand", {}).get("name")
+            or "Your Brand",
+            "campaign_title": report_data.get("campaign_title")
+            or report_data.get("title")
+            or "Quick Social Playbook",
+            "primary_channel": report_data.get("primary_channel") or "Instagram",
+            "overview_html": report_data.get("overview_html") or "",
+            "audience_segments_html": report_data.get("audience_segments_html") or "",
+            "messaging_framework_html": report_data.get("messaging_framework_html") or "",
+            "content_buckets_html": report_data.get("content_buckets_html") or "",
+            "calendar_html": report_data.get("calendar_html") or "",
+            "creative_direction_html": report_data.get("creative_direction_html") or "",
+            "hashtags_html": report_data.get("hashtags_html") or "",
+            "platform_guidelines_html": report_data.get("platform_guidelines_html") or "",
+            "kpi_plan_html": report_data.get("kpi_plan_html") or "",
+            "final_summary_html": report_data.get("final_summary_html") or "",
+        }
+
+    # Strategy/Campaign Pack - full campaign deck
+    if wow_package_key == "strategy_campaign_standard":
+        return {
+            "brand_name": report_data.get("brand_name")
+            or report_data.get("brand", {}).get("name")
+            or "Brand",
+            "campaign_title": report_data.get("campaign_title") or "Campaign Strategy",
+            "campaign_duration": report_data.get("campaign_duration") or "",
+            "objectives_html": report_data.get("objectives_html")
+            or report_data.get("objectives_md")
+            or "",
+            "core_campaign_idea_html": report_data.get("core_campaign_idea_html")
+            or report_data.get("core_campaign_idea_md")
+            or "",
+            "competitor_snapshot": report_data.get("competitor_snapshot") or [],
+            "channel_plan_html": report_data.get("channel_plan_html")
+            or report_data.get("channel_plan_md")
+            or "",
+            "audience_segments_html": report_data.get("audience_segments_html")
+            or report_data.get("audience_segments_md")
+            or "",
+            "personas": report_data.get("personas") or [],
+            "roi_model": report_data.get("roi_model") or {},
+            "creative_direction_html": report_data.get("creative_direction_html")
+            or report_data.get("creative_direction_md")
+            or "",
+            "brand_identity": report_data.get("brand_identity") or {},
+            "calendar_html": report_data.get("calendar_html")
+            or report_data.get("calendar_md")
+            or "",
+            "ad_concepts_html": report_data.get("ad_concepts_html")
+            or report_data.get("ad_concepts_md")
+            or "",
+            "kpi_budget_html": report_data.get("kpi_budget_html")
+            or report_data.get("kpi_budget_md")
+            or "",
+            "execution_html": report_data.get("execution_html")
+            or report_data.get("execution_md")
+            or "",
+            "post_campaign_html": report_data.get("post_campaign_html")
+            or report_data.get("post_campaign_md")
+            or "",
+            "final_summary_html": report_data.get("final_summary_html")
+            or report_data.get("final_summary_md")
+            or "",
+        }
+
+    # Generic fallback for unknown packages
+    return {
+        "brand_name": report_data.get("brand_name") or "Brand",
+        "campaign_title": report_data.get("campaign_title") or "Campaign",
+        "overview_html": report_data.get("overview_html") or "",
+    }
+
+
+def render_agency_pdf(report_data: Dict[str, Any], wow_package_key: str) -> bytes:
     """
     Entry point for generating the full agency-grade PDF.
 
-    Uses a pack-specific template that includes appropriate sections and design elements.
+    Uses a pack-specific template with a flattened, template-friendly context.
     This does NOT replace the existing ReportLab-based PDFs; it is only used
     when explicitly requested via the UI toggle.
 
     Args:
-        context: Dictionary containing report data to pass to template
-                 Should include 'wow_package_key' for proper template selection
+        report_data: Raw report dict (may be nested)
+        wow_package_key: WOW package identifier (e.g., "quick_social_basic")
 
     Returns:
         PDF file as bytes
 
     Raises:
         RuntimeError: If template rendering or PDF generation fails
+
+    Design:
+        1. Resolve template name from wow_package_key
+        2. Build flattened context via build_pdf_context_for_wow_package
+        3. Render HTML template with context
+        4. Convert HTML to PDF with WeasyPrint + CSS
     """
-    # FIX #3: Select template based on WOW package, not hardcoded
-    wow_package_key = context.get("wow_package_key")
     template_name = resolve_pdf_template_for_pack(wow_package_key)
+    pdf_context = build_pdf_context_for_wow_package(report_data, wow_package_key)
 
     print("\n" + "=" * 80)
     print("🎨 RENDER_AGENCY_PDF DEBUG:")
-    print(f"   wow_package_key from context = {wow_package_key}")
-    print(f"   resolved template_name = {template_name}")
-    print(f"   context keys = {list(context.keys())}")
+    print(f"   wow_package_key     = {wow_package_key}")
+    print(f"   template_name       = {template_name}")
+    print(f"   context_keys        = {sorted(pdf_context.keys())}")
     print("=" * 80 + "\n")
 
-    return render_html_template_to_pdf(template_name, context)
+    return render_html_template_to_pdf(template_name, pdf_context)
