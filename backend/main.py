@@ -1255,6 +1255,7 @@ def _gen_quick_social_30_day_calendar(req: GenerateRequest) -> str:
     # Generate 30 days
     today = date.today()
     rows = []
+    seen_hooks = set()  # Track hooks to prevent duplicates
 
     for day_num in range(1, 31):
         post_date = today + timedelta(days=day_num - 1)
@@ -1297,45 +1298,80 @@ def _gen_quick_social_30_day_calendar(req: GenerateRequest) -> str:
             industry=industry,
         )
 
-        # Generate unique hook based on bucket + angle + platform + visual concept
-        hook = _make_quick_social_hook(
-            brand_name=brand_name,
-            industry=industry,
-            bucket=bucket,
-            angle=angle,
-            platform=platform,
-            goal_short=goal_short,
-            day_num=day_num,
-            weekday=weekday,
-            profile=profile,
-            visual_concept=visual_concept,
-        )
+        # Generate unique hook with duplicate prevention
+        hook = None
+        max_attempts = 5  # Increase attempts
+        for attempt in range(max_attempts):
+            # Vary angle on retries to generate different hooks
+            if attempt > 0:
+                angle_variation = ANGLES[(day_num - 1 + weekday + attempt * 3) % len(ANGLES)]
+            else:
+                angle_variation = angle
 
-        # Phase 1: Check if hook is too generic, regenerate if needed
-        if is_too_generic(hook, threshold=0.20):
-            # Add visual concept guidance to make it more specific
-            visual_guidance = (
-                f"Include specific details: {visual_concept.setting}, {visual_concept.mood} mood"
-            )
-            hook = _make_quick_social_hook(
+            candidate_hook = _make_quick_social_hook(
                 brand_name=brand_name,
                 industry=industry,
                 bucket=bucket,
-                angle=angle,
+                angle=angle_variation,  # Use varied angle
                 platform=platform,
                 goal_short=goal_short,
-                day_num=day_num,
+                day_num=day_num + attempt * 7,  # Larger variation
                 weekday=weekday,
                 profile=profile,
                 visual_concept=visual_concept,
-                anti_generic_hint=visual_guidance,
             )
 
-        # Remove any internal visual concept notes from hook (camera angles, mood boards, etc.)
-        hook = re.sub(
-            r"\([^)]*(?:camera|mood|setting|lighting|angle)[^)]*\)", "", hook, flags=re.IGNORECASE
-        )
-        hook = re.sub(r"\s+", " ", hook).strip()
+            # Phase 1: Check if hook is too generic, regenerate if needed
+            if is_too_generic(candidate_hook, threshold=0.20):
+                # Add visual concept guidance to make it more specific
+                visual_guidance = f"Include specific details: {visual_concept.setting}, {visual_concept.mood} mood"
+                candidate_hook = _make_quick_social_hook(
+                    brand_name=brand_name,
+                    industry=industry,
+                    bucket=bucket,
+                    angle=angle_variation,
+                    platform=platform,
+                    goal_short=goal_short,
+                    day_num=day_num + attempt * 7,
+                    weekday=weekday,
+                    profile=profile,
+                    visual_concept=visual_concept,
+                    anti_generic_hint=visual_guidance,
+                )
+
+            # Remove any internal visual concept notes from hook
+            candidate_hook = re.sub(
+                r"\([^)]*(?:camera|mood|setting|lighting|angle)[^)]*\)",
+                "",
+                candidate_hook,
+                flags=re.IGNORECASE,
+            )
+            candidate_hook = re.sub(r"\s+", " ", candidate_hook).strip()
+
+            # Check for duplicates
+            if candidate_hook not in seen_hooks:
+                hook = candidate_hook
+                seen_hooks.add(hook)
+                break
+            elif attempt == max_attempts - 1:
+                # Last attempt - force uniqueness by adding day number
+                import logging
+
+                log = logging.getLogger("calendar")
+                log.warning(
+                    f"[Calendar] Duplicate hook after {max_attempts} attempts, adding day variation: {candidate_hook}"
+                )
+                # Add subtle day variation to force uniqueness
+                if ":" in candidate_hook:
+                    parts = candidate_hook.split(":", 1)
+                    hook = f"{parts[0]} (Day {day_num}): {parts[1].strip()}"
+                else:
+                    hook = f"Day {day_num}: {candidate_hook}"
+                seen_hooks.add(hook)
+
+        # Fallback if hook generation completely failed
+        if not hook:
+            hook = f"Day {day_num}: {bucket} content for {brand_name}"
 
         # Choose asset type
         asset_types_list = ASSET_TYPES.get(platform, ["static_post"])
