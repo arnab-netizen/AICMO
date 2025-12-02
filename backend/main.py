@@ -718,13 +718,28 @@ def _gen_messaging_framework(
         if pp and pp.strip() and pp.strip() not in [".", "-", "-."]
     ]
 
+    # Inject research data if available
+    research = getattr(b, "research", None)
+
+    positioning_line = ""
+    if research and research.current_positioning:
+        positioning_line = (
+            f"\n\nLocally, {b.brand_name} is currently positioned as {research.current_positioning}"
+        )
+
+    competitor_line = ""
+    if research and research.local_competitors:
+        names = [c.name for c in research.local_competitors[:3]]
+        competitor_line = f"\n\nKey nearby competitors include: {', '.join(names)}."
+
     raw = (
         f"## Core Message\n\n"
         f"**Central Promise:** {promise}\n\n"
         f"{b.brand_name} combines expertise in {b.industry or 'the industry'} with genuine commitment to "
         f"customer success. Every interaction delivers value to {b.primary_customer or 'customers'}, "
         f"addressing {a.pain_points or 'their key challenges'} with practical solutions that create "
-        f"real impact for {g.primary_goal or 'their goals'}.\n\n"
+        f"real impact for {g.primary_goal or 'their goals'}."
+        f"{positioning_line}{competitor_line}\n\n"
         f"## Key Themes\n\n"
         f"**Strategic Pillars for All Communications:**\n\n"
         + "\n".join(f"- {msg}" for msg in key_messages if msg)
@@ -3492,6 +3507,16 @@ def _gen_hashtag_strategy(req: GenerateRequest, **kwargs) -> str:
     # Remove duplicates while preserving order
     seen = set()
     industry_tags = [t for t in industry_tags if not (t in seen or seen.add(t))]
+
+    # Inject research hashtag hints if available
+    research = getattr(b, "research", None)
+    if research and research.hashtag_hints:
+        # Extend but avoid duplicates
+        existing = set(industry_tags)
+        for tag in research.hashtag_hints:
+            if tag not in existing:
+                industry_tags.append(tag)
+                existing.add(tag)
 
     raw = (
         f"## Brand Hashtags\n\n"
@@ -7334,6 +7359,15 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
             or "ideal customers"
         )
 
+        # Fetch brand research if enabled
+        from backend.services.brand_research import get_brand_research
+
+        brand_research = get_brand_research(
+            brand_name=client_brief_dict.get("brand_name", "").strip() or "",
+            industry=client_brief_dict.get("industry", "").strip() or "",
+            location=client_brief_dict.get("geography", "").strip() or "",
+        )
+
         brief = ClientInputBrief(
             brand=BrandBrief(
                 brand_name=client_brief_dict.get("brand_name", "").strip() or "Your Brand",
@@ -7346,6 +7380,7 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
                 timeline=client_brief_dict.get("timeline", "").strip() or None,
                 business_type=client_brief_dict.get("business_type", "").strip() or None,
                 description=client_brief_dict.get("product_service", "").strip() or None,
+                research=brand_research,  # <- NEW: Wire in research
             ),
             audience=AudienceBrief(
                 primary_customer=primary_customer_val,

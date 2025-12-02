@@ -13,5 +13,14 @@ class Settings:
     DB_CONNECT_TIMEOUT: int = int(os.getenv("DB_CONNECT_TIMEOUT", "2"))
     DB_STARTUP_RETRY_SECS: int = int(os.getenv("DB_STARTUP_RETRY_SECS", "20"))
 
+    # Perplexity research integration
+    PERPLEXITY_API_KEY: str | None = os.getenv("PERPLEXITY_API_KEY")
+    PERPLEXITY_API_BASE: str = os.getenv("PERPLEXITY_API_BASE", "https://api.perplexity.ai")
+    AICMO_PERPLEXITY_ENABLED: bool = os.getenv("AICMO_PERPLEXITY_ENABLED", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+
 
 settings = Settings()

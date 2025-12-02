@@ -11,8 +11,15 @@ Use these helpers in every generator to ensure client-ready, placeholder-free ou
 """
 
 import re
-from typing import Iterable, List, Dict
+from typing import Iterable, List, Dict, Optional
 from pydantic import BaseModel, Field, ConfigDict
+
+
+# Import research model for optional integration
+try:
+    from backend.research_models import BrandResearchResult
+except ImportError:
+    BrandResearchResult = None  # type: ignore
 
 
 class BrandBrief(BaseModel):
@@ -41,6 +48,7 @@ class BrandBrief(BaseModel):
     product_service: str = ""  # <- MANDATORY FIELD (fixes AttributeError)
     location: str = ""
     competitors: List[str] = Field(default_factory=list, description="Competitor names")
+    research: Optional["BrandResearchResult"] = None  # <- NEW: Optional Perplexity research
 
 
 # ============================================================================
