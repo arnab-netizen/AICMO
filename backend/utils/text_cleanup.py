@@ -190,6 +190,8 @@ def sanitize_text(text: str) -> str:
         r"\bsucces\b": "success",
         r"\bsuccess\b": "success",  # Ensure correct
         r"\bacros\b": "across",
+        r"\bscros\b": "across",  # Corrupted "across" variant 1
+        r"\bscross\b": "across",  # Corrupted "across" variant 2
         r"\bawarenes\b": "awareness",
         r"\bmis\b": "miss",
         r"\bproces\b": "process",
@@ -199,10 +201,25 @@ def sanitize_text(text: str) -> str:
     for pattern, replacement in spelling_corrections.items():
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
 
+    # Fix specific word boundary issues
+    # " se " in middle of sentence → " see "
+    text = re.sub(r"(\s)se(\s)", r"\1see\2", text)
+    # "Se " at sentence start → "See "
+    text = re.sub(r"^Se\s", "See ", text, flags=re.MULTILINE)
+    text = re.sub(r"(\.\s+)Se\s", r"\1See ", text)
+
     # Fix broken sentence joins
     text = re.sub(r"\.\s+And\b", " and", text)
     text = re.sub(r"\.\s+Or\b", " or", text)
     text = re.sub(r"\.\s+But\b", ", but", text)
+
+    # Fix merged KPI descriptions (": and verb" → ". Monitor weekly to verb")
+    text = re.sub(
+        r":\s+and\s+(optimize|improve|track|monitor|measure|analyze|assess)\b",
+        r". Monitor weekly to \1",
+        text,
+        flags=re.IGNORECASE,
+    )
 
     # Collapse double spaces
     text = re.sub(r"  +", " ", text)
@@ -487,12 +504,16 @@ def clean_hashtags(hashtags: List[str]) -> List[str]:
 
 B2C_REPLACEMENTS = {
     "qualified leads": "store visits",
+    "qualified lead": "store visit",  # Singular form
     "lead generation": "customer acquisition",
     "cost-per-lead": "cost-per-visit",
     "lead nurturing": "customer engagement",
     "leads": "visitors",
     "lead magnet": "in-store offer",
     "lead scoring": "engagement scoring",
+    "First Lead Generated": "First Conversion",
+    "first lead generated": "first conversion",
+    "lead goal": "conversion goal",
 }
 
 
@@ -673,9 +694,17 @@ def fix_broken_ctas(cta: str) -> str:
 
     cta = cta.strip()
 
+    # Treat single punctuation marks or combinations as empty
+    # Remove all punctuation and whitespace to check if anything is left
+    cleaned = re.sub(r"[^\w]", "", cta)
+    if not cleaned:  # If nothing left after removing punctuation, it's empty
+        return "Learn more."
+
     # Fix trailing dashes
     if cta.endswith("—") or cta.endswith("-"):
         cta = cta.rstrip("—-").strip()
+        if not cta or not cta.strip():
+            return "Learn more."
         if not cta.endswith("."):
             cta += " offer."
 
@@ -689,6 +718,10 @@ def fix_broken_ctas(cta: str) -> str:
     # Ensure ends with punctuation
     if cta and cta[-1] not in ".!?":
         cta += "."
+
+    # Final safety check: if CTA is too short or only punctuation, use fallback
+    if len(cta) < 5:
+        return "Learn more."
 
     return cta
 

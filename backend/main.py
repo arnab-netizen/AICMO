@@ -670,16 +670,31 @@ def _gen_messaging_framework(
     )
 
     # Generate brand-appropriate key messages (avoid agency language)
-    key_messages = (
-        mp.messaging_pyramid.key_messages
-        if mp.messaging_pyramid
-        else [
+    # Use industry-specific themes for coffeehouse/retail
+    pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
+    from backend.industry_config import get_industry_profile
+
+    profile = get_industry_profile(b.industry)
+    use_industry_specific = profile and "quick_social" in pack_key.lower()
+
+    if mp.messaging_pyramid and mp.messaging_pyramid.key_messages:
+        key_messages = mp.messaging_pyramid.key_messages
+    elif use_industry_specific and b.industry and "coffee" in b.industry.lower():
+        # Coffeehouse-specific messaging pillars
+        key_messages = [
+            "Celebrate the 'third place' between home and work where community gathers",
+            "Highlight the craft and care behind every handcrafted beverage",
+            "Share real community stories and everyday moments of connection",
+            "Create anticipation through seasonal rituals and limited-time experiences",
+        ]
+    else:
+        # Generic but strong messaging for other industries
+        key_messages = [
             f"Quality {b.product_service or 'experiences'} that exceed expectations",
             f"Trusted by {b.primary_customer or 'customers'} in {b.industry or 'the industry'}",
             f"Proven approach to achieving {g.primary_goal or 'success'}",
             "Authentic commitment to customer satisfaction",
         ]
-    )
 
     proof_points = (
         mp.messaging_pyramid.proof_points
@@ -1311,14 +1326,32 @@ def _gen_quick_social_30_day_calendar(req: GenerateRequest) -> str:
         asset_types_list = ASSET_TYPES.get(platform, ["static_post"])
         asset_type = asset_types_list[(day_num - 1) % len(asset_types_list)]
 
-        # Choose CTA
-        ctas = CTA_LIBRARY.get(bucket, ["Learn more."])
-        cta = ctas[(day_num - 1) % len(ctas)]
+        # Choose CTA - platform-specific and never empty
+        ctas = CTA_LIBRARY.get(bucket, [])
+        if ctas:
+            cta = ctas[(day_num - 1) % len(ctas)]
+        else:
+            cta = "Learn more."
+
+        # Platform-specific CTA overrides
+        if not cta or cta.strip() in ["", ".", "-"]:
+            if platform == "Instagram":
+                cta = "Save this for later."
+            elif platform == "Twitter":
+                cta = "Join the conversation."
+            elif platform == "LinkedIn":
+                cta = "See more insights in the full post."
+            else:
+                cta = "Learn more."
 
         # Fix broken CTAs
         from backend.utils.text_cleanup import fix_broken_ctas
 
         cta = fix_broken_ctas(cta)
+
+        # Final safety check - ensure CTA is never empty
+        if not cta or cta.strip() in ["", ".", "-"]:
+            cta = "Learn more."
 
         # Format date
         date_str = post_date.strftime("%b %d")
@@ -1663,17 +1696,17 @@ Transformational changes establishing {b.brand_name} as category leader:
             f"This phase requires daily attention to metrics and weekly strategy adjustments to maximize {g.primary_goal or 'campaign effectiveness'}.\n\n"
             f"| Timeline | Key Activities | Success Criteria | Adjustments |\n"
             f"|----------|----------------|------------------|-------------|\n"
-            f"| Days 11-17 (Week 1) | Launch organic social presence<br>Activate email welcome series<br>Start first paid ad campaign<br>Daily community engagement | 1000+ impressions/day<br>100+ email opens<br>50+ ad clicks<br>10+ meaningful engagements | Pause underperforming content<br>Double down on winning posts<br>Adjust targeting if needed |\n"
-            f"| Days 18-24 (Week 2) | Optimize based on Week 1 data<br>Launch second paid campaign variant<br>Introduce video/reel content<br>Begin retargeting campaigns | 2x Week 1 engagement<br>5+ qualified leads<br>Positive early ROI signals | Refine audience segments<br>Test new content angles<br>Scale winning ads by 30% |\n"
-            f"| Days 25-30 (Week 3-4) | Final push with direct CTAs<br>Activate limited-time offers<br>Collect comprehensive performance data<br>Prepare monthly analysis report | 50+ total qualified leads<br>Cost-per-lead below target<br>Engagement rate >2%<br>Clear data for next iteration | Document learnings<br>Archive successful content<br>Plan Month 2 strategy |\n\n"
+            f"| Days 11-17 (Week 2 of Campaign) | Launch organic social presence<br>Activate email welcome series<br>Start first paid ad campaign<br>Daily community engagement | 1000+ impressions/day<br>100+ email opens<br>50+ ad clicks<br>10+ meaningful engagements | Pause underperforming content<br>Double down on winning posts<br>Adjust targeting if needed |\n"
+            f"| Days 18-24 (Week 3 of Campaign) | Optimize based on Week 2 data<br>Launch second paid campaign variant<br>Introduce video/reel content<br>Begin retargeting campaigns | 2x Week 2 engagement<br>5+ new customers<br>Positive early ROI signals | Refine audience segments<br>Test new content angles<br>Scale winning ads by 30% |\n"
+            f"| Days 25-30 (Week 4 of Campaign) | Final push with direct CTAs<br>Activate limited-time offers<br>Collect comprehensive performance data<br>Prepare monthly analysis report | 50+ total conversions<br>Cost-per-acquisition below target<br>Engagement rate >2%<br>Clear data for next iteration | Document learnings<br>Archive successful content<br>Plan Month 2 strategy |\n\n"
             f"## Key Milestones\n\n"
             f"**Critical Checkpoints & Decision Gates:**\n\n"
             f"| Milestone | Target Date | Success Metric | If Not Met |\n"
             f"|-----------|-------------|----------------|------------|\n"
             f"| Campaign Go-Live | Day 10 | All systems operational, 15+ pieces of content ready | Delay launch, complete setup |\n"
-            f"| First Lead Generated | Day 14 | At least 1 qualified lead from campaign activities | Review messaging and targeting |\n"
-            f"| Positive ROI Signal | Day 21 | Cost-per-lead trending toward target, engagement >1.5% | Pivot strategy, test new angles |\n"
-            f"| Monthly Target Progress | Day 30 | 70%+ of monthly lead goal achieved | Assess viability, recommend changes |\n\n"
+            f"| First Conversion | Day 14 | At least 1 customer from campaign activities | Review messaging and targeting |\n"
+            f"| Positive ROI Signal | Day 21 | Cost-per-acquisition trending toward target, engagement >1.5% | Pivot strategy, test new angles |\n"
+            f"| Monthly Target Progress | Day 30 | 70%+ of monthly conversion goal achieved | Assess viability, recommend changes |\n\n"
             f"**Month 2+ Roadmap:**\n\n"
             f"Based on Month 1 learnings, iterate and scale:\n\n"
             f"- Double down on winning channels and content themes that showed best ROI\n"
@@ -3467,9 +3500,17 @@ def _gen_hashtag_strategy(req: GenerateRequest, **kwargs) -> str:
     for tag in brand_tags:
         raw += f"- {tag}\n"
 
+    # Build industry context description
+    if industry and "coffee" in industry.lower():
+        industry_context = "your local coffee and café community"
+    elif industry:
+        industry_context = f"the {industry} space"
+    else:
+        industry_context = "your target market"
+
     raw += (
         f"\n## Industry Hashtags\n\n"
-        f"Target 3-5 relevant industry tags per post to maximize discoverability in {industry}:\n\n"
+        f"Target 3-5 relevant industry tags per post to maximize discoverability in {industry_context}:\n\n"
     )
     for tag in industry_tags:
         raw += f"- {tag}\n"
