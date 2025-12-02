@@ -392,7 +392,7 @@ def generate_output_report_markdown(
                 self.brief = brief_obj
 
         req_universal = UniversalCleanupRequest(brief)
-        md = apply_universal_cleanup(md, req_universal, platform="instagram")
+        md = apply_universal_cleanup(md, req_universal)
 
         return md
 
@@ -737,6 +737,6 @@ def generate_output_report_markdown(
             self.brief = brief_obj
 
     req_universal = UniversalCleanupRequest(brief)
-    md = apply_universal_cleanup(md, req_universal, platform="instagram")
+    md = apply_universal_cleanup(md, req_universal)
 
     return md

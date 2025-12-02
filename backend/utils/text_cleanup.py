@@ -310,34 +310,68 @@ BANNED_CTAS = {
 }
 
 
-def fix_platform_ctas(text: str, platform: str = "instagram") -> str:
+def fix_platform_ctas(text: str, platform: str | None = None) -> str:
     """
-    Fix CTAs to be platform-appropriate.
+    Fix CTAs to be platform-appropriate by auto-detecting platform per-section.
+
+    Auto-detects platform context from content:
+    - Sections mentioning "Twitter" get Twitter CTA rules
+    - Sections mentioning "LinkedIn" get LinkedIn CTA rules
+    - Sections mentioning "Instagram" get Instagram CTA rules
 
     Removes:
-    - "Tap to save" on Twitter
-    - "Learn more in bio" on LinkedIn
-    - Cross-platform CTAs
+    - "Tap to save" from Twitter/LinkedIn sections
+    - "Learn more in bio" from LinkedIn sections
+    - Cross-platform CTAs based on detected context
 
     Args:
-        text: Caption or post text
-        platform: Target platform (instagram/twitter/linkedin)
+        text: Caption or post text (may contain multiple platform sections)
+        platform: Optional platform override (instagram/twitter/linkedin)
+                 If None, auto-detects per-section
 
     Returns:
         Text with platform-appropriate CTAs
 
     Example:
-        >>> fix_platform_ctas("Tap to save this! #coffee", "twitter")
-        'Join the conversation! #coffee'
+        >>> fix_platform_ctas("Twitter: Tap to save this! #coffee")
+        'Twitter: Join the conversation! #coffee'
     """
-    platform = platform.lower()
+    # If platform explicitly provided, use legacy single-platform logic
+    if platform:
+        platform = platform.lower()
+        if platform in BANNED_CTAS:
+            for banned_cta in BANNED_CTAS[platform]:
+                text = re.sub(rf"\b{re.escape(banned_cta)}\b.*?[.!]", "", text, flags=re.IGNORECASE)
+    else:
+        # Auto-detect platform per-section using context windows
+        # Split into paragraphs (sections separated by double newlines or headers)
+        sections = re.split(r"\n(?=\*\*|##|###)", text)
+        cleaned_sections = []
 
-    # Remove banned CTAs for this platform
-    if platform in BANNED_CTAS:
-        for banned_cta in BANNED_CTAS[platform]:
-            text = re.sub(rf"\b{re.escape(banned_cta)}\b.*?[.!]", "", text, flags=re.IGNORECASE)
+        for section in sections:
+            section_lower = section.lower()
 
-    # Remove mood-board style camera notes inside captions
+            # Detect platform context in this section
+            detected_platform = None
+            if "twitter" in section_lower or "tweet" in section_lower:
+                detected_platform = "twitter"
+            elif "linkedin" in section_lower:
+                detected_platform = "linkedin"
+            elif "instagram" in section_lower or "insta" in section_lower:
+                detected_platform = "instagram"
+
+            # Apply platform-specific CTA removal if detected
+            if detected_platform and detected_platform in BANNED_CTAS:
+                for banned_cta in BANNED_CTAS[detected_platform]:
+                    section = re.sub(
+                        rf"\b{re.escape(banned_cta)}\b.*?[.!]", "", section, flags=re.IGNORECASE
+                    )
+
+            cleaned_sections.append(section)
+
+        text = "\n".join(cleaned_sections)
+
+    # Remove mood-board style camera notes inside captions (universal)
     camera_notes = [
         r"\[.*?camera.*?\]",
         r"\[.*?lighting.*?\]",
@@ -601,7 +635,7 @@ def remove_excessive_repetition(text: str, max_repeats: int = 2) -> str:
 
 
 def apply_universal_cleanup(
-    text: str, req: GenerateRequest = None, platform: str = "instagram"
+    text: str, req: GenerateRequest | None = None, platform: str | None = None
 ) -> str:
     """
     Apply ALL cleanup rules in sequence for final client-ready output.
@@ -612,15 +646,16 @@ def apply_universal_cleanup(
     Applies (in order):
     1. Sanitize text (artifacts, broken sentences, repeated letters)
     2. Remove agency language
-    3. Fix platform CTAs
-    4. Fix B2C terminology
+    3. Fix platform CTAs (auto-detects platform per-section if not specified)
+    4. Fix B2C terminology (detects industry from req)
     5. Fix KPI descriptions
     6. Remove excessive repetition
 
     Args:
         text: Raw generated text
-        req: GenerateRequest with brand brief (optional)
-        platform: Target platform for CTA fixes
+        req: GenerateRequest with brand brief (optional, used for industry detection)
+        platform: Optional platform override for CTA fixes
+                 If None, auto-detects platform context per-section
 
     Returns:
         Fully cleaned, client-ready text
@@ -638,14 +673,22 @@ def apply_universal_cleanup(
     # FIX 2: Remove agency language
     text = remove_agency_language(text)
 
-    # FIX 3: Fix platform CTAs
+    # FIX 3: Fix platform CTAs (auto-detects per-section if platform not specified)
     text = fix_platform_ctas(text, platform)
 
     # FIX 4: Hashtag cleanup is done separately on hashtag lists
 
-    # FIX 5: Fix B2C terminology
-    if req and hasattr(req.brief, "brand") and hasattr(req.brief.brand, "industry"):
-        industry = req.brief.brand.industry or ""
+    # FIX 5: Fix B2C terminology (detect industry from req)
+    industry = ""
+    if req:
+        if hasattr(req, "brief") and hasattr(req.brief, "brand"):
+            industry = getattr(req.brief.brand, "industry", "") or ""
+        elif hasattr(req, "industry"):
+            industry = req.industry or ""
+        elif hasattr(req, "sector"):
+            industry = req.sector or ""
+
+    if industry:
         text = fix_b2c_terminology(text, industry)
 
     # FIX 6: Fix KPI descriptions
