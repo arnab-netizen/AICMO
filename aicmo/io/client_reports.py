@@ -384,6 +384,16 @@ def generate_output_report_markdown(
             req = CleanupRequest(brief)
             md = clean_quick_social_text(md, req)
 
+        # 🎯 NEW: Apply universal cleanup (all 7 fixes) as final polish
+        from backend.utils.text_cleanup import apply_universal_cleanup
+
+        class UniversalCleanupRequest:
+            def __init__(self, brief_obj):
+                self.brief = brief_obj
+
+        req_universal = UniversalCleanupRequest(brief)
+        md = apply_universal_cleanup(md, req_universal, platform="instagram")
+
         return md
 
     # Standard path: build core marketing plan + optional WOW add-ons
@@ -718,5 +728,15 @@ def generate_output_report_markdown(
 
         req = CleanupRequest(brief)
         md = clean_quick_social_text(md, req)
+
+    # 🎯 NEW: Apply universal cleanup (all 7 fixes) as final polish
+    from backend.utils.text_cleanup import apply_universal_cleanup
+
+    class UniversalCleanupRequest:
+        def __init__(self, brief_obj):
+            self.brief = brief_obj
+
+    req_universal = UniversalCleanupRequest(brief)
+    md = apply_universal_cleanup(md, req_universal, platform="instagram")
 
     return md

@@ -3409,7 +3409,7 @@ def _gen_creative_direction_light(req: GenerateRequest, **kwargs) -> str:
 
 def _gen_hashtag_strategy(req: GenerateRequest, **kwargs) -> str:
     """Generate 'hashtag_strategy' section with recommended hashtags."""
-    from backend.utils.text_cleanup import normalize_hashtag
+    from backend.utils.text_cleanup import normalize_hashtag, clean_hashtags
 
     b = req.brief.brand
     industry = b.industry or "industry"
@@ -3433,6 +3433,10 @@ def _gen_hashtag_strategy(req: GenerateRequest, **kwargs) -> str:
     ]
     industry_tags = [normalize_hashtag(t) for t in raw_industry_tags]
     industry_tags = [t for t in industry_tags if t]  # Remove empties
+
+    # 🎯 NEW: Clean hashtags to remove AI-looking/fake tags
+    brand_tags = clean_hashtags(brand_tags)
+    industry_tags = clean_hashtags(industry_tags)
 
     # Remove duplicates while preserving order
     seen = set()
