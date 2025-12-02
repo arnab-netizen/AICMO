@@ -23,7 +23,7 @@ from aicmo.io.client_reports import (
 from aicmo.quality.validators import validate_report, has_blocking_issues
 from backend.pdf_utils import text_to_pdf_bytes
 from backend.placeholder_utils import report_has_placeholders, format_placeholder_warning
-from backend.pdf_renderer import render_agency_pdf, WEASYPRINT_AVAILABLE
+from backend.pdf_renderer import render_agency_pdf, WEASYPRINT_AVAILABLE, PDF_TEMPLATE_MAP
 
 logger = logging.getLogger("aicmo.export")
 
@@ -244,6 +244,18 @@ def safe_export_agency_pdf(
     print(f"   wow_enabled     = {wow_enabled}")
     print(f"   wow_package_key = {wow_package_key}")
     print("=" * 80)
+
+    # Early exit: WOW not enabled or no package key
+    if not wow_enabled or not wow_package_key:
+        print("🎨 AGENCY PDF DEBUG: WOW not enabled or no package key -> skip agency path")
+        return None
+
+    # Early exit: no template for this WOW package yet
+    if wow_package_key not in PDF_TEMPLATE_MAP:
+        print(
+            f"🎨 AGENCY PDF DEBUG: no template for wow_package_key={wow_package_key} -> skipping agency path"
+        )
+        return None
 
     # Check if we should even attempt agency rendering
     if not should_use_agency_pdf(pack_key, wow_enabled, wow_package_key):

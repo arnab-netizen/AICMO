@@ -75,7 +75,10 @@ h1, h2, h3 {
 }
 
 h1 {
-    font-size: 16pt;
+    font-size: 26pt;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
 }
 
 h2 {
@@ -86,13 +89,21 @@ h3 {
     font-size: 12pt;
 }
 
+.subtitle {
+    font-size: 12pt;
+    opacity: 0.8;
+    margin-top: 0;
+    margin-bottom: 24px;
+}
+
 .section-block {
-    margin-bottom: 0.6cm;
-    padding: 0.4cm;
+    background: #ffffff;
     border-radius: 6px;
-    background-color: #FAF5E6;
-    border-left: 3px solid #D4AF37;
+    border-left: 4px solid #1d6f93;
+    padding: 16px 18px;
+    margin-bottom: 20px;
     page-break-inside: avoid;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
 .section-title {

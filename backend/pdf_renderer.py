@@ -246,14 +246,16 @@ def render_html_template_to_pdf(template_name: str, context: Dict[str, Any]) -> 
 # PDF TEMPLATE MAP - One canonical template per WOW package
 # ============================================================================
 
+# Only include packs that actually have HTML templates in backend/templates/pdf
 PDF_TEMPLATE_MAP = {
     "quick_social_basic": "quick_social_basic.html",
     "strategy_campaign_standard": "campaign_strategy.html",
-    "full_funnel_growth_suite": "full_funnel_growth.html",
-    "launch_gtm_pack": "launch_gtm.html",
-    "brand_turnaround_lab": "brand_turnaround.html",
-    "retention_crm_booster": "retention_crm.html",
-    "performance_audit_revamp": "performance_audit.html",
+    # When you add the others, uncomment + create the templates:
+    # "full_funnel_growth_suite": "full_funnel_growth.html",
+    # "launch_gtm_pack": "launch_gtm.html",
+    # "brand_turnaround_lab": "brand_turnaround.html",
+    # "retention_crm_booster": "retention_crm.html",
+    # "performance_audit_revamp": "performance_audit.html",
 }
 
 
