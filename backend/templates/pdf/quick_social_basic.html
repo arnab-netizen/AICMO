@@ -16,10 +16,12 @@
   </div>
 </div>
 
+<div class="page-break"></div>
+
 <!-- 2. AUDIENCE SEGMENTS -->
 {% if report.get('audience_segments_html') %}
-<h2>Who You're Reaching</h2>
 <div class="section-block">
+  <h2>Who You're Reaching</h2>
   <div class="section-body">
     {{ report.get('audience_segments_html') }}
   </div>
@@ -28,8 +30,8 @@
 
 <!-- 3. MESSAGING FRAMEWORK -->
 {% if report.get('messaging_framework_html') %}
-<h2>Your Core Message</h2>
 <div class="section-block">
+  <h2>Your Core Message</h2>
   <div class="section-body">
     {{ report.get('messaging_framework_html') }}
   </div>
@@ -38,18 +40,20 @@
 
 <!-- 4. CONTENT BUCKETS -->
 {% if report.get('content_buckets_html') %}
-<h2>Content Themes</h2>
 <div class="section-block">
+  <h2>Content Themes</h2>
   <div class="section-body">
     {{ report.get('content_buckets_html') }}
   </div>
 </div>
 {% endif %}
 
+<div class="page-break"></div>
+
 <!-- 5. WEEKLY CALENDAR -->
 {% if report.get('calendar_html') %}
-<h2>Weekly Posting Schedule</h2>
 <div class="section-block">
+  <h2>Weekly Posting Schedule</h2>
   <div class="section-body">
     {{ report.get('calendar_html') }}
   </div>
@@ -58,8 +62,8 @@
 
 <!-- 6. CREATIVE DIRECTION (LIGHT) -->
 {% if report.get('creative_direction_html') %}
-<h2>Visual Style Guide</h2>
 <div class="section-block">
+  <h2>Visual Style Guide</h2>
   <div class="section-body">
     {{ report.get('creative_direction_html') }}
   </div>
@@ -68,18 +72,20 @@
 
 <!-- 7. HASHTAG STRATEGY -->
 {% if report.get('hashtags_html') %}
-<h2>Hashtags to Use</h2>
 <div class="section-block">
+  <h2>Hashtags to Use</h2>
   <div class="section-body">
     {{ report.get('hashtags_html') }}
   </div>
 </div>
 {% endif %}
 
+<div class="page-break"></div>
+
 <!-- 8. PLATFORM GUIDELINES -->
 {% if report.get('platform_guidelines_html') %}
-<h2>Platform-Specific Tips</h2>
 <div class="section-block">
+  <h2>Platform-Specific Tips</h2>
   <div class="section-body">
     {{ report.get('platform_guidelines_html') }}
   </div>
@@ -88,8 +94,8 @@
 
 <!-- 9. KPI PLAN (LIGHT) -->
 {% if report.get('kpi_plan_html') %}
-<h2>Success Metrics</h2>
 <div class="section-block">
+  <h2>Success Metrics</h2>
   <div class="section-body">
     {{ report.get('kpi_plan_html') }}
   </div>

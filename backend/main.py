@@ -1273,7 +1273,7 @@ def _gen_quick_social_30_day_calendar(req: GenerateRequest) -> str:
         )
 
         # Phase 1: Check if hook is too generic, regenerate if needed
-        if is_too_generic(hook):
+        if is_too_generic(hook, threshold=0.20):
             # Add visual concept guidance to make it more specific
             visual_guidance = (
                 f"Include specific details: {visual_concept.setting}, {visual_concept.mood} mood"

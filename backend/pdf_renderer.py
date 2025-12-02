@@ -148,6 +148,46 @@ def sections_to_html_list(sections: list[Dict[str, Any]]) -> list[Dict[str, Any]
     return html_sections
 
 
+def _render_pdf_html(template_name: str, context: Dict[str, Any]) -> str:
+    """
+    INTERNAL: Render an HTML template with Jinja2 (without PDF generation).
+
+    This helper is used internally for testing and by render_html_template_to_pdf.
+
+    Args:
+        template_name: Name of the Jinja2 template file
+        context: Dictionary of template variables
+
+    Returns:
+        Rendered HTML string
+
+    Raises:
+        RuntimeError: If template rendering fails
+    """
+    try:
+        from jinja2 import Environment, FileSystemLoader, select_autoescape
+    except ImportError as e:
+        raise RuntimeError("Jinja2 is not available") from e
+
+    template_dir = Path(__file__).parent / "templates" / "pdf"
+
+    if not template_dir.exists():
+        raise RuntimeError(f"PDF template directory not found: {template_dir}")
+
+    env = Environment(
+        loader=FileSystemLoader(str(template_dir)),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
+
+    try:
+        template = env.get_template(template_name)
+        html_str = template.render(**context)
+        return html_str
+    except Exception as e:
+        logger.error(f"Template rendering failed for {template_name}: {e}")
+        raise RuntimeError(f"Template rendering failed: {e}") from e
+
+
 def render_html_template_to_pdf(template_name: str, context: Dict[str, Any]) -> bytes:
     """
     Render an HTML template with Jinja2 and convert it to PDF using WeasyPrint.
@@ -171,30 +211,12 @@ def render_html_template_to_pdf(template_name: str, context: Dict[str, Any]) -> 
             "Install with: pip install weasyprint jinja2"
         )
 
-    try:
-        from jinja2 import Environment, FileSystemLoader, select_autoescape
-    except ImportError as e:
-        raise RuntimeError("Jinja2 is not available") from e
-
-    template_dir = Path(__file__).parent / "templates" / "pdf"
-
-    if not template_dir.exists():
-        logger.warning(f"Template directory does not exist: {template_dir}")
-        raise RuntimeError(f"PDF template directory not found: {template_dir}")
-
-    env = Environment(
-        loader=FileSystemLoader(str(template_dir)),
-        autoescape=select_autoescape(["html", "xml"]),
-    )
-
-    try:
-        template = env.get_template(template_name)
-        html_str = template.render(**context)
-    except Exception as e:
-        logger.error(f"Template rendering failed for {template_name}: {e}")
-        raise RuntimeError(f"Template rendering failed: {e}") from e
+    # Render HTML using internal helper
+    html_str = _render_pdf_html(template_name, context)
 
     # Render HTML to PDF with optional CSS
+    template_dir = Path(__file__).parent / "templates" / "pdf"
+
     try:
         css_path = template_dir / "styles.css"
         stylesheets = []

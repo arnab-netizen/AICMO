@@ -1,6 +1,18 @@
 @page {
     size: A4;
-    margin: 1.5cm;
+    margin: 28mm 18mm 28mm 18mm;
+    
+    @top-center {
+        content: "AICMO — Marketing Intelligence Report";
+        font-size: 9pt;
+        color: #888888;
+    }
+    
+    @bottom-center {
+        content: "Page " counter(page);
+        font-size: 9pt;
+        color: #888888;
+    }
 }
 
 body {
@@ -59,6 +71,7 @@ h1, h2, h3 {
     color: #7B2D43;
     margin-top: 0.4cm;
     margin-bottom: 0.2cm;
+    page-break-after: avoid;
 }
 
 h1 {
@@ -79,6 +92,7 @@ h3 {
     border-radius: 6px;
     background-color: #FAF5E6;
     border-left: 3px solid #D4AF37;
+    page-break-inside: avoid;
 }
 
 .section-title {
@@ -92,12 +106,19 @@ h3 {
     line-height: 1.4;
 }
 
+/* Table wrapper for page-break control */
+.table-wrapper {
+    margin: 16px 0;
+    page-break-inside: avoid;
+}
+
 table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 0.2cm;
     margin-bottom: 0.3cm;
     font-size: 9.5pt;
+}   font-size: 9.5pt;
 }
 
 th, td {
