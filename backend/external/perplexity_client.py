@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from typing import Any, Dict, Optional
 
@@ -8,6 +9,8 @@ import httpx
 
 from backend.core.config import settings
 from backend.research_models import BrandResearchResult
+
+log = logging.getLogger("perplexity")
 
 
 class PerplexityClient:
@@ -46,8 +49,12 @@ class PerplexityClient:
             BrandResearchResult with structured research data, or None on failure
         """
         if not self.is_configured():
-            print("⚠️ Perplexity API key not configured")
+            log.warning("[Perplexity] API key not configured - skipping research")
             return None
+
+        log.info(
+            f"[Perplexity] Calling API for brand={brand_name!r} location={location!r} industry={industry!r}"
+        )
 
         # Build the research prompt
         prompt = self._build_research_prompt(brand_name, industry, location)
@@ -61,14 +68,29 @@ class PerplexityClient:
 
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
 
-        # Retry logic with exponential backoff (3 attempts)
-        for attempt in range(3):
+        # Retry logic with exponential backoff (3 attempts max)
+        max_retries = 3
+        for attempt in range(max_retries):
             try:
+                log.debug(f"[Perplexity] Attempt {attempt + 1}/{max_retries}")
+
                 # Make the API call with 20-second timeout
                 with httpx.Client(timeout=httpx.Timeout(20.0)) as client:
                     response = client.post(
                         f"{self.base_url}/chat/completions", headers=headers, json=payload
                     )
+
+                    # Check for rate limiting before raising for status
+                    if response.status_code == 429:
+                        log.warning(
+                            f"[Perplexity] Rate limit hit (429) on attempt {attempt + 1}/{max_retries}"
+                        )
+                        if attempt < max_retries - 1:
+                            backoff = 2**attempt  # Exponential backoff: 1s, 2s, 4s
+                            log.info(f"[Perplexity] Waiting {backoff}s before retry...")
+                            time.sleep(backoff)
+                        continue
+
                     response.raise_for_status()
 
                 # Parse the response
@@ -78,7 +100,7 @@ class PerplexityClient:
                 if "choices" in response_data and len(response_data["choices"]) > 0:
                     content = response_data["choices"][0]["message"]["content"]
                 else:
-                    print("⚠️ Unexpected Perplexity response format")
+                    log.warning("[Perplexity] Unexpected response format - missing 'choices' field")
                     return None
 
                 # Parse the JSON from the content
@@ -86,41 +108,69 @@ class PerplexityClient:
 
                 if research_data:
                     # Validate and return structured result
-                    return BrandResearchResult(**research_data)
+                    result = BrandResearchResult(**research_data)
+
+                    # Validate result quality
+                    validation_warnings = self._validate_research_result(result)
+                    if validation_warnings:
+                        log.warning(
+                            f"[Perplexity] Data quality warnings: {', '.join(validation_warnings)}"
+                        )
+
+                    log.info(
+                        f"[Perplexity] Success - parsed fields: "
+                        f"summary={bool(result.brand_summary)}, "
+                        f"competitors={len(result.local_competitors)}, "
+                        f"pain_points={len(result.audience_pain_points)}, "
+                        f"hashtags={len(result.hashtag_hints)}"
+                    )
+                    return result
                 else:
-                    print("⚠️ Failed to parse valid JSON from Perplexity response")
+                    log.warning("[Perplexity] Failed to parse valid JSON from response")
                     return None
 
             except httpx.HTTPStatusError as e:
-                print(
-                    f"⚠️ Perplexity API HTTP error (attempt {attempt + 1}/3): {e.response.status_code}"
+                log.warning(
+                    f"[Perplexity] HTTP error on attempt {attempt + 1}/{max_retries}: "
+                    f"{e.response.status_code} - {e.response.text[:200]}"
                 )
-                if attempt < 2:  # Don't sleep on last attempt
-                    time.sleep(1 * (attempt + 1))
+                if attempt < max_retries - 1:
+                    backoff = 1 * (attempt + 1)
+                    time.sleep(backoff)
                 continue
 
             except httpx.RequestError as e:
-                print(f"⚠️ Perplexity API request error (attempt {attempt + 1}/3): {str(e)}")
-                if attempt < 2:
-                    time.sleep(1 * (attempt + 1))
+                log.warning(
+                    f"[Perplexity] Network error on attempt {attempt + 1}/{max_retries}: {type(e).__name__}"
+                )
+                if attempt < max_retries - 1:
+                    backoff = 1 * (attempt + 1)
+                    time.sleep(backoff)
                 continue
 
             except json.JSONDecodeError as e:
-                print(f"⚠️ JSON parsing error (attempt {attempt + 1}/3): {str(e)}")
-                if attempt < 2:
-                    time.sleep(1 * (attempt + 1))
+                log.warning(
+                    f"[Perplexity] JSON parse error on attempt {attempt + 1}/{max_retries}: {str(e)[:100]}"
+                )
+                if attempt < max_retries - 1:
+                    backoff = 1 * (attempt + 1)
+                    time.sleep(backoff)
                 continue
 
             except Exception as e:
-                print(
-                    f"⚠️ Unexpected error during Perplexity research (attempt {attempt + 1}/3): {str(e)}"
+                log.error(
+                    f"[Perplexity] Unexpected error on attempt {attempt + 1}/{max_retries}: "
+                    f"{type(e).__name__}: {str(e)[:200]}"
                 )
-                if attempt < 2:
-                    time.sleep(1 * (attempt + 1))
+                if attempt < max_retries - 1:
+                    backoff = 1 * (attempt + 1)
+                    time.sleep(backoff)
                 continue
 
         # All retries exhausted
-        print("❌ Perplexity research failed after 3 attempts")
+        log.error(
+            f"[Perplexity] Research failed after {max_retries} attempts for brand={brand_name!r}"
+        )
         return None
 
     def _build_research_prompt(self, brand_name: str, industry: str, location: str) -> str:
@@ -154,6 +204,29 @@ Rules:
 - Do NOT wrap the JSON in code fences.
 - All fields must exist, even if empty.
 - Keep answers concise and factual."""
+
+    def _validate_research_result(self, result: BrandResearchResult) -> list[str]:
+        """
+        Validate the quality of research results and return warnings.
+
+        Returns:
+            List of warning messages for any quality issues found
+        """
+        warnings = []
+
+        if not result.brand_summary or len(result.brand_summary.strip()) < 10:
+            warnings.append("brand_summary is empty or too short")
+
+        if not result.local_competitors:
+            warnings.append("no local_competitors found")
+
+        if not result.audience_pain_points:
+            warnings.append("no audience_pain_points found")
+
+        if not result.hashtag_hints:
+            warnings.append("no hashtag_hints found")
+
+        return warnings
 
     def _parse_json_content(self, content: str) -> Optional[Dict[str, Any]]:
         """

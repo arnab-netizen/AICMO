@@ -1,4 +1,5 @@
 import os
+import logging
 
 
 class Settings:
@@ -13,6 +14,9 @@ class Settings:
     DB_CONNECT_TIMEOUT: int = int(os.getenv("DB_CONNECT_TIMEOUT", "2"))
     DB_STARTUP_RETRY_SECS: int = int(os.getenv("DB_STARTUP_RETRY_SECS", "20"))
 
+    # Logging configuration
+    LOGGING_LEVEL: str = os.getenv("LOGGING_LEVEL", "INFO").upper()
+
     # Perplexity research integration
     PERPLEXITY_API_KEY: str | None = os.getenv("PERPLEXITY_API_KEY")
     PERPLEXITY_API_BASE: str = os.getenv("PERPLEXITY_API_BASE", "https://api.perplexity.ai")
@@ -24,3 +28,10 @@ class Settings:
 
 
 settings = Settings()
+
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, settings.LOGGING_LEVEL, logging.INFO),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
