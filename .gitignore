@@ -47,3 +47,7 @@ Thumbs.db
 **/docker-data/
 _gh_artifacts
 .alembic_autogen/
+
+# Temporary test PDFs
+tmp_demo_*.pdf
+tmp_demo_*.txt
