@@ -10,7 +10,7 @@ import time
 from datetime import date, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 
 from dotenv import load_dotenv
 
@@ -349,6 +349,7 @@ class GenerateRequest(BaseModel):
     wow_enabled: bool = True  # WOW: Enable WOW template wrapping
     wow_package_key: Optional[str] = None  # WOW: Package key (e.g., "quick_social_basic")
     stage: str = "draft"  # 🔥 FIX #2: Stage for section selection ("draft", "final")
+    research: Optional[Any] = None  # STEP 1: ComprehensiveResearchData from ResearchService
 
 
 app = FastAPI(title="AICMO API")
@@ -512,7 +513,11 @@ def submit_social_calendar(report: SocialCalendarReport):
 
 @app.post("/reports/performance_review")
 def submit_performance_review(report: PerformanceReviewReport):
-    return {"status": "ok", "type": "performance_review", "brand_name": report.brand_name}
+    return {
+        "status": "ok",
+        "type": "performance_review",
+        "brand_name": report.brand_name,
+    }
 
 
 # ============================================================
@@ -599,19 +604,17 @@ def _gen_campaign_objective(req: GenerateRequest, **kwargs) -> str:
         2. Optionally polish with OpenAI (CreativeService)
         3. Return enhanced output
 
-    This demonstrates the three-tier architecture:
-        Template → CreativeService → Validated output
+    STEP 3: Uses CreativeService.polish_section() for strategy polish when enabled;
+    falls back to template-only output when LLM is disabled or fails.
     """
-    import logging
     from backend.services.creative_service import CreativeService
 
     g = req.brief.goal
     b = req.brief.brand
     a = req.brief.audience
-    log = logging.getLogger("campaign_objective")
 
-    # Build template with structured data
-    template_text = (
+    # 1) Build base template text
+    base_text = (
         f"### Primary Objective\n\n"
         f"**Primary Objective:** {g.primary_goal or 'Brand awareness and growth'}\n\n"
         f"Drive measurable business impact for {b.brand_name} by achieving {g.primary_goal or 'key growth objectives'}. "
@@ -636,37 +639,41 @@ def _gen_campaign_objective(req: GenerateRequest, **kwargs) -> str:
         f"efficient budget allocation and sustainable growth momentum."
     )
 
-    # Optional: Polish with Creative Service (OpenAI)
-    try:
-        creative_service = CreativeService()
-        research = getattr(b, "research", None)
-
-        # Only polish if CreativeService is enabled (respects stub mode and config)
-        if hasattr(creative_service, "_is_enabled") and creative_service._is_enabled():
-            log.info("[CampaignObjective] Polishing with CreativeService")
-            polished_text = creative_service.polish_section(
-                content=template_text,
+    # 2) Try to polish with CreativeService (config-driven)
+    creative_service = CreativeService()
+    if creative_service.is_enabled():
+        try:
+            polished = creative_service.polish_section(
+                content=base_text,
                 brief=req.brief,
-                research_data=research,
+                research_data=req.research,
                 section_type="strategy",
             )
-            return sanitize_output(polished_text, req.brief)
-        else:
-            log.debug("[CampaignObjective] CreativeService disabled, using template")
-    except Exception as e:
-        log.warning(f"[CampaignObjective] CreativeService failed: {e}, using template")
+            # Only use polished if non-empty string
+            if polished and isinstance(polished, str):
+                return sanitize_output(polished, req.brief)
+        except Exception:
+            # Fail-safe: ignore errors and fall back
+            pass
 
-    # Fallback: Return template as-is
-    return sanitize_output(template_text, req.brief)
+    # 3) Fallback: return template as-is
+    return sanitize_output(base_text, req.brief)
 
 
 def _gen_core_campaign_idea(req: GenerateRequest, **kwargs) -> str:
-    """Generate 'core_campaign_idea' section."""
+    """
+    Generate 'core_campaign_idea' section.
+
+    STEP 3: Optional CreativeService polish for high-value narrative text.
+    """
+    from backend.services.creative_service import CreativeService
+
     b = req.brief.brand
     g = req.brief.goal
     s = req.brief.strategy_extras
     a = req.brief.audience
-    raw = (
+
+    base_text = (
         f"### Big Idea\n\n"
         f"**Big Idea:** Position {b.brand_name} as the definitive choice in {b.industry or 'the market'} through "
         f"strategic authority building and proof-driven storytelling\n\n"
@@ -694,7 +701,23 @@ def _gen_core_campaign_idea(req: GenerateRequest, **kwargs) -> str:
         f"- Converts attention into action by removing doubt and building confidence\n"
         f"- Generates word-of-mouth through remarkable, shareable results"
     )
-    return sanitize_output(raw, req.brief)
+
+    # STEP 3: Optional CreativeService polish
+    creative_service = CreativeService()
+    if creative_service.is_enabled():
+        try:
+            polished = creative_service.polish_section(
+                content=base_text,
+                brief=req.brief,
+                research_data=req.research,
+                section_type="strategy",
+            )
+            if polished and isinstance(polished, str):
+                base_text = polished
+        except Exception:
+            pass
+
+    return sanitize_output(base_text, req.brief)
 
 
 def _gen_messaging_framework(
@@ -785,7 +808,7 @@ def _gen_messaging_framework(
         names = [c.name for c in research.local_competitors[:3]]
         competitor_line = f"\n\nKey nearby competitors include: {', '.join(names)}."
 
-    raw = (
+    base_text = (
         f"## Core Message\n\n"
         f"**Central Promise:** {promise}\n\n"
         f"{b.brand_name} combines expertise in {b.industry or 'the industry'} with genuine commitment to "
@@ -804,7 +827,25 @@ def _gen_messaging_framework(
         "This messaging framework ensures all communications maintain consistency and authenticity "
         "across every customer touchpoint, building trust through reliable, value-driven interactions."
     )
-    return sanitize_output(raw, req.brief)
+
+    # STEP 3: Optional CreativeService polish for high-value narrative text
+    from backend.services.creative_service import CreativeService
+
+    creative_service = CreativeService()
+    if creative_service.is_enabled():
+        try:
+            polished = creative_service.polish_section(
+                content=base_text,
+                brief=req.brief,
+                research_data=req.research,
+                section_type="strategy",
+            )
+            if polished and isinstance(polished, str):
+                base_text = polished
+        except Exception:
+            pass
+
+    return sanitize_output(base_text, req.brief)
 
 
 def _gen_channel_plan(req: GenerateRequest, **kwargs) -> str:
@@ -953,7 +994,13 @@ def _gen_creative_direction(
     req: GenerateRequest,
     **kwargs,
 ) -> str:
-    """Generate 'creative_direction' section."""
+    """
+    Generate 'creative_direction' section.
+
+    STEP 3: Optional CreativeService polish for high-value narrative text.
+    """
+    from backend.services.creative_service import CreativeService
+
     s = req.brief.strategy_extras
     b = req.brief.brand
     a = req.brief.audience
@@ -964,7 +1011,7 @@ def _gen_creative_direction(
         else "reliable, consistent, growth-focused, transparent"
     )
 
-    raw = (
+    base_text = (
         f"### Visual Style\n\n"
         f"**Brand Aesthetic:** Clean, professional, and proof-oriented design that builds trust and credibility\n\n"
         f"The visual direction for {b.brand_name} establishes a foundation of clarity, professionalism, and results-driven storytelling. "
@@ -997,7 +1044,23 @@ def _gen_creative_direction(
         f"- **Whitespace:** Generous spacing that guides the eye and prevents overwhelm\n"
         f"- **Clear CTAs:** Buttons and calls-to-action that stand out and communicate value clearly"
     )
-    return sanitize_output(raw, req.brief)
+
+    # STEP 3: Optional CreativeService polish
+    creative_service = CreativeService()
+    if creative_service.is_enabled():
+        try:
+            polished = creative_service.polish_section(
+                content=base_text,
+                brief=req.brief,
+                research_data=req.research,
+                section_type="creative",
+            )
+            if polished and isinstance(polished, str):
+                base_text = polished
+        except Exception:
+            pass
+
+    return sanitize_output(base_text, req.brief)
 
 
 def _gen_influencer_strategy(req: GenerateRequest, **kwargs) -> str:
@@ -1077,54 +1140,53 @@ def _gen_ugc_and_community_plan(req: GenerateRequest, **kwargs) -> str:
 
 Systematic user-generated content acquisition transforming customers into content creators and brand advocates for {b.brand_name}.
 
-**Content Acquisition Framework:**
-- **Customer Spotlights**: Feature stories showcasing how customers achieve {g.primary_goal} using {b.brand_name} solutions
-- **Testimonial Campaigns**: Structured outreach collecting video, written, and photo testimonials with clear submission guidelines
-- **Challenge Initiatives**: Branded challenges encouraging customers to create and share content using specific hashtags
-- **Review Amplification**: Strategic requests for reviews on key platforms timed to moments of customer satisfaction
-- **Creator Partnerships**: Collaborate with micro-influencers and industry voices to generate authentic third-party content
+### Content Acquisition Framework
+- **Customer Spotlights**: Feature stories showcasing how customers achieve {g.primary_goal} using {b.brand_name}
+- **Testimonial Campaigns**: Collect video, written, and photo testimonials with clear submission guidelines
+- **Challenge Initiatives**: Branded challenges encouraging content creation using specific hashtags
+- **Review Amplification**: Strategic review requests timed to moments of customer satisfaction
+- **Creator Partnerships**: Collaborate with micro-influencers for authentic third-party content
 
-**Incentive Structures:**
-- Recognition programs featuring top contributors on official channels and marketing materials
-- Exclusive access to beta features, premium content, or VIP community tiers for active participants
-- Monetary rewards or discounts for high-quality submissions meeting brand guidelines and usage rights
-- Gamification elements with points, badges, and leaderboards driving ongoing participation
+### Incentive Structures
+Recognition programs featuring top contributors on official channels. Exclusive access to beta features and VIP community tiers for active participants. Monetary rewards or discounts for high-quality submissions meeting brand guidelines. Gamification with points, badges, and leaderboards driving ongoing participation.
 
 ## Community Tactics
 
-Building engaged communities that foster peer connections and organic advocacy:
+Building engaged communities that foster peer connections and organic advocacy.
 
-**Platform Strategy:**
-- Dedicated community spaces on Slack, Discord, Facebook Groups, or proprietary platforms facilitating member interaction
-- Regular virtual events including Q&A sessions, workshops, member showcases creating connection opportunities
-- Structured onboarding sequences welcoming new members and explaining community norms and value propositions
+### Platform Strategy
+Dedicated community spaces on Slack, Discord, Facebook Groups, or proprietary platforms. Regular virtual events including Q&A sessions, workshops, member showcases. Structured onboarding welcoming new members and explaining community value.
 
-**Engagement Mechanisms:**
-- Weekly discussion prompts and questions sparking conversations around {b.industry} topics and challenges
-- Member-to-member support channels where experienced users help newcomers reducing support burden
-- User-generated resource libraries curating best practices, templates, and frameworks from community contributions
-- Recognition programs celebrating active contributors, helpful members, and community champions
-- Expert AMAs and fireside chats providing exclusive access to industry leaders and internal team members
-- Collaborative projects where members work together on initiatives benefiting entire community
-- Feedback loops systematically gathering community input on product roadmap and strategic decisions
+### Engagement Mechanisms
+- Weekly discussion prompts sparking conversations around {b.industry} topics and challenges
+- Member-to-member support channels where experienced users help newcomers
+- User-generated resource libraries curating frameworks and templates from community contributions
+- Recognition programs celebrating active contributors and helpful members
+- Expert AMAs and fireside chats with industry leaders and internal team
+- Collaborative projects where members work together on community initiatives
+- Feedback loops gathering community input on product roadmap and strategy
 
 ## Content Moderation & Quality
 
-Maintaining brand standards while encouraging authentic expression:
+Maintaining brand standards while encouraging authentic expression.
 
-- Clear community guidelines defining acceptable content, behavior expectations, and moderation policies
-- Pre-approval workflows for UGC intended for official marketing channels ensuring quality and message alignment
-- Rights management systems securing proper usage permissions and attribution requirements
-- Moderation team or tools monitoring community spaces for spam, off-topic content, or policy violations
-- Content templates and guidelines helping members create on-brand submissions without stifling creativity
+**Guidelines & Workflows**:
+- Clear community guidelines defining acceptable content and behavior expectations
+- Pre-approval workflows for UGC intended for official marketing channels
+- Rights management systems securing usage permissions and attribution
+- Moderation team monitoring for spam and policy violations
+- Content templates helping members create on-brand submissions
 
-Success metrics: UGC submission volume, community engagement rate, member retention, advocacy indicators, support ticket deflection rate."""
+**Success Metrics**: UGC submission volume, community engagement rate, member retention, advocacy indicators, support ticket deflection rate."""
     return sanitize_output(raw, req.brief)
 
 
 def _gen_detailed_30_day_calendar(req: GenerateRequest, **kwargs) -> str:
     """
     Generate 'detailed_30_day_calendar' section.
+
+    STEP 4: Calendar enhancement via CreativeService happens in _gen_quick_social_30_day_calendar
+    for quick_social packs. Phase-based calendars use template-only approach.
 
     For Quick Social packs: produces day-by-day 30-day table with rotating content buckets,
     angles, platforms, and unique hooks.
@@ -1178,6 +1240,9 @@ def _gen_detailed_30_day_calendar(req: GenerateRequest, **kwargs) -> str:
 def _gen_quick_social_30_day_calendar(req: GenerateRequest) -> str:
     """
     Generate day-by-day 30-day calendar for Quick Social pack.
+
+    STEP 4: Optional CreativeService.enhance_calendar_posts() integration.
+    Enhances hooks/captions/CTAs while preserving calendar structure and dates.
 
     ⚠️  PRODUCTION-VERIFIED: Quick Social Pack (Basic)
     DO NOT MODIFY without running:
@@ -1281,7 +1346,7 @@ def _gen_quick_social_30_day_calendar(req: GenerateRequest) -> str:
 
     # Generate 30 days
     today = date.today()
-    rows = []
+    posts = []  # STEP 4: Build structured post data
     seen_hooks = set()  # Track hooks to prevent duplicates
 
     for day_num in range(1, 31):
@@ -1434,13 +1499,49 @@ def _gen_quick_social_30_day_calendar(req: GenerateRequest) -> str:
         # Format date
         date_str = post_date.strftime("%b %d")
 
-        # Build row
+        # Build structured post (STEP 4: for CreativeService enhancement)
         theme = f"{bucket}: {angle}"
-        rows.append(
-            f"| {date_str} | Day {day_num} | {platform} | {theme} | {hook} | {cta} | {asset_type} | Planned |"
+        posts.append(
+            {
+                "date": date_str,
+                "day": day_num,
+                "platform": platform,
+                "theme": theme,
+                "hook": hook,
+                "cta": cta,
+                "asset_type": asset_type,
+                "status": "Planned",
+            }
         )
 
-    # Build table
+    # STEP 4: Optional CreativeService enhancement for hooks/CTAs
+    from backend.services.creative_service import CreativeService
+
+    creative_service = CreativeService()
+    if creative_service.is_enabled():
+        try:
+            enhanced_posts = creative_service.enhance_calendar_posts(
+                posts=posts,
+                brief=req.brief,
+                research=req.research,
+            )
+            # Only accept if structure preserved
+            if (
+                isinstance(enhanced_posts, list)
+                and len(enhanced_posts) == len(posts)
+                and all("hook" in p and "cta" in p for p in enhanced_posts)
+            ):
+                posts = enhanced_posts
+        except Exception:
+            # Fail-safe: keep original posts
+            pass
+
+    # Render markdown table from (possibly enhanced) posts
+    rows = [
+        f"| {p['date']} | Day {p['day']} | {p['platform']} | {p['theme']} | {p['hook']} | {p['cta']} | {p['asset_type']} | {p['status']} |"
+        for p in posts
+    ]
+
     table_md = (
         f"## 30-Day Content Calendar for {brand_name}\n\n"
         f"A day-by-day posting plan with rotating themes, platforms, and hooks. Each post is designed to move followers "
@@ -1931,10 +2032,16 @@ def _gen_final_summary(req: GenerateRequest, **kwargs) -> str:
 
 
 def _gen_value_proposition_map(req: GenerateRequest, **kwargs) -> str:
-    """Generate 'value_proposition_map' section."""
+    """
+    Generate 'value_proposition_map' section.
+
+    STEP 3: Optional CreativeService polish for high-value narrative text.
+    """
+    from backend.services.creative_service import CreativeService
+
     b = req.brief.brand
     g = req.brief.goal
-    raw = f"""## Positioning Statement
+    base_text = f"""## Positioning Statement
 
 **Positioning Statement:** {b.brand_name} empowers organizations in {b.industry} to achieve {g.primary_goal} through systematic, data-driven marketing strategies that compound results over time.
 
@@ -1977,7 +2084,23 @@ Tangible outcomes clients achieve through {b.brand_name} engagement:
 - **Market Position**: Build sustainable competitive advantages through authentic differentiation and category leadership
 - **Scalability**: Create repeatable systems that grow with business without proportional resource increases
 """
-    return sanitize_output(raw, req.brief)
+
+    # STEP 3: Optional CreativeService polish
+    creative_service = CreativeService()
+    if creative_service.is_enabled():
+        try:
+            polished = creative_service.polish_section(
+                content=base_text,
+                brief=req.brief,
+                research_data=req.research,
+                section_type="strategy",
+            )
+            if polished and isinstance(polished, str):
+                base_text = polished
+        except Exception:
+            pass
+
+    return sanitize_output(base_text, req.brief)
 
 
 def _gen_creative_territories(req: GenerateRequest, **kwargs) -> str:
@@ -2619,20 +2742,51 @@ All experiments include clear hypothesis, success criteria, and decision framewo
 
 
 def _gen_industry_landscape(req: GenerateRequest, **kwargs) -> str:
-    """Generate 'industry_landscape' section."""
+    """
+    Generate 'industry_landscape' section.
+
+    Research Integration (STEP 2.B):
+        - Primary: req.research.market_trends (MarketTrendsResult)
+        - Uses: industry_trends, regulatory_changes, technology shifts
+        - Template fallback: Generic industry dynamics when research unavailable
+    """
+    import logging
+
     b = req.brief.brand
+    log = logging.getLogger("industry_landscape")
+
+    # STEP 2.B: Get research data
+    comp_research = getattr(req, "research", None)
+    market_trends = getattr(comp_research, "market_trends", None) if comp_research else None
+
+    # Build market trends section
+    trends_bullets = []
+
+    if market_trends and getattr(market_trends, "industry_trends", None):
+        log.info("[IndustryLandscape] Using market_trends for industry context")
+        # Use research-based trends
+        for trend in market_trends.industry_trends[:6]:
+            trends_bullets.append(f"- **{trend}**")
+    else:
+        # Use template fallback
+        trends_bullets = [
+            "- **Digital Transformation Acceleration**: Rapid shift towards cloud-based, mobile-first, and AI-powered solutions creating new customer expectations for speed, convenience, and personalization",
+            "- **Customer Experience Emphasis**: Brands competing on experience quality rather than product features alone, with 73% of customers expecting seamless omnichannel interactions",
+            "- **Data-Driven Decision Making**: Increased reliance on analytics, attribution, and performance metrics to justify marketing spend and optimize campaigns in real-time",
+            "- **Content Saturation & Ad Blindness**: Rising content volume making differentiation harder, requiring authentic storytelling, community building, and value-driven content strategies",
+            "- **Privacy & Trust Focus**: Growing consumer awareness of data practices forcing brands to balance personalization with transparency and ethical data usage",
+            "- **Economic Sensitivity**: Budget scrutiny and ROI pressure requiring proof of marketing effectiveness and clear path to revenue impact",
+        ]
+
+    trends_text = "\n".join(trends_bullets)
+
     raw = f"""The {b.industry or 'your industry'} landscape is experiencing significant transformation driven by technology adoption, changing customer expectations, and competitive dynamics that create both opportunities and challenges for {b.brand_name}.
 
 ## Market Trends
 
 Key market movements shaping {b.industry or 'the industry'}:
 
-- **Digital Transformation Acceleration**: Rapid shift towards cloud-based, mobile-first, and AI-powered solutions creating new customer expectations for speed, convenience, and personalization
-- **Customer Experience Emphasis**: Brands competing on experience quality rather than product features alone, with 73% of customers expecting seamless omnichannel interactions
-- **Data-Driven Decision Making**: Increased reliance on analytics, attribution, and performance metrics to justify marketing spend and optimize campaigns in real-time
-- **Content Saturation & Ad Blindness**: Rising content volume making differentiation harder, requiring authentic storytelling, community building, and value-driven content strategies
-- **Privacy & Trust Focus**: Growing consumer awareness of data practices forcing brands to balance personalization with transparency and ethical data usage
-- **Economic Sensitivity**: Budget scrutiny and ROI pressure requiring proof of marketing effectiveness and clear path to revenue impact
+{trends_text}
 
 ## Industry Dynamics
 
@@ -2657,13 +2811,44 @@ Market structure and positioning dynamics impacting {b.brand_name} strategy:
 
 
 def _gen_market_analysis(req: GenerateRequest, **kwargs) -> str:
-    """Generate 'market_analysis' section."""
+    """
+    Generate 'market_analysis' section.
+
+    Research Integration (STEP 2.B):
+        - Primary: req.research.market_trends (MarketTrendsResult)
+        - Uses: industry_trends, growth_drivers, risks
+        - Secondary: req.research.competitor_research for competitive landscape
+        - Template fallback: Generic market analysis with placeholders
+    """
+    import logging
+
     b = req.brief.brand
+    log = logging.getLogger("market_analysis")
+
+    # STEP 2.B: Get research data
+    comp_research = getattr(req, "research", None)
+    market_trends = getattr(comp_research, "market_trends", None) if comp_research else None
+    (getattr(comp_research, "competitor_research", None) if comp_research else None)
+    (
+        getattr(comp_research, "brand_research", None)
+        if comp_research
+        else getattr(b, "research", None)
+    )
+
+    # Build market context with research data if available
+    market_context = f"{b.industry or 'The market'} represents substantial opportunity with clear growth trajectory:"
+
+    # Add research-based trends if available
+    if market_trends and getattr(market_trends, "industry_trends", None):
+        log.info("[MarketAnalysis] Using market_trends for industry context")
+        trends_text = "\n".join([f"- **{trend}**" for trend in market_trends.industry_trends[:3]])
+        market_context += f"\n\n{trends_text}"
+
     raw = f"""Comprehensive market analysis establishing strategic context for {b.brand_name} growth initiatives.
 
 ## Market Context
 
-{b.industry or 'The market'} represents substantial opportunity with clear growth trajectory:
+{market_context}
 
 - **Total Addressable Market (TAM)**: Global market estimated at $X billion with Y% CAGR over next 5 years driven by digital transformation
 - **Serviceable Addressable Market (SAM)**: Target segment within {b.industry or 'market'} represents $X billion focusing on mid-market and enterprise customers
@@ -2712,6 +2897,12 @@ def _gen_competitor_analysis(req: GenerateRequest, **kwargs) -> str:
         3. Fall back to template structure if research unavailable
         4. Optional: Polish with Creative Service if enabled
 
+    Research Integration (STEP 2.B):
+        - Primary: req.research.competitor_research (CompetitorResearchResult)
+        - Fallback: req.research.brand_research.local_competitors
+        - Secondary fallback: brief.brand.research.local_competitors
+        - Template fallback: Generic competitor tiers when research unavailable
+
     Returns:
         Structured markdown with competitive intelligence
     """
@@ -2720,8 +2911,16 @@ def _gen_competitor_analysis(req: GenerateRequest, **kwargs) -> str:
     b = req.brief.brand
     log = logging.getLogger("competitor_analysis")
 
-    # Get research data
-    research = getattr(b, "research", None)
+    # STEP 2.B: Get research data - prefer competitor_research, fallback to brand_research
+    comp_research = getattr(req, "research", None)
+    brand_research = (
+        getattr(comp_research, "brand_research", None)
+        if comp_research
+        else getattr(b, "research", None)
+    )
+
+    # Use competitor_research if available, otherwise brand_research.local_competitors
+    research = brand_research  # Alias for backwards compatibility
 
     # Check if we have competitor research data
     has_competitor_data = (
@@ -2819,6 +3018,13 @@ def _gen_customer_insights(req: GenerateRequest, **kwargs) -> str:
         2. Use real pain points and desires if available
         3. Fall back to template with industry-specific assumptions
 
+    Research Integration (STEP 2.B):
+        - Primary: req.research.audience_insights (AudienceInsightsResult)
+        - Uses: pain_points, desires, objections, buying_triggers
+        - Fallback: req.research.brand_research.audience_pain_points/desires
+        - Secondary fallback: brief.brand.research fields
+        - Template fallback: Generic audience insights when research unavailable
+
     Returns:
         Structured markdown with customer psychology and motivations
     """
@@ -2828,8 +3034,16 @@ def _gen_customer_insights(req: GenerateRequest, **kwargs) -> str:
     a = req.brief.audience
     log = logging.getLogger("customer_insights")
 
+    # STEP 2.B: Get research data - prefer audience_insights, fallback to brand_research
+    comp_research = getattr(req, "research", None)
+    brand_research = (
+        getattr(comp_research, "brand_research", None)
+        if comp_research
+        else getattr(b, "research", None)
+    )
+    research = brand_research  # Alias for backwards compatibility
+
     # Get research data - check for audience insights from Perplexity
-    research = getattr(b, "research", None)
     has_audience_data = research and (research.audience_pain_points or research.audience_desires)
 
     if has_audience_data:
@@ -2878,6 +3092,8 @@ Customers are motivated by both avoiding pain (fear of failure, wasted resources
 
 **Key Insight**: {a} aren't seeking the cheapest option or the most features. They want confidence that their choice will succeed, be supported, and position them favorably with internal stakeholders. Brand turnaround must rebuild this confidence through consistent proof points, clear positioning, and authentic customer-centric messaging that addresses both rational and emotional decision factors."""
 
+    return sanitize_output(pain_points_section, req.brief)
+
 
 def _gen_customer_journey_map(req: GenerateRequest, **kwargs) -> str:
     """Generate 'customer_journey_map' section."""
@@ -2888,54 +3104,53 @@ def _gen_customer_journey_map(req: GenerateRequest, **kwargs) -> str:
     if "retention_crm_booster" in pack_key.lower():
         raw = (
             "## Pre-Purchase\n\n"
-            "Customer discovery and evaluation phase before first purchase:\n\n"
-            "| Touchpoint | Customer Mindset | Business Goal | Tactics |\n"
+            "Customer discovery before first purchase.\n\n"
+            "| Stage | Timing | Tactic | Metric |\n"
             "| --- | --- | --- | --- |\n"
-            "| **First Visit** | Curious, researching options | Capture interest | Clear value prop, educational content, exit-intent popup |\n"
-            "| **Browse & Compare** | Evaluating alternatives | Build trust | Social proof, reviews, comparison guides |\n"
-            "| **Add to Cart** | Considering purchase | Convert | Limited-time offer, free shipping threshold, trust badges |\n\n"
-            "- Focus: Convert browsers to first-time buyers\n"
-            "- Key metric: Conversion rate 2-4%\n"
+            "| First Visit | Day 0 | Value prop, exit popup | Traffic |\n"
+            "| Browse | Day 0-7 | Reviews, comparison guide | Time on site |\n"
+            "| Cart | Day 7-14 | 15% off, free ship $50+ | 2-4% CVR |\n\n"
+            "- Convert browsers to first-time buyers\n"
             "- Critical touchpoints: Homepage, product pages, checkout\n\n"
             "## Onboarding\n\n"
-            "Post-purchase activation ensuring successful first experience:\n\n"
-            "| Touchpoint | Customer Mindset | Business Goal | Tactics |\n"
+            "Post-purchase activation (Days 1-30).\n\n"
+            "| Stage | Timing | Tactic | Metric |\n"
             "| --- | --- | --- | --- |\n"
-            "| **Welcome Email** | Excited, curious | Set expectations | Thank you message, quick-start guide, support resources |\n"
-            "| **Day 1-3** | Learning the product | Drive activation | Tutorial videos, setup assistance, feature highlights |\n"
-            "| **First Success** | Seeing value | Celebrate milestone | Congratulations message, next steps, community invite |\n\n"
-            '- Focus: Drive "aha moment" within 7 days\n'
-            "- Key metric: 70%+ complete onboarding\n"
+            "| Welcome | Hour 1 | Thank you email, quick-start | 70% open |\n"
+            "| Education | Days 1-3 | Tutorial emails (3x) | 72hr activation |\n"
+            "| First Win | Day 7 | Milestone, community invite | 70% complete |\n\n"
+            '- Drive "aha moment" within 7 days\n'
+            "- Target: 70%+ complete onboarding\n"
             "- Critical touchpoints: Welcome email, tutorials, support\n\n"
             "## Active\n\n"
-            "Engaged customer phase building loyalty and increasing lifetime value:\n\n"
-            "| Touchpoint | Customer Mindset | Business Goal | Tactics |\n"
+            "Engaged phase building loyalty (Days 31-180).\n\n"
+            "| Stage | Timing | Tactic | Metric |\n"
             "| --- | --- | --- | --- |\n"
-            "| **Regular Usage** | Engaged, satisfied | Maximize value | Feature education, pro tips, usage stats dashboard |\n"
-            "| **Repeat Purchase** | Loyal, happy | Increase frequency | Personalized recommendations, loyalty rewards, auto-reorder |\n"
-            "| **Advocacy Moment** | Delighted, willing to share | Drive referrals | Referral program, review request, social sharing incentives |\n\n"
-            "- Focus: Increase purchase frequency and AOV\n"
-            "- Key metric: 40%+ repeat purchase within 90 days\n"
+            "| Regular Use | Days 31-60 | Weekly tips, usage stats | Engagement |\n"
+            "| Repeat Buy | Days 61-120 | Personalized recs, 10% off | 3.5 orders/90d |\n"
+            "| Advocacy | Days 121-180 | Referral program, reviews | 40% repeat |\n\n"
+            "- Increase purchase frequency and AOV\n"
+            "- Target: 40%+ repeat purchase within 90 days\n"
             "- Critical touchpoints: Email nurture, loyalty program, personalization\n\n"
             "## At-Risk\n\n"
-            "Declining engagement phase requiring intervention to prevent churn:\n\n"
-            "| Touchpoint | Customer Mindset | Business Goal | Tactics |\n"
+            "Declining engagement requiring intervention (Days 180+).\n\n"
+            "| Stage | Timing | Tactic | Metric |\n"
             "| --- | --- | --- | --- |\n"
-            '| **Declining Engagement** | Distracted, less interested | Re-engage | Special offer, "We miss you" email, feedback survey |\n'
-            "| **Support Issues** | Frustrated, considering churn | Resolve friction | Proactive support, account review, improvement updates |\n"
-            "| **Last Interaction** | On the fence | Prevent churn | Win-back campaign, personalized incentive, exit interview |\n\n"
-            "- Focus: Identify and re-engage before permanent churn\n"
-            "- Key metric: 60-day inactivity triggers intervention\n"
+            "| Early Warning | Days 45-60 | We miss you, 15% off | 18% return |\n"
+            "| Support | Days 60-90 | Proactive outreach | 12% reactivate |\n"
+            "| Last Chance | Day 90+ | Win-back, 30% off | 7% churn rate |\n\n"
+            "- Identify and re-engage before permanent churn\n"
+            "- Target: 60-day inactivity triggers intervention\n"
             "- Critical touchpoints: Re-engagement email, win-back offers, feedback loops\n\n"
             "## Lapsed\n\n"
-            "Inactive customer phase with aggressive win-back campaigns:\n\n"
-            "| Touchpoint | Customer Mindset | Business Goal | Tactics |\n"
+            "Inactive phase with aggressive win-back (180+ days).\n\n"
+            "| Stage | Timing | Tactic | Metric |\n"
             "| --- | --- | --- | --- |\n"
-            '| **No Activity 30-90 days** | Moved on, forgotten | Reactivate | "What\'s new" update, reactivation discount, product improvements |\n'
-            "| **No Activity 90+ days** | Uninterested, unsubscribed | Last-chance win-back | Deep discount, exclusive offer, reintroduction campaign |\n"
-            "| **Permanent Churn** | Lost customer | Learn & improve | Exit survey analysis, segment removal, acquisition insights |\n\n"
-            "- Focus: Last-ditch reactivation before permanent removal\n"
-            "- Key metric: 8-12% reactivation rate for 90+ day inactive\n"
+            "| Dormant | Days 180-270 | What's new, 40% off | 8-12% reactivate |\n"
+            "| Final Win-Back | Days 270+ | Last chance, 50% off + gift | 15% of lapsed |\n"
+            "| Post-Churn | Permanent | Exit survey, analysis | Feedback |\n\n"
+            "- Last-ditch reactivation before permanent removal\n"
+            "- Target: 8-12% reactivation rate for 90+ day inactive\n"
             "- Critical touchpoints: Multi-channel win-back sequences, aggressive discounting\n"
         )
     else:
@@ -3015,10 +3230,16 @@ Goal: Build self-sustaining referral engine where satisfied customers drive majo
 
 
 def _gen_brand_positioning(req: GenerateRequest, **kwargs) -> str:
-    """Generate 'brand_positioning' section."""
+    """
+    Generate 'brand_positioning' section.
+
+    STEP 3: Optional CreativeService polish for high-value narrative text.
+    """
+    from backend.services.creative_service import CreativeService
+
     b = req.brief.brand
     a = req.brief.audience
-    raw = f"""Strategic brand positioning defining how {b.brand_name} occupies distinct competitive space in {b.industry or 'the market'}.
+    base_text = f"""Strategic brand positioning defining how {b.brand_name} occupies distinct competitive space in {b.industry or 'the market'}.
 
 ## Positioning Statement
 
@@ -3043,7 +3264,23 @@ Key factors distinguishing {b.brand_name} from alternatives:
 
 Consistent, measurable growth through clear strategy, repeatable execution, and genuine partnership. We succeed when our clients succeed—measured in revenue growth, market share gains, and brand strength improvements that withstand market volatility and economic uncertainty. This promise reflects our dedication to long-term client success over short-term transactional relationships, ensuring sustainable competitive advantage.
 """
-    return sanitize_output(raw, req.brief)
+
+    # STEP 3: Optional CreativeService polish
+    creative_service = CreativeService()
+    if creative_service.is_enabled():
+        try:
+            polished = creative_service.polish_section(
+                content=base_text,
+                brief=req.brief,
+                research_data=req.research,
+                section_type="strategy",
+            )
+            if polished and isinstance(polished, str):
+                base_text = polished
+        except Exception:
+            pass
+
+    return sanitize_output(base_text, req.brief)
 
 
 def _gen_measurement_framework(req: GenerateRequest, **kwargs) -> str:
@@ -3186,10 +3423,16 @@ External factors and resources required for campaign success:
 
 
 def _gen_strategic_recommendations(req: GenerateRequest, **kwargs) -> str:
-    """Generate 'strategic_recommendations' section."""
+    """
+    Generate 'strategic_recommendations' section.
+
+    STEP 3: Optional CreativeService polish for high-value narrative text.
+    """
+    from backend.services.creative_service import CreativeService
+
     b = req.brief.brand
     g = req.brief.goal
-    raw = f"""Actionable strategic recommendations guiding {b.brand_name} toward sustained competitive advantage and market leadership.
+    base_text = f"""Actionable strategic recommendations guiding {b.brand_name} toward sustained competitive advantage and market leadership.
 
 ## Strategic Priorities
 
@@ -3234,15 +3477,37 @@ Define campaign success through measurable business outcomes:
 - **Marketing Efficiency**: Reduce customer acquisition cost 25%+ through channel optimization and conversion improvements
 - **Customer Advocacy**: Build referral engine contributing 30%+ of new business through satisfied customer recommendations
 """
-    return sanitize_output(raw, req.brief)
+
+    # STEP 3: Optional CreativeService polish
+    creative_service = CreativeService()
+    if creative_service.is_enabled():
+        try:
+            polished = creative_service.polish_section(
+                content=base_text,
+                brief=req.brief,
+                research_data=req.research,
+                section_type="strategy",
+            )
+            if polished and isinstance(polished, str):
+                base_text = polished
+        except Exception:
+            pass
+
+    return sanitize_output(base_text, req.brief)
 
 
 def _gen_cxo_summary(req: GenerateRequest, **kwargs) -> str:
-    """Generate 'cxo_summary' section (C-suite/executive summary)."""
+    """
+    Generate 'cxo_summary' section (C-suite/executive summary).
+
+    STEP 3: Optional CreativeService polish for high-value narrative text.
+    """
+    from backend.services.creative_service import CreativeService
+
     b = req.brief.brand
     g = req.brief.goal
     a = req.brief.audience
-    raw = f"""## Executive Summary
+    base_text = f"""## Executive Summary
 
 **Context:** {b.brand_name} operates in competitive {b.industry or 'market'} landscape where {a.primary_customer or 'target customers'} face significant challenges around {a.pain_points[0] if a.pain_points else 'market complexity'}. Despite strong product capabilities, limited brand awareness and fragmented marketing efforts constrain growth potential. This strategy addresses these barriers through integrated, data-driven approach focusing on {g.primary_goal or 'measurable growth'}.
 
@@ -3254,7 +3519,23 @@ def _gen_cxo_summary(req: GenerateRequest, **kwargs) -> str:
 
 **Risk Profile:** Low to moderate risk given proven methodology and clear measurement framework. Primary risks include competitive response, economic headwinds, and execution capacity constraints—all mitigated through agile planning, regular optimization, and phased rollout approach.
 """
-    return sanitize_output(raw, req.brief)
+
+    # STEP 3: Optional CreativeService polish
+    creative_service = CreativeService()
+    if creative_service.is_enabled():
+        try:
+            polished = creative_service.polish_section(
+                content=base_text,
+                brief=req.brief,
+                research_data=req.research,
+                section_type="strategy",
+            )
+            if polished and isinstance(polished, str):
+                base_text = polished
+        except Exception:
+            pass
+
+    return sanitize_output(base_text, req.brief)
 
 
 def _gen_landing_page_blueprint(req: GenerateRequest, **kwargs) -> str:
@@ -3677,6 +3958,12 @@ def _gen_hashtag_strategy(req: GenerateRequest, **kwargs) -> str:
         3. Fall back to rule-based generation if Perplexity unavailable
         4. Enforce benchmark compliance (min 3 per category, # prefix, no generics)
 
+    Research Integration (STEP 2.B):
+        - Primary: req.research.brand_research (ComprehensiveResearchData)
+        - Fallback: brief.brand.research (BrandResearchResult)
+        - Uses: keyword_hashtags, industry_hashtags, campaign_hashtags
+        - Template fallback: Rule-based generation when research unavailable
+
     Priority Order:
         1. research.keyword_hashtags (Perplexity)
         2. research.industry_hashtags (Perplexity)
@@ -3686,6 +3973,19 @@ def _gen_hashtag_strategy(req: GenerateRequest, **kwargs) -> str:
     Returns:
         Structured markdown with 4 sections: Brand, Industry, Campaign, Best Practices
     """
+    import logging
+
+    b = req.brief.brand
+    log = logging.getLogger("hashtag_strategy")
+
+    # STEP 2.B: Get research data from req.research (preferred) or brief.brand.research (fallback)
+    comp_research = getattr(req, "research", None)
+    brand_research = (
+        getattr(comp_research, "brand_research", None)
+        if comp_research
+        else getattr(b, "research", None)
+    )
+    research = brand_research  # Alias for backwards compatibility with existing logic
     from backend.utils.text_cleanup import normalize_hashtag, clean_hashtags
     import logging
 
@@ -4162,10 +4462,27 @@ Platform-specific testing optimizes for each environment's user behavior, creati
 
 
 def _gen_audience_analysis(req: GenerateRequest, **kwargs) -> str:
-    """Generate 'audience_analysis' section."""
+    """
+    Generate 'audience_analysis' section.
+
+    Research Integration (STEP 2.B):
+        - Primary: req.research.audience_insights (AudienceInsightsResult)
+        - Uses: pain_points, desires, objections, buying_triggers
+        - Template fallback: Generic audience segments when research unavailable
+    """
+    import logging
+
     b = req.brief.brand
     _ = req.brief.audience  # noqa: F841
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
+    log = logging.getLogger("audience_analysis")
+
+    # STEP 2.B: Get research data
+    comp_research = getattr(req, "research", None)
+    insights = getattr(comp_research, "audience_insights", None) if comp_research else None
+
+    if insights and (getattr(insights, "pain_points", None) or getattr(insights, "desires", None)):
+        log.info("[AudienceAnalysis] Using audience_insights for audience context")
 
     # Performance audit pack needs detailed audience breakdown
     if "performance_audit" in pack_key.lower():
@@ -4423,9 +4740,39 @@ Expected results: 2x lead volume 30% CAC reduction 40% improvement in lead-to-cu
 
 
 def _gen_competitor_benchmark(req: GenerateRequest, **kwargs) -> str:
-    """Generate 'competitor_benchmark' section - benchmark against competitors."""
+    """
+    Generate 'competitor_benchmark' section - benchmark against competitors.
+
+    Research Integration (STEP 2.B):
+        - Primary: req.research.competitor_research (CompetitorResearchResult)
+        - Fallback: req.research.brand_research.local_competitors
+        - Uses: competitor names, positioning, strengths/weaknesses
+        - Template fallback: Generic competitor tiers when research unavailable
+    """
+    import logging
+
     b = req.brief.brand
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
+    log = logging.getLogger("competitor_benchmark")
+
+    # STEP 2.B: Get research data
+    comp_research = getattr(req, "research", None)
+    competitor_research = (
+        getattr(comp_research, "competitor_research", None) if comp_research else None
+    )
+    brand_research = (
+        getattr(comp_research, "brand_research", None)
+        if comp_research
+        else getattr(b, "research", None)
+    )
+
+    # Check if we have competitor data
+    has_competitor_data = (competitor_research and hasattr(competitor_research, "competitors")) or (
+        brand_research and brand_research.local_competitors
+    )
+
+    if has_competitor_data:
+        log.info("[CompetitorBenchmark] Using research data for competitor names")
 
     # Performance audit pack needs detailed competitive analysis
     if "performance_audit" in pack_key.lower():
@@ -4707,68 +5054,129 @@ def _gen_customer_segments(req: GenerateRequest, **kwargs) -> str:
 
 def _gen_email_automation_flows(req: GenerateRequest, **kwargs) -> str:
     """Generate 'email_automation_flows' section - automated email workflows."""
-    _ = req.brief.brand  # noqa: F841
+    b = req.brief.brand
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
 
     # Retention-CRM pack needs table format with lifecycle flows
     if "retention_crm_booster" in pack_key.lower():
-        return """## Welcome Series
+        brand_name = b.brand_name or "YourBrand"
+        return f"""## Welcome Series
 
 Post-purchase onboarding automation activating new customers:
 
-| Email | Timing | Subject Line | Content Focus | Primary CTA | Success Metric |
-|-------|--------|--------------|---------------|-------------|----------------|
-| Email 1 | Day 0 (immediate) | "Welcome to [Brand]!" | Thank you, order confirmation, what's next | Track Order | 70%+ open rate |
-| Email 2 | Day 1 | "Getting Started with [Product]" | Setup guide, tutorial video, support resources | Watch Tutorial | 45%+ click rate |
-| Email 3 | Day 3 | "Get the Most from [Product]" | Feature highlights, pro tips, best practices | Explore Features | 35%+ engagement |
-| Email 4 | Day 7 | "Join Our Community" | User stories, community invite, referral program | Join Community | 25%+ click rate |
+| Email | Timing | Subject Line | Primary CTA | Success Metric |
+|-------|--------|--------------|-------------|----------------|
+| Email 1 | Day 0 (immediate) | "Welcome to {brand_name}!" | Track Order | 70%+ open rate |
+| Email 2 | Day 1 | "Getting Started with {brand_name}" | Watch Tutorial | 45%+ click rate |
+| Email 3 | Day 3 | "Get the Most from Your Purchase" | Explore Features | 35%+ engagement |
+| Email 4 | Day 7 | "Join Our Community" | Join Community | 25%+ click rate |
 
-- Goal: Drive product activation within 7 days
-- Target: 70%+ customers complete key onboarding actions
-- Optimization: A/B test timing, subject lines, content formats
+**Content Focus**:
+- Email 1: Thank you, order confirmation, what happens next
+- Email 2: Setup guide, tutorial video, support resources
+- Email 3: Feature highlights, pro tips, quick wins
+- Email 4: User stories, community invite, referral program
+
+**Goal**: Drive product activation within 7 days  
+**Target**: 70%+ customers complete key onboarding actions  
+**Optimization**: A/B test timing, subject lines, content formats
 
 ## Nurture Flows
 
 Ongoing engagement automation building loyalty and increasing lifetime value:
 
-| Flow Type | Trigger Condition | Email Sequence | Cadence | Primary Goal | Target Metric |
-|-----------|-------------------|----------------|---------|--------------|---------------|
-| **Repeat Purchase** | 14 days after first order | 3 emails: related products, social proof, discount | Days 14, 21, 30 | Drive second purchase | 15%+ conversion |
-| **Milestone Celebration** | Purchase anniversary | 2 emails: thank you, exclusive anniversary offer | Days 0, 3 of anniversary | Increase loyalty | 40%+ open rate |
-| **VIP Upgrade** | 3+ purchases in 90 days | 2 emails: VIP benefits, upgrade invitation | Days 0, 7 after threshold | Convert to VIP tier | 20%+ upgrade rate |
-| **Cross-Sell** | Product usage detected | 3 emails: complementary products, bundle offer | Days 7, 14, 21 after usage | Increase basket size | 12%+ conversion |
-| **Feedback Request** | 30 days post-purchase | 2 emails: how's it going, review request | Days 30, 37 | Gather reviews | 25%+ response rate |
+### Repeat Purchase Flow
+- **Trigger**: 14 days after first order
+- **Sequence**: 3 emails at Days 14, 21, 30
+- **Content**: Related products, social proof, discount offer
+- **Target**: 15%+ conversion to second purchase
 
-- Goal: Increase purchase frequency and customer lifetime value
-- Target: 40%+ repeat purchase within 90 days
-- Optimization: Personalize product recommendations by segment
+### Milestone Celebration Flow
+- **Trigger**: Purchase anniversary or 5th order
+- **Sequence**: 2 emails at Days 0, 3 of milestone
+- **Content**: Thank you message, exclusive anniversary offer
+- **Target**: 40%+ open rate, 20%+ redemption
+
+### VIP Upgrade Flow
+- **Trigger**: 3+ purchases in 90 days
+- **Sequence**: 2 emails at Days 0, 7 after threshold
+- **Content**: VIP benefits explanation, upgrade invitation
+- **Target**: 20%+ upgrade to VIP tier
+
+### Cross-Sell Flow
+- **Trigger**: Specific product usage detected
+- **Sequence**: 3 emails at Days 7, 14, 21 after usage
+- **Content**: Complementary products, bundle offers
+- **Target**: 12%+ conversion on cross-sell
+
+### Feedback Request Flow
+- **Trigger**: 30 days post-purchase
+- **Sequence**: 2 emails at Days 30, 37
+- **Content**: "How's it going?" message, review request
+- **Target**: 25%+ response rate, 15%+ complete review
+
+**Overall Goal**: Increase purchase frequency and customer lifetime value  
+**Repeat Purchase Target**: 40%+ make 2nd purchase within 90 days
 
 ## Re-Activation Sequences
 
 Win-back automation re-engaging inactive customers:
 
-| Segment | Inactivity Trigger | Email Sequence | Timing | Offer Strategy | Reactivation Target |
-|---------|-------------------|----------------|--------|----------------|---------------------|
-| **Lapsing** | No purchase 45-60 days | 2 emails: we miss you, special comeback offer | Days 45, 52 | 15% discount | 18%+ return rate |
-| **At-Risk** | No purchase 60-90 days | 3 emails: what's new, feedback request, last chance | Days 60, 75, 90 | 20% discount | 12%+ return rate |
-| **Churned** | No purchase 90+ days | 4 emails: aggressive win-back series | Days 90, 105, 120, 135 | 25-30% discount | 8%+ reactivation |
+### Lapsing Customers (45-60 days inactive)
+- **Email 1** (Day 45): "We Miss You!" with 15% comeback discount
+- **Email 2** (Day 52): "Last Chance" urgency message
+- **Target**: 18%+ return rate
 
-- Goal: Recover inactive customers before permanent churn
-- Target: 15%+ overall reactivation rate across all segments
-- Optimization: Test discount levels, messaging urgency, multi-channel approach
+### At-Risk Customers (60-90 days inactive)
+- **Email 1** (Day 60): "What's New" product update
+- **Email 2** (Day 75): Feedback survey with 20% incentive
+- **Email 3** (Day 90): "Final Reminder" with urgency
+- **Target**: 12%+ return rate
+
+### Churned Customers (90+ days inactive)
+- **Email 1** (Day 90): Aggressive 25% win-back offer
+- **Email 2** (Day 105): "We've Improved" messaging
+- **Email 3** (Day 120): 30% deep discount
+- **Email 4** (Day 135): "Goodbye" with exit survey
+- **Target**: 8%+ reactivation rate
+
+**Overall Reactivation Goal**: 15%+ recovery rate across all inactive segments
 
 ## Transactional Triggers
 
 Behavioral automation responding to customer actions:
 
-- **Abandoned Cart**: 3-email recovery sequence (1hr, 24hr, 72hr) with product reminder, urgency messaging, and 10% discount recovering 20-25% of abandonments
-- **Back-in-Stock**: Alert email when previously unavailable product returns, creating urgency with limited quantity messaging, converting 25-30% of subscribers
-- **Price Drop**: Notification when watched items go on sale, driving 30-35% conversion rate among engaged subscribers
-- **Birthday**: Personalized celebration email with exclusive gift or discount, achieving 40-50% open rates and 25-30% redemption
-- **Shipping Updates**: Proactive order status emails (shipped, out for delivery, delivered) reducing support inquiries 40-50% and improving satisfaction
-- **Review Reminder**: Post-delivery follow-up requesting product review with photo upload incentive, generating 20-25% review completion
+**Abandoned Cart**:
+- 3-email recovery sequence: 1hr, 24hr, 72hr
+- Progressive incentives: Reminder, social proof, 10% discount
+- Recovery rate: 20-25% of abandonments
 
-Success metrics: 98%+ deliverability, 28-35% open rate, 4-6% click rate, 2-4% conversion rate from email to purchase"""
+**Back-in-Stock Alert**:
+- Trigger: Previously unavailable product returns
+- Message: Limited quantity urgency
+- Conversion rate: 25-30% of subscribers
+
+**Price Drop Notification**:
+- Trigger: Watched items go on sale
+- Message: Act now before price increases
+- Conversion rate: 30-35% of alerted customers
+
+**Birthday Email**:
+- Trigger: Customer birthday (data collected at signup)
+- Message: Personalized celebration with exclusive gift
+- Performance: 40-50% open rate, 25-30% redemption
+
+**Shipping Updates**:
+- Triggers: Order shipped, out for delivery, delivered
+- Purpose: Reduce support inquiries 40-50%
+- Impact: Improved satisfaction scores
+
+**Review Reminder**:
+- Trigger: 7 days post-delivery
+- Incentive: Entry into monthly $100 gift card draw
+- Review completion: 20-25%
+
+**Performance Benchmarks**: 98%+ deliverability, 28-35% open rate, 4-6% click rate, 2-4% email-to-purchase conversion"""
     elif "full_funnel" in pack_key.lower():
         # Full-funnel pack needs table format with detailed flows
         return """## Welcome Series
@@ -5327,6 +5735,12 @@ def _gen_market_landscape(req: GenerateRequest, **kwargs) -> str:
         3. Fall back to template structure if research unavailable
         4. Adapt output based on pack type (full_funnel vs launch)
 
+    Research Integration (STEP 2.B):
+        - Primary: req.research.market_trends (MarketTrendsResult)
+        - Uses: industry_trends, growth_drivers, regulatory_changes
+        - Secondary: req.research.brand_research.recent_content_themes
+        - Template fallback: Generic market analysis when research unavailable
+
     Returns:
         Structured markdown with market intelligence
     """
@@ -5336,15 +5750,23 @@ def _gen_market_landscape(req: GenerateRequest, **kwargs) -> str:
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
     log = logging.getLogger("market_landscape")
 
-    # Get research data - check for market trends (new feature from ResearchService)
-    # Note: Currently research_models.py doesn't have market data, but we can check
-    # if it's been enriched by the new ResearchService
-    research = getattr(b, "research", None)
-
-    # Try to extract market insights from brand research
-    has_market_insights = research and (
-        research.recent_content_themes or research.audience_pain_points
+    # STEP 2.B: Get research data - prefer market_trends, use brand_research for content themes
+    comp_research = getattr(req, "research", None)
+    market_trends = getattr(comp_research, "market_trends", None) if comp_research else None
+    brand_research = (
+        getattr(comp_research, "brand_research", None)
+        if comp_research
+        else getattr(b, "research", None)
     )
+
+    # Check if we have useful market insights
+    has_market_insights = (
+        market_trends
+        and (
+            getattr(market_trends, "industry_trends", None)
+            or getattr(market_trends, "growth_drivers", None)
+        )
+    ) or (brand_research and brand_research.recent_content_themes)
 
     if has_market_insights:
         log.info("[MarketLandscape] Using research insights for market context")
@@ -5547,65 +5969,50 @@ def _gen_post_purchase_experience(req: GenerateRequest, **kwargs) -> str:
     if "retention_crm_booster" in pack_key.lower():
         raw = (
             "## Touchpoints\n\n"
-            "**Immediate (Hour 0-24)**:\n"
-            "- Order confirmation email with full receipt, shipping timeline, and support contact\n"
-            "- SMS confirmation with tracking link and estimated delivery date\n"
-            "- Account dashboard update showing order status in real-time\n"
-            '- Social media "thank you" post opportunity (tag us for feature)\n\n'
-            "**Pre-Delivery (Day 1-5)**:\n"
-            "- Shipping notification with carrier tracking and delivery window\n"
-            '- Preparation email: "Get ready" tips, unboxing video, setup guide\n'
-            '- SMS: "Out for delivery today" real-time notification\n'
-            '- Proactive support: "Questions before it arrives?" chat widget\n\n'
-            "**Delivery Week (Day 5-7)**:\n"
-            "- Delivery confirmation with signature/photo proof\n"
-            "- Welcome kit email: Quick start guide, video tutorials, FAQ\n"
-            "- Product registration prompt for extended warranty/benefits\n"
-            "- First-use tips and best practices guide\n\n"
-            "**Onboarding (Day 7-30)**:\n"
-            '- Check-in email Day 7: "How\'s it going?" with support offer\n'
-            "- Tutorial series: 3-4 emails highlighting key features/uses\n"
-            "- Community invitation: Join user forum, Facebook group, or Discord\n"
-            "- Referral program introduction: Share with friends offer\n\n"
-            "**Engagement (Day 30-90)**:\n"
-            "- Satisfaction survey with incentive for completion\n"
-            '- Review request: "Share your experience" with photo upload option\n'
-            "- Cross-sell/upsell: Complementary products based on purchase\n"
-            "- Loyalty program enrollment: Join for exclusive perks\n\n"
+            "### Immediate Phase (Hour 0-24)\n"
+            "Order confirmation email with receipt, shipping timeline, support contact. SMS confirmation with tracking link. Account dashboard shows real-time order status.\n\n"
+            "### Pre-Delivery (Days 1-5)\n"
+            'Shipping notification with carrier tracking. "Get ready" preparation email with unboxing video and setup guide. SMS when out for delivery. Proactive support chat widget.\n\n'
+            "### Delivery Week (Days 5-7)\n"
+            "Delivery confirmation with proof. Welcome kit email with quick start guide, video tutorials, FAQ. Product registration prompt for extended warranty.\n\n"
+            "### Onboarding (Days 7-30)\n"
+            "Day 7 check-in email with support offer. Tutorial series (3-4 emails) highlighting key features. Community invitation (forum, Facebook group, Discord). Referral program introduction.\n\n"
+            "### Engagement (Days 30-90)\n"
+            "Satisfaction survey with completion incentive. Review request with photo upload option. Cross-sell complementary products. Loyalty program enrollment with exclusive perks.\n\n"
             "## Key Moments\n\n"
-            "**Moment 1: Immediate Gratification** (Purchase completion)\n"
-            "- Emotion: Excitement, anticipation, slight buyer's remorse risk\n"
-            "- Goal: Reinforce decision, set clear expectations, provide reassurance\n"
-            "- Tactic: Enthusiastic confirmation, transparent timeline, easy cancellation if needed\n\n"
-            "**Moment 2: The Wait** (Between order and delivery)\n"
-            "- Emotion: Impatience, curiosity, heightened anticipation\n"
-            "- Goal: Maintain excitement, reduce anxiety, build product knowledge\n"
-            "- Tactic: Engaging pre-delivery content, real-time tracking, preparation resources\n\n"
-            "**Moment 3: The Unboxing** (Product arrival)\n"
-            "- Emotion: Peak excitement, evaluation mode, first impressions critical\n"
-            '- Goal: Deliver "wow" moment, facilitate smooth setup, immediate value\n'
-            "- Tactic: Premium packaging, thank-you note, clear quick-start guide, surprise delight element\n\n"
-            "**Moment 4: First Use** (Days 1-7)\n"
-            "- Emotion: Learning curve, potential frustration, seeking validation\n"
-            '- Goal: Drive "aha moment", remove friction, celebrate small wins\n'
-            "- Tactic: Proactive support, video tutorials, achievement notifications, check-in outreach\n\n"
-            "**Moment 5: Habit Formation** (Days 7-30)\n"
-            "- Emotion: Routine setting, value assessment, loyalty forming\n"
-            "- Goal: Embed product into daily life, prove ongoing value, deepen relationship\n"
-            "- Tactic: Usage tips, community connection, personalized recommendations, loyalty benefits\n\n"
-            "**Moment 6: Advocacy Decision** (Day 30+)\n"
-            "- Emotion: Confidence in purchase, willing to endorse or criticize\n"
-            "- Goal: Convert satisfaction into advocacy, gather feedback, drive repeat purchase\n"
-            "- Tactic: Review requests, referral incentives, exclusive offers, VIP recognition\n\n"
+            "### Purchase Completion (Immediate Gratification)\n"
+            "**Emotion**: Excitement with slight buyer's remorse risk  \n"
+            "**Goal**: Reinforce decision and set clear expectations  \n"
+            "**Tactic**: Enthusiastic confirmation, transparent timeline, easy cancellation if needed\n\n"
+            "### Between Order and Delivery (The Wait)\n"
+            "**Emotion**: Impatience and heightened anticipation  \n"
+            "**Goal**: Maintain excitement and reduce anxiety  \n"
+            "**Tactic**: Engaging content, real-time tracking, preparation resources\n\n"
+            "### Product Arrival (The Unboxing)\n"
+            "**Emotion**: Peak excitement, first impressions critical  \n"
+            '**Goal**: Deliver "wow" moment and facilitate smooth setup  \n'
+            "**Tactic**: Premium packaging, thank-you note, clear quick-start guide, surprise element\n\n"
+            "### First Use (Days 1-7)\n"
+            "**Emotion**: Learning curve with potential frustration  \n"
+            '**Goal**: Drive "aha moment" and celebrate small wins  \n'
+            "**Tactic**: Proactive support, video tutorials, achievement notifications, check-in outreach\n\n"
+            "### Habit Formation (Days 7-30)\n"
+            "**Emotion**: Routine setting and value assessment  \n"
+            "**Goal**: Embed product into daily life and prove ongoing value  \n"
+            "**Tactic**: Usage tips, community connection, personalized recommendations, loyalty benefits\n\n"
+            "### Advocacy Decision (Day 30+)\n"
+            "**Emotion**: Willing to endorse or criticize  \n"
+            "**Goal**: Convert satisfaction into advocacy and drive repeat purchase  \n"
+            "**Tactic**: Review requests, referral incentives, exclusive offers, VIP recognition\n\n"
             "## Success Metrics\n\n"
-            "- **Delivery NPS**: Target 70+ (measure satisfaction with shipping/arrival experience)\n"
-            "- **Day 7 Engagement**: Target 60%+ customers complete first key action/feature use\n"
-            "- **Day 30 CSAT**: Target 85%+ satisfaction score on post-purchase survey\n"
-            "- **Review Rate**: Target 25%+ of customers leave review within 60 days\n"
-            "- **Support Ticket Rate**: Keep below 5% (indicates smooth onboarding)\n"
-            "- **Repeat Purchase**: Target 30%+ make second purchase within 90 days\n"
-            "- **Referral Participation**: Target 15%+ refer at least one friend within first quarter\n"
-            "- **Retention**: Target 90%+ customers remain active/engaged after 90 days (no returns, continued usage)"
+            "- **Delivery NPS**: 70+ satisfaction with shipping experience\n"
+            "- **Day 7 Engagement**: 60%+ complete first key action\n"
+            "- **Day 30 CSAT**: 85%+ satisfaction on survey\n"
+            "- **Review Rate**: 25%+ leave review within 60 days\n"
+            "- **Support Ticket Rate**: Below 5% (smooth onboarding indicator)\n"
+            "- **Repeat Purchase**: 30%+ make second purchase within 90 days\n"
+            "- **Referral Participation**: 15%+ refer friend within first quarter\n"
+            "- **90-Day Retention**: 90%+ remain active (no returns, continued usage)"
         )
     else:
         raw = (
@@ -5945,58 +6352,66 @@ def _gen_sms_and_whatsapp_flows(req: GenerateRequest, **kwargs) -> str:
     if "retention_crm_booster" in pack_key.lower():
         raw = (
             "## SMS Flows\n\n"
-            "**Opt-In Strategy**: Double opt-in process with 15-20% discount incentive for new subscribers. Clearly communicate frequency (2-3x per week max) and content value (exclusive offers, early access, VIP perks). Build list through website popup, checkout opt-in, and in-store signup.\n\n"
-            "**Transactional Messages** (Immediate, 98%+ open rate):\n"
+            "### Opt-In Strategy\n"
+            "Build subscriber list through website popup, checkout opt-in, and in-store signup. Double opt-in process with 15-20% discount incentive. Communicate frequency upfront (2-3x per week max) and content value (exclusive offers, early access, VIP perks).\n\n"
+            "### Transactional Messages\n"
+            "98%+ open rate for critical customer touchpoints:\n"
             "- Order confirmation with tracking link\n"
             "- Shipping notification with delivery ETA\n"
             "- Delivery confirmation with review request\n"
-            "- Appointment reminders 24hr + 2hr before\n\n"
-            "**Promotional Campaigns** (2-3x per week, 25-35% CTR):\n"
-            '- Flash sales with urgency messaging ("4 hours left")\n'
+            "- Appointment reminders (24hr and 2hr before)\n\n"
+            "### Promotional Campaigns\n"
+            "Send 2-3x per week, targeting 25-35% click-through rate:\n"
+            '- Flash sales with urgency ("4 hours left!")\n'
             "- Exclusive subscriber-only offers\n"
-            "- New product launches with early access\n"
-            "- VIP tier benefits and rewards\n"
+            "- New product launches with early VIP access\n"
             "- Birthday/anniversary personalized offers\n\n"
-            "**Re-Engagement Series** (Triggered by 30+ day inactivity):\n"
-            '- SMS 1 (Day 30): "We miss you" + 15% comeback discount\n'
-            '- SMS 2 (Day 45): "What\'s new" product highlights + 20% offer\n'
-            "- SMS 3 (Day 60): Last chance 25% win-back offer\n\n"
-            "**Best Practices**: Send between 10am-8pm, avoid Sundays, keep messages <160 characters, include opt-out instructions, use URL shorteners with tracking, A/B test timing and offers.\n\n"
+            "### Re-Engagement Series\n"
+            "Triggered by 30+ days of customer inactivity:\n"
+            '- **Day 30**: "We miss you" message with 15% comeback discount\n'
+            '- **Day 45**: "What\'s new" product highlights with 20% offer\n'
+            "- **Day 60**: Last chance 25% win-back offer\n\n"
+            "### SMS Guidelines\n"
+            "Send between 10am-8pm (avoid Sundays). Keep messages under 160 characters. Include opt-out instructions. Use URL shorteners with tracking. A/B test timing and offers.\n\n"
             "## WhatsApp Flows\n\n"
-            "**WhatsApp Business Setup**: Verified business account with automated greeting, quick replies for FAQs, business hours set, catalog integration for product browsing, and payment integration where available.\n\n"
-            "**Conversational Commerce** (Personalized 1:1 messaging):\n"
+            "### WhatsApp Business Setup\n"
+            "Verified business account with automated greeting, quick replies for FAQs, business hours set, catalog integration, and payment integration where available.\n\n"
+            "### Conversational Commerce\n"
+            "Personalized 1:1 messaging for premium experience:\n"
             "- Product recommendations based on browsing history\n"
-            "- Personalized styling/shopping assistance\n"
+            "- Styling and shopping assistance\n"
             "- Custom order inquiries and modifications\n"
             "- Size/fit consultations with image sharing\n"
-            "- Gift selection guidance with gift wrapping options\n\n"
-            "**Customer Support Automation**:\n"
+            "- Gift selection guidance\n\n"
+            "### Customer Support Automation\n"
             "- Order status updates with rich media (images, tracking maps)\n"
             "- Return/exchange process guidance\n"
-            "- FAQ chatbot handling common questions\n"
+            "- FAQ chatbot for common questions\n"
             "- Escalation to human agent when needed\n"
             "- Post-resolution satisfaction survey\n\n"
-            "**VIP Engagement** (High-value customer exclusive channel):\n"
+            "### VIP Engagement\n"
+            "High-value customer exclusive channel:\n"
             "- Early access to sales and new collections\n"
-            "- Exclusive behind-the-scenes content\n"
+            "- Behind-the-scenes exclusive content\n"
             "- Personal shopper service via WhatsApp\n"
             "- Private shopping events invitation\n"
             "- Loyalty rewards redemption\n\n"
-            "**Broadcast Lists**: Segment by purchase history, RFM score, product interests. Send 1-2x per week max with high-value content (exclusive previews, limited inventory alerts, VIP-only offers).\n\n"
+            "### Broadcast Strategy\n"
+            "Segment by purchase history, RFM score, product interests. Send 1-2x per week max with high-value content (exclusive previews, limited inventory alerts, VIP-only offers).\n\n"
             "## Measurement & Optimization\n\n"
-            "**SMS Metrics**:\n"
-            "- Delivery rate: Target 98%+ (monitor carrier filtering)\n"
-            "- Open rate: 98%+ (nearly all SMS opened within 3 minutes)\n"
-            "- Click-through rate: Target 25-35% for promotional messages\n"
-            "- Conversion rate: Target 15-20% from click to purchase\n"
-            "- Opt-out rate: Keep below 2% per campaign (indicates relevance)\n\n"
-            "**WhatsApp Metrics**:\n"
-            "- Message delivery rate: Target 95%+ (user must have business saved)\n"
-            "- Read rate: Target 70-80% (double blue checkmarks)\n"
-            "- Response rate: Target 40-50% for engagement messages\n"
-            "- Resolution time: Target <2hr for support inquiries\n"
-            "- CSAT score: Target 4.5+/5.0 for WhatsApp interactions\n\n"
-            "**List Growth**: Target 5-8% monthly subscriber growth via checkout opt-ins, website popups, in-store signups, and cross-channel promotion. Regular list hygiene removing bounces and inactive subscribers quarterly."
+            "**SMS Performance Targets**:\n"
+            "- Delivery rate: 98%+ (monitor carrier filtering)\n"
+            "- Open rate: 98%+ (most SMS opened within 3 minutes)\n"
+            "- Click-through rate: 25-35% for promotional messages\n"
+            "- Conversion rate: 15-20% from click to purchase\n"
+            "- Opt-out rate: Below 2% per campaign\n\n"
+            "**WhatsApp Performance Targets**:\n"
+            "- Message delivery: 95%+ (requires user save business contact)\n"
+            "- Read rate: 70-80% (double blue checkmarks)\n"
+            "- Response rate: 40-50% for engagement messages\n"
+            "- Support resolution time: Under 2 hours\n"
+            "- CSAT score: 4.5+/5.0 for WhatsApp interactions\n\n"
+            "**List Growth Strategy**: Target 5-8% monthly subscriber growth via checkout opt-ins, website popups, in-store signups, and cross-channel promotion. Regular list hygiene quarterly to remove bounces and inactive subscribers."
         )
     else:
         raw = (
@@ -6070,41 +6485,21 @@ def _gen_winback_sequence(req: GenerateRequest, **kwargs) -> str:
     if "retention_crm_booster" in pack_key.lower():
         raw = (
             "## Win-Back Triggers\n\n"
-            "**Segment 1: Lapsing Customers** (45-60 days inactive)\n"
-            "- Trigger: No purchase in 45+ days but previously purchased 2+ times\n"
-            "- Risk level: Medium - still engaged with emails, showing early warning signs\n"
-            "- Priority: High-value customers with strong purchase history\n\n"
-            "**Segment 2: At-Risk Customers** (60-90 days inactive)\n"
-            "- Trigger: No purchase in 60+ days, declining email engagement (<15% open rate)\n"
-            "- Risk level: High - showing multiple disengagement signals\n"
-            "- Priority: Previous high-value or frequent buyers\n\n"
-            "**Segment 3: Churned Customers** (90+ days inactive)\n"
-            "- Trigger: No purchase in 90+ days, minimal channel engagement\n"
-            "- Risk level: Critical - likely lost to competitor or no longer in market\n"
-            "- Priority: Recent churners (<180 days) with salvage potential\n\n"
-            "**Segment 4: Subscription Cancellations**\n"
-            "- Trigger: Subscription cancelled or payment failure unresolved\n"
-            "- Risk level: Immediate - active decision to leave\n"
-            "- Priority: All cancelled subscriptions within 30 days\n\n"
+            "**Lapsing Customers** (45-60 days inactive): No purchase in 45+ days but previously bought 2+ times. Medium risk. Still email-engaged. High-value priority.\n\n"
+            "**At-Risk Customers** (60-90 days inactive): No purchase in 60+ days, declining email engagement (<15% open rate). High risk with multiple disengagement signals. Target previous frequent buyers.\n\n"
+            "**Churned Customers** (90+ days inactive): No purchase in 90+ days, minimal engagement. Critical risk, likely lost to competitor. Focus on recent churners (<180 days) with salvage potential.\n\n"
+            "**Subscription Cancellations**: Subscription cancelled or payment failure unresolved. Immediate intervention required. All cancellations within 30 days get priority outreach.\n\n"
             "## Sequence Steps\n\n"
-            "**Lapsing Customer Sequence** (45-day trigger, 4 touchpoints over 21 days):\n\n"
-            '1. **Email 1 (Day 0)**: "We Miss You" - Personalized message acknowledging absence, highlighting what they\'re missing (new products, improvements). Soft 15% incentive.\n'
-            "2. **SMS (Day 3)**: Short reminder with direct link to favorites/previously browsed items. No hard sell.\n"
-            "3. **Email 2 (Day 7)**: Social proof and what's new - customer testimonials, product launches, feature improvements. 20% comeback offer.\n"
-            "4. **Email 3 (Day 14)**: Last chance urgency - 48-hour window for 25% discount. Clear expiration, scarcity messaging.\n\n"
-            "**At-Risk Customer Sequence** (60-day trigger, 5 touchpoints over 30 days):\n\n"
-            '1. **Survey Email (Day 0)**: Feedback request - "Why did you stop buying?" with incentive ($10 gift card for completion).\n'
-            "2. **Email 2 (Day 5)**: Problem acknowledgment - Address common pain points, highlight improvements made.\n"
-            "3. **Personalized Offer (Day 10)**: 25% off + free shipping on next order. Dynamic product recommendations based on history.\n"
-            "4. **SMS (Day 15)**: Reminder that offer expires in 48 hours. Simple, direct message.\n"
-            "5. **Final Email (Day 21)**: Last attempt - 30% off, no restrictions. Clear that this is final outreach before list removal.\n\n"
-            "**Churned Customer Sequence** (90-day trigger, 6 touchpoints over 45 days):\n\n"
-            '1. **Email 1 (Day 0)**: "Come Back" campaign intro with aggressive 30% discount + free shipping.\n'
-            "2. **Email 2 (Day 7)**: Product showcase - new arrivals, bestsellers, curated recommendations.\n"
-            "3. **Email 3 (Day 14)**: Social proof blitz - recent reviews, UGC content, customer stories.\n"
-            "4. **SMS (Day 21)**: Flash 35% offer for 24 hours only. Create urgency.\n"
-            "5. **Email 4 (Day 28)**: Exit survey - final feedback request before removing from active list.\n"
-            "6. **Email 5 (Day 35)**: Absolute last chance - 40% off + $20 credit, expiring in 72 hours.\n\n"
+            "**Lapsing Customer Sequence** (45-day trigger):\n"
+            "- 4 touchpoints over 21 days: We miss you email (Day 0 with 15% off), SMS reminder (Day 3), social proof email (Day 7 with 20% off), last chance email (Day 14 with 25% off)\n"
+            "- Goal: 25-30% reactivation rate\n\n"
+            "**At-Risk Customer Sequence** (60-day trigger):\n"
+            "- 5 touchpoints over 21 days: Feedback survey (Day 0 with $10 incentive), problem acknowledgment (Day 5), personalized 25% offer (Day 10), SMS reminder (Day 15), final 30% email (Day 21)\n"
+            "- Goal: 15-20% reactivation rate\n\n"
+            "**Churned Customer Sequence** (90-day trigger):\n"
+            "- 6 touchpoints over 35 days: 30% welcome back (Day 0), product showcase (Day 7), social proof (Day 14), flash 35% SMS (Day 21), exit survey (Day 28), final 40% email (Day 35)\n"
+            "- Goal: 8-12% reactivation rate\n\n"
+            "**Subscription Cancellation Sequence**: Immediate intervention with personalized outreach, address cancellation reason, offer pause instead of cancel, provide special retention discount\n\n"
             "## Offers & Incentives\n\n"
             "**Discount Tiers by Segment**:\n"
             "- Lapsing (45-60 days): 15-25% progressive discounts\n"
@@ -6118,7 +6513,7 @@ def _gen_winback_sequence(req: GenerateRequest, **kwargs) -> str:
             "- VIP tier upgrade for 90 days\n\n"
             "**Personalization Strategies**:\n"
             "- Dynamic product recommendations based on purchase history\n"
-            '- Reference specific past purchases ("Your favorite [product] is back in stock")\n'
+            "- Reference specific past purchases using actual product names\n"
             "- Customize offer based on historical AOV and purchase frequency\n"
             "- Segment messaging by churn reason (price, product, service)\n\n"
             "**Success Metrics**:\n"
@@ -6280,6 +6675,7 @@ def generate_sections(
     )
 
     results = {}
+    pack_key = req.package_preset or req.wow_package_key or ""
     context = {
         "req": req,
         "mp": mp,
@@ -6288,6 +6684,7 @@ def generate_sections(
         "pr": pr,
         "creatives": creatives,
         "action_plan": action_plan,
+        "pack_key": pack_key,  # Pass pack_key to all generators via kwargs
     }
 
     # PASS 1: Generate all sections
@@ -6375,7 +6772,9 @@ def generate_sections(
                     if content:
                         pack_key_for_cleanup = req.package_preset or req.wow_package_key
                         if pack_key_for_cleanup and "quick_social" in pack_key_for_cleanup.lower():
-                            from backend.utils.text_cleanup import clean_quick_social_text
+                            from backend.utils.text_cleanup import (
+                                clean_quick_social_text,
+                            )
 
                             content = clean_quick_social_text(content, req)
 
@@ -7080,7 +7479,10 @@ def _apply_wow_to_output(
 
         logger.info(
             "FALLBACK_DECISION_RESULT",
-            extra={"fallback_reason": fallback_reason, "action": "SKIP_WOW_FALLBACK_TO_STUB"},
+            extra={
+                "fallback_reason": fallback_reason,
+                "action": "SKIP_WOW_FALLBACK_TO_STUB",
+            },
         )
         return output
 
@@ -7383,7 +7785,9 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
         # But still try to record learning (non-blocking)
         try:
             record_learning_from_output(
-                brief=req.brief, output=base_output.model_dump(), notes="Auto-recorded stub output"
+                brief=req.brief,
+                output=base_output.model_dump(),
+                notes="Auto-recorded stub output",
             )
         except Exception as e:
             logger.debug(f"Learning recording failed (non-critical): {e}")
@@ -7448,7 +7852,8 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
                     logger.info("🔥 [LEARNING RECORDED] Report learned and stored in memory engine")
                 else:
                     logger.warning(
-                        "⚠️  [LEARNING SKIPPED] Report failed quality gate: %s", "; ".join(reasons)
+                        "⚠️  [LEARNING SKIPPED] Report failed quality gate: %s",
+                        "; ".join(reasons),
                     )
             except Exception as e:
                 logger.debug(f"Auto-learning failed (non-critical): {e}")
@@ -7799,14 +8204,77 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
             or "ideal customers"
         )
 
-        # Fetch brand research if enabled
+        # STEP 1: Initialize ResearchService and fetch comprehensive research
+        from backend.services.research_service import ResearchService
         from backend.services.brand_research import get_brand_research
 
-        brand_research = get_brand_research(
-            brand_name=client_brief_dict.get("brand_name", "").strip() or "",
-            industry=client_brief_dict.get("industry", "").strip() or "",
-            location=client_brief_dict.get("geography", "").strip() or "",
+        # Build initial brief structure (without research) for ResearchService
+        temp_brief = ClientInputBrief(
+            brand=BrandBrief(
+                brand_name=client_brief_dict.get("brand_name", "").strip() or "Your Brand",
+                industry=client_brief_dict.get("industry", "").strip() or "your industry",
+                product_service=client_brief_dict.get("product_service", "").strip()
+                or "your main product/service",
+                primary_goal=primary_goal_val,
+                primary_customer=primary_customer_val,
+                location=client_brief_dict.get("geography", "").strip() or None,
+                timeline=client_brief_dict.get("timeline", "").strip() or None,
+                business_type=client_brief_dict.get("business_type", "").strip() or None,
+                description=client_brief_dict.get("product_service", "").strip() or None,
+            ),
+            audience=AudienceBrief(
+                primary_customer=primary_customer_val,
+                pain_points=client_brief_dict.get("pain_points", []) or [],
+            ),
+            goal=GoalBrief(
+                primary_goal=primary_goal_val,
+                timeline=client_brief_dict.get("timeline", "").strip() or None,
+                kpis=client_brief_dict.get("kpis", []) or [],
+            ),
+            voice=VoiceBrief(tone_of_voice=[]),
+            product_service=ProductServiceBrief(
+                items=(
+                    [
+                        ProductServiceItem(
+                            name=client_brief_dict.get("product_service", "").strip()
+                            or "Your Product/Service",
+                            usp=None,
+                        )
+                    ]
+                    if client_brief_dict.get("product_service")
+                    else []
+                )
+            ),
+            assets_constraints=AssetsConstraintsBrief(
+                focus_platforms=[],
+            ),
+            operations=OperationsBrief(
+                budget=client_brief_dict.get("budget", "").strip() or None,
+                timeline=client_brief_dict.get("timeline", "").strip() or None,
+            ),
+            strategy_extras=StrategyExtrasBrief(other_info=None),
         )
+
+        # Fetch comprehensive research via ResearchService
+        research_service = ResearchService()
+        comprehensive_research = research_service.fetch_comprehensive_research(
+            temp_brief,
+            include_competitors=True,
+            include_audience=True,
+            include_market=False,  # Expensive, opt-in only for specific packs
+        )
+
+        # Backwards compatibility: Extract brand_research for brief.brand.research
+        # This keeps existing generators working without changes
+        brand_research = comprehensive_research.brand_research if comprehensive_research else None
+
+        # Fallback to old method if ResearchService returns None
+        if brand_research is None:
+            brand_research = get_brand_research(
+                brand_name=client_brief_dict.get("brand_name", "").strip() or "",
+                industry=client_brief_dict.get("industry", "").strip() or "",
+                location=client_brief_dict.get("geography", "").strip() or "",
+            )
 
         brief = ClientInputBrief(
             brand=BrandBrief(
@@ -7910,6 +8378,7 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
             wow_package_key=wow_package_key,
             industry_key=industry_key,
             stage=effective_stage,  # 🔥 FIX #2: Use effective_stage
+            research=comprehensive_research,  # STEP 1: Attach ComprehensiveResearchData
         )
 
         # Call the SAME core generator function that tests use
@@ -7983,7 +8452,8 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
         error_detail = repr(e)
         logger.exception("Unhandled error in /api/aicmo/generate_report: %s", type(e).__name__)
         raise HTTPException(
-            status_code=500, detail=f"Report generation failed: {type(e).__name__}: {str(e)[:100]}"
+            status_code=500,
+            detail=f"Report generation failed: {type(e).__name__}: {str(e)[:100]}",
         )
     finally:
         # Phase 3: Log request with timing
@@ -8045,7 +8515,9 @@ async def aicmo_revise(
     try:
         brief = ClientInputBrief.model_validate(data.get("brief", {}))
         record_learning_from_output(
-            brief=brief, output=revised.model_dump(), notes="Auto-recorded revised output"
+            brief=brief,
+            output=revised.model_dump(),
+            notes="Auto-recorded revised output",
         )
     except Exception as e:
         logger.debug(f"Learning recording failed (non-critical): {e}")

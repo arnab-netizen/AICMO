@@ -68,7 +68,13 @@ def create_synthetic_brief() -> ClientInputBrief:
             "Static launch playbooks that teams ignore or can't adapt",
         ],
         online_behavior="Active on LinkedIn, Instagram, Twitter/X, Product Hunt, Reddit r/startups",
-        online_hangouts=["LinkedIn", "Instagram", "Twitter/X", "Reddit r/startups", "Product Hunt"],
+        online_hangouts=[
+            "LinkedIn",
+            "Instagram",
+            "Twitter/X",
+            "Reddit r/startups",
+            "Product Hunt",
+        ],
     )
 
     goal = GoalBrief(

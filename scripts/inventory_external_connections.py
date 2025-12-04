@@ -22,7 +22,15 @@ ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 DOCS.mkdir(exist_ok=True)
 
-INCLUDE_GLOBS = ["backend", "frontend", ".github", "docker", "infra", "config", "alembic"]
+INCLUDE_GLOBS = [
+    "backend",
+    "frontend",
+    ".github",
+    "docker",
+    "infra",
+    "config",
+    "alembic",
+]
 EXTS = (
     ".py",
     ".ts",
@@ -217,7 +225,10 @@ def main():
         "Local Mock",
         "Code Refs",
     ]
-    md = ["| " + " | ".join(headers) + " |", "|" + "|".join(["---"] * len(headers)) + "|"]
+    md = [
+        "| " + " | ".join(headers) + " |",
+        "|" + "|".join(["---"] * len(headers)) + "|",
+    ]
     for r in sorted(rows, key=lambda x: x["Category"]):
         md.append("| " + " | ".join(r.get(h, "") or "" for h in headers) + " |")
 
