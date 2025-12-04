@@ -1744,43 +1744,40 @@ Transformational changes establishing {b.brand_name} as category leader:
 
 **Post-90-Day:** Double video content (16-24/month). Expand SEO to 50+ keywords driving 5,000+ monthly visitors. Scale partners to 30-40 influencers. Grow community to 500+ active members. Target: $22-$25 CPA, 5.0x ROAS, 1,000+ monthly conversions, 60%+ organic contribution."""
     else:
-        # Default/other pack version
+        # Launch GTM pack version - concrete launch roadmap
         raw = (
-            f"## Phase 1: Launch Preparation (Days 1-10)\n\n"
-            f"**Focus:** Foundation setup, content creation, and system configuration to ensure smooth campaign launch for "
-            f"{b.brand_name}. This phase prioritizes quality over speed—every element must be production-ready before "
-            f"going live to avoid rushed execution and credibility damage.\n\n"
-            f"| Timeline | Key Activities | Deliverables | Owner/Responsible |\n"
-            f"|----------|----------------|--------------|-------------------|\n"
-            f"| Days 1-3 | Finalize messaging framework and brand guidelines. Create content bank (15-20 pieces). Set up tracking pixels and analytics | Approved messaging doc. Content calendar populated. Tracking systems live | Strategy + Content Team |\n"
-            f"| Days 4-7 | Build landing pages and conversion funnels. Configure email automation sequences. Set up paid ad campaigns (draft status) | Live landing pages. Email sequences ready. Ad campaigns in review | Design + Tech Team |\n"
-            f"| Days 8-10 | Final QA testing across all platforms. Team training on processes and systems. Schedule first week of content | All systems verified. Team onboarded. Week 1 scheduled | Project Manager |\n\n"
-            f"## Phase 2: Active Campaign Execution (Days 11-30)\n\n"
-            f"**Focus:** Execute planned activities, monitor performance closely, and optimize based on real-time data. "
-            f"This phase requires daily attention to metrics and weekly strategy adjustments to maximize {g.primary_goal or 'campaign effectiveness'}.\n\n"
+            f"## Phase 1: Pre-Launch Foundation (T-21 to T-7 Days)\n\n"
+            f"Build infrastructure and generate pre-launch buzz for {b.brand_name}. Front-load content creation so launch week execution runs smoothly.\n\n"
+            f"| Timeline | Key Activities | Deliverables | Owner |\n"
+            f"|----------|----------------|--------------|-------|\n"
+            f"| T-21 to T-14 | Build 2,000+ waitlist via LinkedIn ads ($1,500), partner email swaps (3 partners), ProductHunt Ship page. Create 30-day content bank: 15 blog posts, 45 social posts, 10 video scripts | 2,000+ waitlist. Content calendar populated. Teaser creative ready | Growth Team |\n"
+            f"| T-14 to T-7 | Embargo brief to TechCrunch, VentureBeat, Product Hunt. Beta access for 5 influencers. Finalize ProductHunt launch page, press kit, demo video. Launch countdown campaign on Instagram Stories, LinkedIn | 3 press embargoes. 5 influencer commitments. ProductHunt page live. Countdown creative running | PR + Marketing |\n\n"
+            f"## Phase 2: Launch Week (T-Day to T+6)\n\n"
+            f"Maximum intensity execution driving awareness, trial signups, media coverage for {g.primary_goal or 'launch goals'}.\n\n"
             f"| Timeline | Key Activities | Success Criteria | Adjustments |\n"
             f"|----------|----------------|------------------|-------------|\n"
-            f"| Days 11-17 (Week 2 of Campaign) | Launch organic social presence. Activate email welcome series. Start first paid ad campaign. Daily community engagement | 1000+ impressions/day. 100+ email opens. 50+ ad clicks. 10+ meaningful engagements | Pause underperforming content. Double down on winning posts. Adjust targeting if needed |\n"
-            f"| Days 18-24 (Week 3 of Campaign) | Optimize based on Week 2 data. Launch second paid campaign variant. Introduce video/reel content. Begin retargeting campaigns | 2x Week 2 engagement. 5+ new customers. Positive early ROI signals | Refine audience segments. Test new content angles. Scale winning ads by 30% |\n"
-            f"| Days 25-30 (Week 4 of Campaign) | Final push with direct CTAs. Activate limited-time offers. Collect comprehensive performance data. Prepare monthly analysis report | 50+ total conversions. Cost-per-acquisition below target. Engagement rate >2%. Clear data for next iteration | Document learnings. Archive successful content. Plan Month 2 strategy |\n\n"
+            f"| T-Day (Launch) | ProductHunt launch 12:01am PT. Blast 2,000 waitlist emails at 8am. Press release to 50 outlets via PR Newswire. CEO LinkedIn post, Twitter thread. Activate Meta ads ($500/day), Google Search ($300/day) | ProductHunt top 5. 500+ email opens. 10+ press pickups. 1,000+ landing page visits. 100+ trial signups | Monitor ProductHunt rank hourly. Boost social spend if CTR >3% |\n"
+            f"| T+1 to T+3 | Daily Instagram Reels (3/day). Host live demo webinar (target 200 attendees). Retarget landing page visitors with testimonial ads. Respond to every ProductHunt comment within 1 hour | 10K+ Reel views. 150+ webinar attendees. 8% retargeting CVR. 4.5+ ProductHunt rating maintained | Double Reel budget if views >15K. Add webinar replay nurture email |\n"
+            f"| T+4 to T+6 | Launch customer case studies. Send thank-you email to early adopters. Scale Meta ads to $750/day if CPA <$50. Begin WhatsApp nurture for trial users | 3 case studies live. 200+ total customers. $45 CPA or lower. 60% trial activation rate | If CPA >$60, pause Meta and double Google Search |\n\n"
             f"## Key Milestones\n\n"
-            f"**Critical Checkpoints & Decision Gates:**\n\n"
-            f"| Milestone | Target Date | Success Metric | If Not Met |\n"
-            f"|-----------|-------------|----------------|------------|\n"
-            f"| Campaign Go-Live | Day 10 | All systems operational, 15+ pieces of content ready | Delay launch, complete setup |\n"
-            f"| First Conversion | Day 14 | At least 1 customer from campaign activities | Review messaging and targeting |\n"
-            f"| Positive ROI Signal | Day 21 | Cost-per-acquisition trending toward target, engagement >1.5% | Pivot strategy, test new angles |\n"
-            f"| Monthly Target Progress | Day 30 | 70%+ of monthly conversion goal achieved | Assess viability, recommend changes |\n\n"
-            f"**Month 2+ Roadmap:**\n\n"
-            f"Expand reach based on Month 1 data:\n\n"
-            f"- Scale LinkedIn, email, Google Ads showing >3% CTR to 150% budget\n"
-            f"- Test YouTube shorts (3-5 videos), Twitter threads (10+ tweets), Reddit AMAs\n"
-            f"- Increase ad spend to $4K-$5K monthly on campaigns below $100 CPA\n"
-            f"- Build 3-email retargeting sequence (day 1, day 3, day 7 touchpoints)\n"
-            f"- Produce 4 pieces weekly in top performing formats from dashboard\n"
-            f"- A/B test 4 headline variants, 6 CTA versions on landing pages\n"
-            f"- Launch 2 co-marketing webinars with SaaS partners (200+ registrants)\n"
-            f"- Target achieving {g.primary_goal or 'goals'} with 25% efficiency gains vs Month 1"
+            f"Launch success gates and decision points:\n\n"
+            f"- **Waitlist Goal (T-7)**: Achieve 2,000+ qualified leads. Contingency: Extend pre-launch 1 week, add Reddit ads ($500 budget)\n"
+            f"- **ProductHunt Top 5 (T-Day)**: Secure #1-5 Product of Day ranking. Contingency: Rally community for upvotes, offer early bird incentives\n"
+            f"- **First 100 Customers (T+3)**: Hit 100 paid signups at $99/month tier. Contingency: Extend early bird pricing, add onboarding call offer\n"
+            f"- **10K Landing Page Visits (T+7)**: Drive 10,000+ unique visitors to launch landing page. Contingency: Increase Meta ads to $800/day, activate Twitter ads\n"
+            f"- **Month 1 Revenue (T+30)**: Generate $10K MRR minimum from new customers. Contingency: Review pricing tiers, increase ad spend on Google Search\n"
+            f"- **Product Rating (T+30)**: Maintain 4.5+ rating on ProductHunt and G2. Contingency: Prioritize customer success, gather detailed feedback\n"
+            f"- **Press Coverage (T+14)**: Secure 15+ earned media mentions from launch. Contingency: Pitch follow-up stories with customer success angles\n"
+            f"- **Trial Activation (T+14)**: Achieve 60% trial user activation within first 7 days. Contingency: Add onboarding emails, live chat support\n"
+            f"- **Referral Program (T+21)**: Launch referral incentives generating 50+ referrals. Contingency: Increase referral bonus from $50 to $100\n"
+            f"- **Community Building (T+30)**: Establish Slack community with 200+ active members. Contingency: Host weekly AMAs, add gamification\n\n"
+            f"**Post-Launch Sustainment (T+7 to T+90):**\n\n"
+            f"Momentum tactics maintaining growth trajectory:\n\n"
+            f"- Publish 2 blog posts weekly optimized for launch-related keywords\n"
+            f"- Host weekly customer office hours in Slack community\n"
+            f"- Implement give $50, get $50 referral program for both parties\n"
+            f"- Scale Meta ads to $1,500/day, Google Search to $800/day (if CPA <$60)\n"
+            f"- Target Month 3: 500+ customers, $50K MRR, 4.7+ G2 rating\n"
         )
     return sanitize_output(raw, req.brief)
 
@@ -4541,7 +4538,7 @@ Maximum intensity coordinated activation with product announcements, customer pr
 
 ## Week 3: Post-Launch Momentum
 
-Sustaining momentum with customer success stories, detailed use case content, partner collaborations, and educational resources that demonstrate value and ROI while nurturing unconverted launch leads.
+Sustaining momentum with customer success stories, detailed use case content, partner collaborations. Educational resources demonstrate value and ROI. Nurture unconverted launch leads.
 
 | Day | Content Type | Primary Channel | Secondary Channels | Objective | CTA |
 |-----|-------------|----------------|-------------------|-----------|-----|
@@ -4549,7 +4546,7 @@ Sustaining momentum with customer success stories, detailed use case content, pa
 | Tue | Use case tutorial | YouTube | Docs, Social | Show application | Watch demo |
 | Wed | Industry analyst report | PR/Blog | LinkedIn, Twitter | Third-party validation | Download report |
 | Thu | Partner co-marketing | Partner channels | Cross-promotion | Expand reach | Learn more |
-| Fri | Best practices guide | Blog, PDF | Email, LinkedIn | Enable success | Get guide |
+| Fri | Implementation guide | Blog, PDF | Email, LinkedIn | Enable success | Get guide |
 | Sat | User spotlight feature | Social Media | Community forum | Celebrate customers | Share story |
 | Sun | Weekly progress update | Email Newsletter | Social channels | Maintain interest | Stay updated |
 
@@ -5140,57 +5137,77 @@ def _gen_launch_campaign_ideas(req: GenerateRequest, **kwargs) -> str:
     b = req.brief.brand
     raw = f"""## Campaign Concepts
 
-Three integrated campaign themes driving {b.brand_name} launch awareness and conversion:
+Three integrated campaign themes driving {b.brand_name} launch awareness and conversion.
 
-**Concept 1: "The New Standard" (Positioning Campaign)**
+### Concept 1: "The New Standard" (Positioning Campaign)
 
-Positions {b.brand_name} as defining new category expectations challenging status quo assumptions. Creative focuses on before/after transformations showing old fragmented approaches vs streamlined new reality. Messaging: "There's the old way. There's the new standard." Targets decision-makers frustrated with current tools through thought leadership content, executive social media, industry publication features. Budget allocation: 40% of launch spend.
+{b.brand_name} defines new category expectations. We challenge status quo assumptions. Creative focuses on before/after transformations. Old fragmented approaches contrast with streamlined new reality.
 
-- Visual approach showcases split-screen comparisons of complexity vs simplicity
-- Executive thought leadership articles in Forbes, TechCrunch establishing authority
-- LinkedIn video series featuring customer transformation stories
-- Webinar series positioning product as inevitable industry evolution
+Messaging: "There's the old way. There's the new standard."
 
-**Concept 2: "Launch Week Limited" (Urgency Campaign)**
+Targets decision-makers frustrated with current tools. Reaches through thought leadership content, executive social media, industry publication features. Budget allocation: 40% of launch spend.
 
-Drives immediate action through exclusive early adopter benefits available only during launch window. Creates FOMO through countdown timers, limited availability messaging, and exclusive founder access. Messaging: "Join the first 100 companies defining the future." Targets warm prospects from waitlist and partner audiences ready to act. Budget allocation: 35% of launch spend.
+- Split-screen visuals comparing complexity vs simplicity
+- Executive thought leadership in Forbes, TechCrunch, VentureBeat
+- LinkedIn video series with customer transformation stories
+- Webinar series positioning product as inevitable evolution
 
-- Early adopter pricing (20% lifetime discount) for first 100 customers
-- Exclusive Slack community access with direct founder engagement
-- Priority implementation and dedicated success manager assignment
-- Co-marketing opportunities for early customer case studies
+### Concept 2: "Launch Week Limited" (Urgency Campaign)
 
-**Concept 3: "Proof in Action" (Social Proof Campaign)**
+Drives immediate action through exclusive early adopter benefits. Available only during launch window. Creates FOMO through countdown timers, limited availability messaging, exclusive founder access.
 
-Leverages customer stories, influencer endorsements, and data-driven results to build trust and credibility. Creative centers on authentic testimonials, quantified outcomes, and peer validation. Messaging: "See why leading companies are switching to {b.brand_name}." Targets skeptical buyers requiring proof before committing. Budget allocation: 25% of launch spend.
+Messaging: "Join the first 100 companies defining the future."
 
-- Video testimonials from beta customers with specific ROI metrics
+Targets warm prospects from waitlist and partner audiences. Budget allocation: 35% of launch spend.
+
+- Early adopter pricing: 20% lifetime discount for first 100
+- Exclusive Slack community with direct founder engagement
+- Priority implementation plus dedicated success manager
+- Co-marketing opportunities for case study features
+
+### Concept 3: "Proof in Action" (Social Proof Campaign)
+
+Uses customer stories, influencer endorsements, data-driven results. Builds trust and credibility. Creative centers on authentic testimonials, quantified outcomes, peer validation.
+
+Messaging: "See why leading companies are switching to {b.brand_name}."
+
+Targets skeptical buyers requiring proof before committing. Budget allocation: 25% of launch spend.
+
+- Video testimonials from beta customers with ROI metrics
 - Industry influencer reviews and recommendations
 - Case study library with quantified business impact
 - Live demos showing real customer implementations
 
 ## Activation Ideas
 
-Tactical campaigns amplifying launch momentum across channels:
+Tactical campaigns amplify launch momentum across channels.
 
-- **Partner Co-Launch Program**: Coordinate with 8-10 complementary platforms for simultaneous announcements, bundled offers, joint webinars expanding reach to partner audiences (estimated 50K+ combined reach)
-- **Influencer Unboxing Series**: Send premium launch kits to 15 industry voices capturing authentic first impressions and product walkthroughs shared across YouTube, LinkedIn, Twitter
-- **Customer Challenge Campaign**: Invite waitlist to submit their biggest operational challenge with winners receiving free implementation and case study feature
-- **Launch Day Livestream**: 4-hour virtual event with product demos, customer panels, expert discussions, and live Q&A attracting 1,000+ live attendees
-- **Referral Accelerator**: Launch week only offer where early customers earn $500 credit for each qualified referral who signs up during launch month
-- **Press Embargo Strategy**: Brief 10 key industry publications under embargo releasing coordinated coverage on launch day for maximum impact
-- **Reddit/Community Seeding**: Authentic engagement in relevant subreddits and online communities sharing launch story and gathering feedback
-- **Retargeting Blitz**: Aggressive retargeting across display, social, video for all launch landing page visitors with testimonial and offer creative
-- **Email Thunder Series**: 5-email sequence over launch week to waitlist building anticipation, announcing launch, sharing proof points, creating urgency
+### Partner-Driven Programs
+
+- **Co-Launch**: Coordinate with 8-10 platforms for simultaneous announcements, bundled offers, joint webinars (50K+ combined reach)
+- **Influencer Unboxing**: Send premium kits to 15 industry voices for first impressions on YouTube, LinkedIn, Twitter
+- **Customer Challenge**: Waitlist submits biggest challenge. Winners get free implementation plus case study feature.
+
+### Event-Based Activations
+
+- **Launch Livestream**: 4-hour virtual event with demos, customer panels, Q&A (targeting 1,000+ attendees)
+- **Referral Accelerator**: Early customers earn $500 credit per qualified referral during launch month
+- **Press Embargo**: Brief 10 publications for coordinated launch day coverage
+
+### Digital Campaigns
+
+- **Community Seeding**: Authentic engagement in relevant subreddits, forums sharing launch story
+- **Retargeting Blitz**: Display, social, video ads for all landing page visitors with testimonial creative
+- **Email Thunder**: 5-email sequence to waitlist building anticipation, announcing launch, creating urgency
 
 ## Expected Outcomes
 
 Campaign success metrics and performance targets:
 
-- **Awareness**: 25K launch week website visits, 200K+ total impressions, 60+ earned media placements
-- **Engagement**: 15K+ social engagements, 500+ blog shares, 3K+ video views per asset
-- **Conversion**: 2,500 signups, 400+ paid customers, 8% landing page conversion rate
-- **Revenue**: $240K Month 1 revenue, $85K average deal size, 30-day payback on acquisition costs
+- **Awareness**: 25K launch week visits, 200K+ impressions, 60+ media placements
+- **Engagement**: 15K+ social engagements, 500+ shares, 3K+ video views per asset
+- **Conversion**: 2,500 signups, 400+ paid customers, 8% landing page CVR
+- **Revenue**: $240K Month 1, $85K average deal, 30-day payback on CAC
 """
     return sanitize_output(raw, req.brief)
 

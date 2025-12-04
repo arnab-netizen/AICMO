@@ -310,95 +310,90 @@ Traffic Sources → Lead Magnet → Nurture → Offer → Post-Purchase → Refe
 
 *This Full-Funnel Growth Suite maps {{brand_name}}'s entire path from traffic to repeat purchase, with creative, messaging, and automations aligned at every stage.*
 """,
-    "launch_gtm_pack": r"""# {{brand_name}} – Launch & GTM Pack
-### Go-To-Market Strategy for {{product_name}}
+    "launch_gtm_pack": r"""# {{brand_name}} – Launch & GTM Strategy
+### Product Launch Go-To-Market Plan
 
 ---
 
-## 1. GTM Snapshot
+## overview
 
-- **Product:** {{product_name}}
-- **Category:** {{category}}
-- **Launch Region(s):** {{regions}}
-- **Ideal Customer:** {{ideal_customer}}
-- **Launch Timing:** {{launch_timing}}
-- **Key Objectives:** {{launch_objectives}}
+{{overview}}
 
 ---
 
-## 2. Positioning & Story
+## market_landscape
 
-**Positioning Statement:** {{positioning_statement}}
-
-**Benefit Ladder:** {{benefit_ladder}}
-
-**Core Brand Story:** {{brand_story}}
+{{market_landscape}}
 
 ---
 
-## 3. Market & Competitor Landscape
+## product_positioning
 
-{{launch_competitor_block}}
-
----
-
-## 4. GTM Framework
-
-**Who:** {{gtm_who}}
-
-**What:** {{gtm_what}}
-
-**Where:** {{gtm_where}}
-
-**Why Now:** {{gtm_why_now}}
-
-**How (Channels & Tactics):** {{gtm_how}}
+{{product_positioning}}
 
 ---
 
-## 5. Launch Campaign
+## messaging_framework
 
-**Campaign name:** {{campaign_name}}
-
-**Core idea:** {{campaign_core_idea}}
-
-**Main message:** {{campaign_main_message}}
-
-**Supporting angles:** {{campaign_supporting_angles}}
+{{messaging_framework}}
 
 ---
 
-## 6. Influencer & Partnership Strategy
+## launch_phases
 
-{{influencer_strategy_block}}
-
----
-
-## 7. 30-Day Launch Calendar (Pre, During, Post)
-
-{{launch_calendar_30_day_table}}
+{{launch_phases}}
 
 ---
 
-## 8. Launch Assets
+## channel_plan
 
-**Landing page:** {{launch_landing_page}}
-
-**Email sequences:** {{launch_emails_summary}}
-
-**Social creatives & captions:** {{launch_social_assets}}
-
-**PR / announcement angles:** {{launch_pr_angles}}
+{{channel_plan}}
 
 ---
 
-## 9. KPIs & Milestones
+## audience_segments
 
-{{launch_kpis_milestones_block}}
+{{audience_segments}}
 
 ---
 
-*This Launch & GTM Pack ensures {{product_name}} enters the market with clarity, momentum, and a repeatable framework for future launches.*
+## creative_direction
+
+{{creative_direction}}
+
+---
+
+## launch_campaign_ideas
+
+{{launch_campaign_ideas}}
+
+---
+
+## content_calendar_launch
+
+{{content_calendar_launch}}
+
+---
+
+## ad_concepts
+
+{{ad_concepts}}
+
+---
+
+## execution_roadmap
+
+{{execution_roadmap}}
+
+---
+
+## final_summary
+
+{{final_summary}}
+
+---
+
+*This Launch & GTM Pack provides {{brand_name}} with a complete go-to-market strategy, from positioning through execution.*
 """,
     "brand_turnaround_lab": r"""# {{brand_name}} – Brand Turnaround Lab
 ### From Decline to Relevance
