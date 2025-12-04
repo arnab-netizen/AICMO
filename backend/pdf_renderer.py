@@ -250,13 +250,29 @@ def render_html_template_to_pdf(template_name: str, context: Dict[str, Any]) -> 
 PDF_TEMPLATE_MAP = {
     "quick_social_basic": "quick_social_basic.html",
     "strategy_campaign_standard": "campaign_strategy.html",
-    # When you add the others, uncomment + create the templates:
-    # "full_funnel_growth_suite": "full_funnel_growth.html",
-    # "launch_gtm_pack": "launch_gtm.html",
-    # "brand_turnaround_lab": "brand_turnaround.html",
-    # "retention_crm_booster": "retention_crm.html",
-    # "performance_audit_revamp": "performance_audit.html",
+    "strategy_campaign_basic": "campaign_strategy.html",  # Shares template
+    "strategy_campaign_premium": "campaign_strategy.html",  # Shares template
+    "strategy_campaign_enterprise": "campaign_strategy.html",  # Shares template
+    "full_funnel_growth_suite": "full_funnel_growth.html",
+    "launch_gtm_pack": "launch_gtm.html",
+    "brand_turnaround_lab": "brand_turnaround.html",
+    "retention_crm_booster": "retention_crm.html",
+    "performance_audit_revamp": "performance_audit.html",
 }
+
+
+def convert_markdown_to_html(md_text: str) -> str:
+    """Convert markdown text to HTML using markdown library."""
+    if not md_text or not md_text.strip():
+        return ""
+    try:
+        import markdown
+
+        return markdown.markdown(md_text)
+    except ImportError:
+        import html
+
+        return f"<p>{html.escape(md_text)}</p>"
 
 
 def resolve_pdf_template_for_pack(wow_package_key: str) -> str:
@@ -291,103 +307,335 @@ def resolve_pdf_template_for_pack(wow_package_key: str) -> str:
 # ============================================================================
 
 
+# Section ID to template field mappings for each WOW package
+QUICK_SOCIAL_SECTION_MAP = {
+    "overview": "overview_html",
+    "audience_segments": "audience_segments_html",
+    "messaging_framework": "messaging_framework_html",
+    "content_buckets": "content_buckets_html",
+    "detailed_30day_calendar": "calendar_html",
+    "detailed_30_day_calendar": "calendar_html",
+    "creative_direction": "creative_direction_html",
+    "hashtag_strategy": "hashtags_html",
+    "platform_guidelines": "platform_guidelines_html",
+    "kpi_plan_light": "kpi_plan_html",
+    "execution_roadmap": "kpi_plan_html",  # Maps to same field as kpi (combined in PDF)
+    "final_summary": "final_summary_html",
+}
+
+# WOW Template display headers to section ID mapping (for parsing WOW markdown)
+# This maps the actual ## headers in WOW templates back to section IDs
+QUICK_SOCIAL_HEADER_MAP = {
+    "Brand & Context Snapshot": "overview",
+    "Brand and Context Snapshot": "overview",  # Variant
+    "Messaging Framework": "messaging_framework",
+    "Your Core Message": "messaging_framework",  # PDF display name
+    "30-Day Content Calendar": "detailed_30_day_calendar",
+    "Weekly Posting Schedule": "detailed_30_day_calendar",  # PDF display name
+    "Content Buckets & Themes": "content_buckets",
+    "Content Buckets and Themes": "content_buckets",  # Variant
+    "Content Themes": "content_buckets",  # PDF display name
+    "Hashtag Strategy": "hashtag_strategy",
+    "Hashtags to Use": "hashtag_strategy",  # PDF display name
+    "Platform Guidelines": "platform_guidelines",
+    "Platform-Specific Tips": "platform_guidelines",  # PDF display name
+    "KPIs & Lightweight Measurement Plan": "kpi_plan_light",
+    "KPIs and Lightweight Measurement Plan": "kpi_plan_light",  # Variant
+    "Success Metrics": "kpi_plan_light",  # PDF display name
+    "Execution Roadmap": "execution_roadmap",
+    "Final Summary & Next Steps": "final_summary",
+    "Final Summary and Next Steps": "final_summary",  # Variant
+    "Next Steps": "final_summary",  # PDF display name
+}
+
+# Strategy + Campaign Standard/Premium/Enterprise share same template
+# Template has fewer fields than sections, so some sections merge into same fields
+STRATEGY_CAMPAIGN_SECTION_MAP = {
+    "overview": "objectives_html",
+    "campaign_objective": "objectives_html",
+    "core_campaign_idea": "core_campaign_idea_html",
+    "messaging_framework": "objectives_html",  # Merge with overview/objectives
+    "channel_plan": "channel_plan_html",
+    "audience_segments": "audience_segments_html",
+    "persona_cards": "audience_segments_html",  # Merge with segments, or use structured personas
+    "creative_direction": "creative_direction_html",
+    "influencer_strategy": "channel_plan_html",  # Merge into channel strategy
+    "promotions_and_offers": "core_campaign_idea_html",  # Merge into big idea
+    "detailed_30_day_calendar": "calendar_html",
+    "email_and_crm_flows": "channel_plan_html",  # Merge into channel
+    "ad_concepts": "ad_concepts_html",
+    "kpi_and_budget_plan": "kpi_budget_html",
+    "execution_roadmap": "execution_html",
+    "post_campaign_analysis": "post_campaign_html",
+    "final_summary": "final_summary_html",
+    # Premium tier additions
+    "value_proposition_map": "core_campaign_idea_html",  # Merge with big idea
+    "creative_territories": "creative_direction_html",
+    "copy_variants": "ad_concepts_html",
+    "ugc_and_community_plan": "channel_plan_html",
+    "funnel_breakdown": "objectives_html",
+    "awareness_strategy": "channel_plan_html",
+    "consideration_strategy": "channel_plan_html",
+    "conversion_strategy": "channel_plan_html",
+    "retention_strategy": "channel_plan_html",
+    "sms_and_whatsapp_strategy": "channel_plan_html",
+    "remarketing_strategy": "channel_plan_html",
+    "measurement_framework": "kpi_budget_html",
+    "optimization_opportunities": "post_campaign_html",
+    # Enterprise tier additions
+    "industry_landscape": "objectives_html",
+    "market_analysis": "objectives_html",
+    "competitor_analysis": "objectives_html",
+    "customer_insights": "audience_segments_html",
+    "brand_positioning": "core_campaign_idea_html",
+    "customer_journey_map": "audience_segments_html",
+    "risk_assessment": "execution_html",
+    "strategic_recommendations": "post_campaign_html",
+    "cxo_summary": "final_summary_html",
+}
+
+# Full-Funnel Growth Suite - template has good 1:1 mapping with sections
+FULL_FUNNEL_SECTION_MAP = {
+    "overview": "overview_html",
+    "market_landscape": "market_landscape_html",
+    "competitor_analysis": "competitor_analysis_html",
+    "funnel_breakdown": "funnel_breakdown_html",
+    "audience_segments": "audience_segments_html",
+    "persona_cards": "audience_segments_html",  # Merge with audience_segments, structured personas not supported yet
+    "value_proposition_map": "value_proposition_html",
+    "messaging_framework": "messaging_framework_html",
+    "awareness_strategy": "awareness_strategy_html",
+    "consideration_strategy": "consideration_strategy_html",
+    "conversion_strategy": "conversion_strategy_html",
+    "retention_strategy": "retention_strategy_html",
+    "landing_page_blueprint": "landing_page_html",
+    "email_automation_flows": "email_flows_html",
+    "remarketing_strategy": "remarketing_html",
+    "ad_concepts_multi_platform": "ad_concepts_html",
+    "creative_direction": "creative_direction_html",
+    "full_30_day_calendar": "calendar_html",
+    "kpi_and_budget_plan": "kpi_budget_html",
+    "measurement_framework": "measurement_html",
+    "execution_roadmap": "execution_html",
+    "optimization_opportunities": "optimization_html",
+    "final_summary": "final_summary_html",
+}
+
+# Launch & GTM Pack
+LAUNCH_GTM_SECTION_MAP = {
+    "overview": "overview_html",
+    "market_landscape": "market_landscape_html",
+    "product_positioning": "positioning_html",
+    "messaging_framework": "messaging_framework_html",
+    "launch_phases": "launch_phases_html",
+    "channel_plan": "channel_plan_html",
+    "audience_segments": "audience_segments_html",
+    "creative_direction": "creative_direction_html",
+    "launch_campaign_ideas": "campaign_ideas_html",
+    "content_calendar_launch": "calendar_html",
+    "ad_concepts": "ad_concepts_html",
+    "execution_roadmap": "execution_html",
+    "final_summary": "final_summary_html",
+}
+
+# Brand Turnaround Lab
+BRAND_TURNAROUND_SECTION_MAP = {
+    "overview": "overview_html",
+    "brand_audit": "brand_audit_html",
+    "customer_insights": "customer_insights_html",
+    "competitor_analysis": "competitor_analysis_html",
+    "problem_diagnosis": "problem_diagnosis_html",
+    "new_positioning": "positioning_html",
+    "messaging_framework": "messaging_framework_html",
+    "creative_direction": "creative_direction_html",
+    "channel_reset_strategy": "channel_strategy_html",
+    "reputation_recovery_plan": "reputation_recovery_html",
+    "promotions_and_offers": "promotions_html",
+    "30_day_recovery_calendar": "calendar_html",
+    "execution_roadmap": "execution_html",
+    "final_summary": "final_summary_html",
+}
+
+# Retention & CRM Booster
+RETENTION_CRM_SECTION_MAP = {
+    "overview": "overview_html",
+    "customer_segments": "customer_segments_html",
+    "persona_cards": "customer_segments_html",  # Merge with segments, structured personas not supported yet
+    "customer_journey_map": "journey_map_html",
+    "churn_diagnosis": "churn_diagnosis_html",
+    "email_automation_flows": "email_flows_html",
+    "sms_and_whatsapp_flows": "sms_flows_html",
+    "loyalty_program_concepts": "loyalty_program_html",
+    "winback_sequence": "winback_html",
+    "post_purchase_experience": "post_purchase_html",
+    "ugc_and_community_plan": "ugc_community_html",
+    "kpi_plan_retention": "kpi_plan_html",
+    "execution_roadmap": "execution_html",
+    "final_summary": "final_summary_html",
+}
+
+# Performance Audit & Revamp
+PERFORMANCE_AUDIT_SECTION_MAP = {
+    "overview": "overview_html",
+    "account_audit": "account_audit_html",
+    "campaign_level_findings": "campaign_findings_html",
+    "creative_performance_analysis": "creative_performance_html",
+    "audience_analysis": "audience_analysis_html",
+    "funnel_breakdown": "funnel_breakdown_html",
+    "competitor_benchmark": "competitor_benchmark_html",
+    "problem_diagnosis": "problem_diagnosis_html",
+    "revamp_strategy": "revamp_strategy_html",
+    "new_ad_concepts": "new_ad_concepts_html",
+    "creative_direction": "creative_direction_html",
+    "conversion_audit": "conversion_audit_html",
+    "remarketing_strategy": "remarketing_html",
+    "kpi_reset_plan": "kpi_reset_html",
+    "execution_roadmap": "execution_html",
+    "final_summary": "final_summary_html",
+}
+
+# Central registry: pack_key → section mapping dict
+PACK_SECTION_MAPS = {
+    "quick_social_basic": QUICK_SOCIAL_SECTION_MAP,
+    "strategy_campaign_standard": STRATEGY_CAMPAIGN_SECTION_MAP,
+    "strategy_campaign_basic": STRATEGY_CAMPAIGN_SECTION_MAP,  # Shares template
+    "strategy_campaign_premium": STRATEGY_CAMPAIGN_SECTION_MAP,  # Shares template
+    "strategy_campaign_enterprise": STRATEGY_CAMPAIGN_SECTION_MAP,  # Shares template
+    "full_funnel_growth_suite": FULL_FUNNEL_SECTION_MAP,
+    "launch_gtm_pack": LAUNCH_GTM_SECTION_MAP,
+    "brand_turnaround_lab": BRAND_TURNAROUND_SECTION_MAP,
+    "retention_crm_booster": RETENTION_CRM_SECTION_MAP,
+    "performance_audit_revamp": PERFORMANCE_AUDIT_SECTION_MAP,
+}
+
+
 def build_pdf_context_for_wow_package(
     report_data: Dict[str, Any], wow_package_key: str
 ) -> Dict[str, Any]:
     """
-    Take raw report_data dict and flatten it into a template-friendly context
-    depending on the WOW package.
+    Take raw report_data dict and flatten it into a template-friendly context.
 
-    This is the ONLY place that knows how to map internal report structure
-    to PDF template variables.
+    ENHANCED: Now converts markdown sections to HTML automatically.
+
+    Process:
+    1. Extract base metadata (brand_name, campaign_title, etc.)
+    2. Look for `sections` list in report_data
+    3. Convert each section's markdown body to HTML
+    4. Map section IDs to template field names using pack-specific mappings
+    5. Return flattened context dict
 
     Args:
-        report_data: Raw report dict (may be nested)
+        report_data: Raw report dict with optional `sections` list
         wow_package_key: WOW package identifier
 
     Returns:
-        Flattened context dict with template-ready keys
-
-    Design:
-        Each WOW package gets a specific set of context keys that match
-        what its template expects. This decouples report structure from
-        template expectations.
+        Flattened context dict with *_html fields populated
     """
-    # Quick Social Pack - lightweight social media playbook
-    if wow_package_key == "quick_social_basic":
-        return {
-            "brand_name": report_data.get("brand_name")
-            or report_data.get("brand", {}).get("name")
-            or "Your Brand",
-            "campaign_title": report_data.get("campaign_title")
-            or report_data.get("title")
-            or "Quick Social Playbook",
-            "primary_channel": report_data.get("primary_channel") or "Instagram",
-            "overview_html": report_data.get("overview_html") or "",
-            "audience_segments_html": report_data.get("audience_segments_html") or "",
-            "messaging_framework_html": report_data.get("messaging_framework_html") or "",
-            "content_buckets_html": report_data.get("content_buckets_html") or "",
-            "calendar_html": report_data.get("calendar_html") or "",
-            "creative_direction_html": report_data.get("creative_direction_html") or "",
-            "hashtags_html": report_data.get("hashtags_html") or "",
-            "platform_guidelines_html": report_data.get("platform_guidelines_html") or "",
-            "kpi_plan_html": report_data.get("kpi_plan_html") or "",
-            "final_summary_html": report_data.get("final_summary_html") or "",
-        }
-
-    # Strategy/Campaign Pack - full campaign deck
-    if wow_package_key == "strategy_campaign_standard":
-        return {
-            "brand_name": report_data.get("brand_name")
-            or report_data.get("brand", {}).get("name")
-            or "Brand",
-            "campaign_title": report_data.get("campaign_title") or "Campaign Strategy",
-            "campaign_duration": report_data.get("campaign_duration") or "",
-            "objectives_html": report_data.get("objectives_html")
-            or report_data.get("objectives_md")
-            or "",
-            "core_campaign_idea_html": report_data.get("core_campaign_idea_html")
-            or report_data.get("core_campaign_idea_md")
-            or "",
-            "competitor_snapshot": report_data.get("competitor_snapshot") or [],
-            "channel_plan_html": report_data.get("channel_plan_html")
-            or report_data.get("channel_plan_md")
-            or "",
-            "audience_segments_html": report_data.get("audience_segments_html")
-            or report_data.get("audience_segments_md")
-            or "",
-            "personas": report_data.get("personas") or [],
-            "roi_model": report_data.get("roi_model") or {},
-            "creative_direction_html": report_data.get("creative_direction_html")
-            or report_data.get("creative_direction_md")
-            or "",
-            "brand_identity": report_data.get("brand_identity") or {},
-            "calendar_html": report_data.get("calendar_html")
-            or report_data.get("calendar_md")
-            or "",
-            "ad_concepts_html": report_data.get("ad_concepts_html")
-            or report_data.get("ad_concepts_md")
-            or "",
-            "kpi_budget_html": report_data.get("kpi_budget_html")
-            or report_data.get("kpi_budget_md")
-            or "",
-            "execution_html": report_data.get("execution_html")
-            or report_data.get("execution_md")
-            or "",
-            "post_campaign_html": report_data.get("post_campaign_html")
-            or report_data.get("post_campaign_md")
-            or "",
-            "final_summary_html": report_data.get("final_summary_html")
-            or report_data.get("final_summary_md")
-            or "",
-        }
-
-    # Generic fallback for unknown packages
-    return {
-        "brand_name": report_data.get("brand_name") or "Brand",
-        "campaign_title": report_data.get("campaign_title") or "Campaign",
-        "overview_html": report_data.get("overview_html") or "",
+    # Base context with metadata
+    base_context = {
+        "brand_name": report_data.get("brand_name")
+        or report_data.get("brand", {}).get("name")
+        or "Your Brand",
+        "campaign_title": report_data.get("campaign_title")
+        or report_data.get("title")
+        or "Campaign",
+        "primary_channel": report_data.get("primary_channel") or "Instagram",
+        # Initialize structured data fields as empty for templates that expect them
+        "personas": [],
+        "competitor_snapshot": [],
+        "roi_model": {},
+        "brand_identity": {},
     }
+
+    # Select section mapping from central registry
+    section_map = PACK_SECTION_MAPS.get(wow_package_key, {})
+
+    # Process sections if available
+    sections = report_data.get("sections", [])
+
+    if sections and section_map:
+        # Get header map for this package (for WOW markdown parsing)
+        header_map = {}
+        if wow_package_key == "quick_social_basic":
+            header_map = QUICK_SOCIAL_HEADER_MAP
+
+        # Track accumulated content for fields that combine multiple sections
+        field_accumulator = {}
+
+        for section in sections:
+            section_id = section.get("id", "")
+            section_title = section.get("title", "")
+
+            # Try direct section_id match first
+            html_field_name = section_map.get(section_id)
+
+            # If not found, try header map (WOW display name → section ID → html field)
+            if not html_field_name and section_title and header_map:
+                mapped_section_id = header_map.get(section_title)
+                if mapped_section_id:
+                    html_field_name = section_map.get(mapped_section_id)
+
+            # Fuzzy matching: check if section_id starts with any key in map
+            if not html_field_name:
+                for map_key, map_value in section_map.items():
+                    if section_id.startswith(map_key):
+                        html_field_name = map_value
+                        break
+
+            if html_field_name:
+                # Convert markdown body to HTML
+                markdown_body = section.get("body", "")
+                html_body = convert_markdown_to_html(markdown_body)
+
+                # For Quick Social: combine kpi_plan_light + execution_roadmap into one field
+                if wow_package_key == "quick_social_basic" and html_field_name == "kpi_plan_html":
+                    if html_field_name not in field_accumulator:
+                        field_accumulator[html_field_name] = []
+                    field_accumulator[html_field_name].append(html_body)
+                else:
+                    base_context[html_field_name] = html_body
+
+        # Merge accumulated fields
+        for field_name, html_parts in field_accumulator.items():
+            base_context[field_name] = "\n\n".join(html_parts)
+
+    # Fallback: Check for pre-converted *_md or *_html fields
+    if wow_package_key == "quick_social_basic":
+        for section_id, html_field in QUICK_SOCIAL_SECTION_MAP.items():
+            if html_field not in base_context or not base_context[html_field]:
+                # Try *_md field
+                md_field = html_field.replace("_html", "_md")
+                base_context[html_field] = (
+                    report_data.get(html_field)
+                    or convert_markdown_to_html(report_data.get(md_field, ""))
+                    or ""
+                )
+
+    elif wow_package_key == "strategy_campaign_standard":
+        base_context.update(
+            {
+                "campaign_duration": report_data.get("campaign_duration") or "",
+                "competitor_snapshot": report_data.get("competitor_snapshot") or [],
+                "personas": report_data.get("personas") or [],
+                "roi_model": report_data.get("roi_model") or {},
+                "brand_identity": report_data.get("brand_identity") or {},
+            }
+        )
+        for section_id, html_field in STRATEGY_CAMPAIGN_SECTION_MAP.items():
+            if html_field not in base_context or not base_context[html_field]:
+                md_field = html_field.replace("_html", "_md")
+                base_context[html_field] = (
+                    report_data.get(html_field)
+                    or convert_markdown_to_html(report_data.get(md_field, ""))
+                    or ""
+                )
+
+    # Create a copy to pass as 'report' for templates that use report.get()
+    # This allows both {{ field_name }} and {{ report.get('field_name') }} patterns
+    result = dict(base_context)
+    result["report"] = base_context
+
+    return result
 
 
 def render_agency_pdf(report_data: Dict[str, Any], wow_package_key: str) -> bytes:
