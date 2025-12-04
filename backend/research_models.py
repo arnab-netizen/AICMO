@@ -27,6 +27,11 @@ class BrandResearchResult(BaseModel):
     audience_language_snippets: List[str] = []
     hashtag_hints: List[str] = []
 
+    # Perplexity-Powered Hashtag Strategy v1
+    keyword_hashtags: Optional[List[str]] = None
+    industry_hashtags: Optional[List[str]] = None
+    campaign_hashtags: Optional[List[str]] = None
+
     def apply_fallbacks(self, brand_name: str, industry: str) -> "BrandResearchResult":
         """
         Apply deterministic fallbacks for any empty critical fields.
@@ -63,5 +68,53 @@ class BrandResearchResult(BaseModel):
             ][:3]
             if not self.hashtag_hints:
                 self.hashtag_hints = ["#Business", "#Local", "#Quality"]
+
+        # Fallback for keyword_hashtags
+        if self.keyword_hashtags is None:
+            self.keyword_hashtags = []
+        else:
+            # Remove duplicates and ensure all start with #
+            clean_keywords = []
+            seen = set()
+            for tag in self.keyword_hashtags:
+                if not tag.startswith("#"):
+                    tag = f"#{tag}"
+                tag_lower = tag.lower()
+                if tag_lower not in seen and len(tag) > 1:
+                    clean_keywords.append(tag)
+                    seen.add(tag_lower)
+            self.keyword_hashtags = clean_keywords
+
+        # Fallback for industry_hashtags
+        if self.industry_hashtags is None:
+            self.industry_hashtags = []
+        else:
+            # Remove duplicates and ensure all start with #
+            clean_industry = []
+            seen = set()
+            for tag in self.industry_hashtags:
+                if not tag.startswith("#"):
+                    tag = f"#{tag}"
+                tag_lower = tag.lower()
+                if tag_lower not in seen and len(tag) > 1:
+                    clean_industry.append(tag)
+                    seen.add(tag_lower)
+            self.industry_hashtags = clean_industry
+
+        # Fallback for campaign_hashtags
+        if self.campaign_hashtags is None:
+            self.campaign_hashtags = []
+        else:
+            # Remove duplicates and ensure all start with #
+            clean_campaign = []
+            seen = set()
+            for tag in self.campaign_hashtags:
+                if not tag.startswith("#"):
+                    tag = f"#{tag}"
+                tag_lower = tag.lower()
+                if tag_lower not in seen and len(tag) > 1:
+                    clean_campaign.append(tag)
+                    seen.add(tag_lower)
+            self.campaign_hashtags = clean_campaign
 
         return self

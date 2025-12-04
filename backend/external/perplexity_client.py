@@ -196,13 +196,17 @@ Search the web and return ONLY valid JSON matching this exact structure:
   ],
   "audience_pain_points": [],
   "audience_language_snippets": [],
-  "hashtag_hints": []
+  "hashtag_hints": [],
+  "keyword_hashtags": [],
+  "industry_hashtags": [],
+  "campaign_hashtags": []
 }}
 
 Rules:
 - Do NOT add commentary, markdown, or explanations.
 - Do NOT wrap the JSON in code fences.
 - All fields must exist, even if empty.
+- Hashtag fields (keyword_hashtags, industry_hashtags, campaign_hashtags) must be arrays of strings starting with #.
 - Keep answers concise and factual."""
 
     def _validate_research_result(self, result: BrandResearchResult) -> list[str]:
@@ -266,3 +270,222 @@ Rules:
 
         # All parsing attempts failed
         return None
+
+    async def fetch_hashtag_research(
+        self,
+        brand_name: str,
+        industry: str,
+        audience: str,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Fetch structured hashtag research from Perplexity API.
+
+        Calls Perplexity Sonar with a system prompt that produces ONLY a JSON dict:
+        - keyword_hashtags: 10-20 highly relevant tags
+        - industry_hashtags: 10-20 tags based on industry
+        - campaign_hashtags: 10 tags suitable for short-term promotions
+
+        Args:
+            brand_name: Name of the brand
+            industry: Industry/category
+            audience: Target audience description
+
+        Returns:
+            Dict with keyword_hashtags, industry_hashtags, campaign_hashtags arrays,
+            or None on failure
+        """
+        if not self.is_configured():
+            log.warning("[Perplexity] API key not configured - skipping hashtag research")
+            return None
+
+        log.info(
+            f"[Perplexity] Fetching hashtag research for brand={brand_name!r} industry={industry!r}"
+        )
+
+        # Build the hashtag-specific prompt
+        prompt = f"""You are a social media hashtag research engine.
+
+Given:
+Brand: {brand_name}
+Industry: {industry}
+Audience: {audience}
+
+Return ONLY valid JSON (no commentary, no markdown, no code fences):
+
+{{
+  "keyword_hashtags": ["#hashtag1", "#hashtag2", ...],
+  "industry_hashtags": ["#industry1", "#industry2", ...],
+  "campaign_hashtags": ["#campaign1", "#campaign2", ...]
+}}
+
+Requirements:
+- keyword_hashtags: 10-20 highly relevant tags based on brand/product keywords
+- industry_hashtags: 10-20 tags commonly used in {industry}
+- campaign_hashtags: 10 tags suitable for promotions/launches
+- All hashtags MUST start with #
+- All hashtags MUST be longer than 3 characters
+- No explanations, only JSON"""
+
+        # Prepare the request payload
+        payload = {
+            "model": "sonar",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.2,
+        }
+
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+
+        # Retry logic with exponential backoff (3 attempts max)
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                log.debug(f"[Perplexity Hashtags] Attempt {attempt + 1}/{max_retries}")
+
+                # Make the API call with 20-second timeout
+                with httpx.Client(timeout=httpx.Timeout(20.0)) as client:
+                    response = client.post(
+                        f"{self.base_url}/chat/completions", headers=headers, json=payload
+                    )
+
+                    # Check for rate limiting
+                    if response.status_code == 429:
+                        log.warning(
+                            f"[Perplexity Hashtags] Rate limit hit (429) on attempt {attempt + 1}/{max_retries}"
+                        )
+                        if attempt < max_retries - 1:
+                            backoff = 2**attempt
+                            log.info(f"[Perplexity Hashtags] Waiting {backoff}s before retry...")
+                            time.sleep(backoff)
+                        continue
+
+                    response.raise_for_status()
+
+                # Parse the response
+                response_data = response.json()
+
+                # Extract the content
+                if "choices" in response_data and len(response_data["choices"]) > 0:
+                    content = response_data["choices"][0]["message"]["content"]
+                else:
+                    log.warning(
+                        "[Perplexity Hashtags] Unexpected response format - missing 'choices' field"
+                    )
+                    return None
+
+                # Parse the JSON from the content
+                hashtag_data = self._parse_json_content(content)
+
+                if hashtag_data:
+                    # Validate hashtag format
+                    validated_data = self._validate_hashtag_data(hashtag_data)
+                    if validated_data:
+                        log.info(
+                            f"[Perplexity Hashtags] Success - "
+                            f"keyword={len(validated_data.get('keyword_hashtags', []))}, "
+                            f"industry={len(validated_data.get('industry_hashtags', []))}, "
+                            f"campaign={len(validated_data.get('campaign_hashtags', []))}"
+                        )
+                        return validated_data
+                    else:
+                        log.warning("[Perplexity Hashtags] Validation failed for hashtag data")
+                        return None
+                else:
+                    log.warning("[Perplexity Hashtags] Failed to parse valid JSON from response")
+                    return None
+
+            except httpx.HTTPStatusError as e:
+                log.warning(
+                    f"[Perplexity Hashtags] HTTP error on attempt {attempt + 1}/{max_retries}: "
+                    f"{e.response.status_code}"
+                )
+                if attempt < max_retries - 1:
+                    backoff = 1 * (attempt + 1)
+                    time.sleep(backoff)
+                continue
+
+            except httpx.RequestError as e:
+                log.warning(
+                    f"[Perplexity Hashtags] Network error on attempt {attempt + 1}/{max_retries}: "
+                    f"{type(e).__name__}"
+                )
+                if attempt < max_retries - 1:
+                    backoff = 1 * (attempt + 1)
+                    time.sleep(backoff)
+                continue
+
+            except json.JSONDecodeError:
+                log.warning(
+                    f"[Perplexity Hashtags] JSON parse error on attempt {attempt + 1}/{max_retries}"
+                )
+                if attempt < max_retries - 1:
+                    backoff = 1 * (attempt + 1)
+                    time.sleep(backoff)
+                continue
+
+            except Exception as e:
+                log.error(
+                    f"[Perplexity Hashtags] Unexpected error on attempt {attempt + 1}/{max_retries}: "
+                    f"{type(e).__name__}: {str(e)[:200]}"
+                )
+                if attempt < max_retries - 1:
+                    backoff = 1 * (attempt + 1)
+                    time.sleep(backoff)
+                continue
+
+        # All retries exhausted
+        log.error(
+            f"[Perplexity Hashtags] Hashtag research failed after {max_retries} attempts for brand={brand_name!r}"
+        )
+        return None
+
+    def _validate_hashtag_data(self, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Validate and clean hashtag data from Perplexity.
+
+        Ensures:
+        - All hashtags start with #
+        - All hashtags are longer than 3 characters
+        - No duplicates within each category
+
+        Returns:
+            Cleaned data dict or None if validation fails
+        """
+        validated = {}
+
+        for field in ["keyword_hashtags", "industry_hashtags", "campaign_hashtags"]:
+            if field not in data or not isinstance(data[field], list):
+                validated[field] = []
+                continue
+
+            clean_tags = []
+            seen = set()
+
+            for tag in data[field]:
+                if not isinstance(tag, str):
+                    continue
+
+                # Ensure starts with #
+                if not tag.startswith("#"):
+                    tag = f"#{tag}"
+
+                # Validate length (> 3 chars including #)
+                if len(tag) < 4:
+                    continue
+
+                # Remove duplicates
+                tag_lower = tag.lower()
+                if tag_lower in seen:
+                    continue
+
+                clean_tags.append(tag)
+                seen.add(tag_lower)
+
+            validated[field] = clean_tags
+
+        # Ensure we got at least some hashtags
+        total_tags = sum(len(validated[f]) for f in validated)
+        if total_tags == 0:
+            log.warning("[Perplexity Hashtags] Validation failed - no valid hashtags found")
+            return None
+
+        return validated

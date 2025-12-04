@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from textwrap import dedent
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 
 from pydantic import BaseModel, HttpUrl, Field
 
@@ -40,6 +40,10 @@ class BrandBrief(BaseModel):
     business_type: Optional[str] = None
     description: Optional[str] = None
 
+    # Research data (Perplexity-powered) - attached dynamically during pack generation
+    # Using Any to avoid circular dependency with backend.research_models
+    research: Optional[Any] = None
+
     def with_safe_defaults(self) -> "BrandBrief":
         """
         Return a copy where essential fields have sensible fallbacks.
@@ -67,6 +71,7 @@ class BrandBrief(BaseModel):
             locations=self.locations or [],
             business_type=self.business_type,
             description=self.description,
+            research=self.research,  # Preserve research data
         )
 
 

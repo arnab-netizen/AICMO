@@ -122,6 +122,26 @@ def enforce_benchmarks_with_regen(
         # If we have no callback or we've reached max attempts, fail loudly.
         if regenerate_failed_sections is None or attempt >= max_attempts:
             failing_ids = [getattr(fr, "section_id", "UNKNOWN") for fr in failing]
+
+            # DEBUG: Log detailed validation errors before raising
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(f"\n{'='*80}\nDETAILED VALIDATION FAILURES FOR {pack_key}:\n{'='*80}")
+            for fr in failing:
+                sid = getattr(fr, "section_id", "UNKNOWN")
+                issues = getattr(fr, "issues", [])
+                logger.error(f"\n📋 Section: {sid}")
+                logger.error(f"   Total issues: {len(issues)}")
+                for issue in issues[:10]:  # First 10 issues
+                    code = getattr(issue, "code", "?")
+                    msg = getattr(issue, "message", "?")
+                    sev = getattr(issue, "severity", "?")
+                    logger.error(f"   [{sev.upper()}] {code}: {msg}")
+                if len(issues) > 10:
+                    logger.error(f"   ... and {len(issues) - 10} more issues")
+            logger.error(f"{'='*80}\n")
+
             raise BenchmarkEnforcementError(
                 f"Benchmark validation failed for pack '{pack_key}' "
                 f"after {attempt} attempt(s). Failing sections: {failing_ids}"

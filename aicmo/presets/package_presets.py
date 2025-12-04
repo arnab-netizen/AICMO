@@ -57,6 +57,7 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
             "influencer_strategy",
             "promotions_and_offers",
             "detailed_30_day_calendar",
+            "email_and_crm_flows",  # Email automation flows
             "ad_concepts",
             "kpi_and_budget_plan",
             "execution_roadmap",

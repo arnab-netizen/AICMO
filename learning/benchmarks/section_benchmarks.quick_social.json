@@ -137,12 +137,14 @@
       "min_words": 100,
       "max_words": 300,
       "min_bullets": 5,
-      "max_bullets": 15,
-      "min_headings": 2,
-      "max_headings": 4,
+      "max_bullets": 35,
+      "min_headings": 3,
+      "max_headings": 5,
       "required_headings": [
         "Brand Hashtags",
-        "Industry Hashtags"
+        "Industry Hashtags",
+        "Campaign Hashtags",
+        "Usage Guidelines"
       ],
       "required_substrings": [],
       "forbidden_substrings": [
@@ -151,7 +153,9 @@
       "forbidden_regex": [],
       "max_repeated_line_ratio": 0.3,
       "max_avg_sentence_length": 24,
-      "format": "markdown_list"
+      "format": "markdown_list",
+      "min_hashtags_per_category": 3,
+      "must_start_with_hash": true
     },
 
     "kpi_plan_light": {

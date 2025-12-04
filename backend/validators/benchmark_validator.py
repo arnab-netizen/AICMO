@@ -499,6 +499,39 @@ def validate_section_against_benchmark(
                 )
             )
 
+    # Run enhanced quality checks (genericity, blacklist, duplicates, placeholders, premium language)
+    try:
+        from backend.validators.quality_checks import run_all_quality_checks
+
+        quality_issues = run_all_quality_checks(
+            text=content,
+            section_id=section_id,
+            genericity_threshold=0.35,
+        )
+
+        # Convert quality issues to validation issues
+        for quality_issue in quality_issues:
+            result.issues.append(
+                SectionValidationIssue(
+                    code=quality_issue.code,
+                    message=quality_issue.message,
+                    severity=quality_issue.severity,
+                )
+            )
+
+    except ImportError:
+        # Quality checks module not available - log warning but continue
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning("quality_checks module not available, skipping enhanced quality validation")
+    except Exception as e:
+        # Don't fail validation if quality checks crash
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Error running quality checks (non-critical): {e}")
+
     # Determine final status
     if any(i.severity == "error" for i in result.issues):
         result.status = "FAIL"

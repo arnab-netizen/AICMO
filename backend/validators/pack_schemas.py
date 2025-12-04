@@ -42,7 +42,7 @@ PACK_OUTPUT_SCHEMAS: Dict[str, PackSchema] = {
         "expected_section_count": 10,
     },
     # ============================================================
-    # 2. Strategy + Campaign Pack (Standard) - 16 sections
+    # 2. Strategy + Campaign Pack (Standard) - 17 sections
     # ============================================================
     "strategy_campaign_standard": {
         "required_sections": [
@@ -57,6 +57,7 @@ PACK_OUTPUT_SCHEMAS: Dict[str, PackSchema] = {
             "influencer_strategy",
             "promotions_and_offers",
             "detailed_30_day_calendar",
+            "email_and_crm_flows",
             "ad_concepts",
             "kpi_and_budget_plan",
             "execution_roadmap",
@@ -66,7 +67,7 @@ PACK_OUTPUT_SCHEMAS: Dict[str, PackSchema] = {
         "optional_sections": [],
         "enforce_order": True,
         "description": "Comprehensive, professional strategy for mid-market campaigns",
-        "expected_section_count": 16,
+        "expected_section_count": 17,
     },
     # ============================================================
     # 3. Strategy + Campaign Pack (Basic) - 6 sections

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from functools import lru_cache
 
@@ -31,6 +32,27 @@ def _cached_brand_research(
     result = client.research_brand(brand_name=brand_name, industry=industry, location=location)
 
     if result:
+        # Fetch hashtag research separately (async call)
+        try:
+            hashtag_data = asyncio.run(
+                client.fetch_hashtag_research(
+                    brand_name=brand_name, industry=industry, audience=f"{industry} customers"
+                )
+            )
+            if hashtag_data:
+                result.keyword_hashtags = hashtag_data.get("keyword_hashtags", [])
+                result.industry_hashtags = hashtag_data.get("industry_hashtags", [])
+                result.campaign_hashtags = hashtag_data.get("campaign_hashtags", [])
+                log.info(
+                    f"[BrandResearch] Enriched with hashtags: "
+                    f"keyword={len(result.keyword_hashtags)}, "
+                    f"industry={len(result.industry_hashtags)}, "
+                    f"campaign={len(result.campaign_hashtags)}"
+                )
+        except Exception as e:
+            log.warning(f"[BrandResearch] Failed to fetch hashtag research: {e}")
+            # Continue with base research even if hashtag fetch fails
+
         # Apply fallbacks to ensure data quality
         result = result.apply_fallbacks(brand_name=brand_name, industry=industry)
         log.info(f"[BrandResearch] Successfully fetched and validated research for {brand_name}")

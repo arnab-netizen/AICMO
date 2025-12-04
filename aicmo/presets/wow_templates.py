@@ -14,51 +14,57 @@ WOW_TEMPLATES: Dict[str, str] = {
     "quick_social_basic": r"""# {{brand_name}} – Quick Social Playbook
 ### Social Media Content Engine for {{primary_channel}} – {{city}}
 
+<!-- ⚠️ PRODUCTION-VERIFIED TEMPLATE: Quick Social Pack (Basic) -->
+<!-- DO NOT change section order, names, or placeholders without updating: -->
+<!-- - backend/main.py (generator mappings) -->
+<!-- - backend/validators/pack_schemas.py (benchmark enforcement) -->
+<!-- - tests/test_quick_social_pack_freeze.py (freeze tests) -->
+
 ---
 
-## 1. Brand & Context Snapshot
+## Brand & Context Snapshot
 
 {{overview}}
 
 ---
 
-## 2. Messaging Framework
+## Messaging Framework
 
 {{messaging_framework}}
 
 ---
 
-## 3. 30-Day Content Calendar
+## 30-Day Content Calendar
 
 {{detailed_30_day_calendar}}
 
 ---
 
-## 4. Content Buckets & Themes
+## Content Buckets & Themes
 
 {{content_buckets}}
 
 ---
 
-## 5. Hashtag Strategy
+## Hashtag Strategy
 
 {{hashtag_strategy}}
 
 ---
 
-## 6. KPIs & Lightweight Measurement Plan
+## KPIs & Lightweight Measurement Plan
 
 {{kpi_plan_light}}
 
 ---
 
-## 7. Execution Roadmap
+## Execution Roadmap
 
 {{execution_roadmap}}
 
 ---
 
-## 8. Final Summary & Next Steps
+## Final Summary & Next Steps
 
 {{final_summary}}
 """,
@@ -70,13 +76,13 @@ WOW_TEMPLATES: Dict[str, str] = {
 
 ---
 
-## 1. Campaign Overview
+## 1. Overview
 
 {{overview}}
 
 ---
 
-## 2. Campaign Objectives
+## 2. Campaign Objective
 
 {{campaign_objective}}
 
@@ -124,7 +130,7 @@ WOW_TEMPLATES: Dict[str, str] = {
 
 ---
 
-## 10. Promotions & Offers
+## 10. Promotions and Offers
 
 {{promotions_and_offers}}
 
@@ -136,7 +142,7 @@ WOW_TEMPLATES: Dict[str, str] = {
 
 ---
 
-## 12. Email & CRM Flows
+## 12. Email and CRM Flows
 
 {{email_and_crm_flows}}
 
@@ -148,7 +154,7 @@ WOW_TEMPLATES: Dict[str, str] = {
 
 ---
 
-## 14. KPI & Budget Plan
+## 14. KPI and Budget Plan
 
 {{kpi_and_budget_plan}}
 
