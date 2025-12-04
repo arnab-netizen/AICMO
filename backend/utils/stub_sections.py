@@ -107,12 +107,23 @@ def _stub_section_for_pack(pack_key: str, section_id: str, brief: Any) -> str | 
 
 
 def _stub_quick_social_overview(brand: str, goal: str, industry: str) -> str:
-    """Quick Social overview: ~200 words, 2 headings, 6 bullets."""
-    return f"""This plan delivers a focused social media approach for {brand} to achieve {goal}. Rather than spreading efforts thin across every platform and tactic, this strategy concentrates on proven content themes, consistent publishing rhythm, and measurable growth indicators.
+    """Quick Social overview: required format with Brand/Industry/Primary Goal headings."""
+    return f"""### Brand
+Brand: {brand}
 
-The framework emphasizes quality over quantity, building sustainable momentum through repeatable systems rather than one-off viral attempts. Each element connects directly to business outcomes while remaining achievable for small teams.
+### Industry
+Industry: {industry}
 
-## Core Focus Areas
+### Primary Goal
+Primary Goal: {goal}
+
+---
+
+This plan delivers a focused social media approach for {brand} to achieve measurable results. Rather than spreading efforts thin across every platform and tactic, this strategy concentrates on proven content themes, consistent publishing rhythm, and clear growth indicators.
+
+The framework emphasizes quality over quantity, building sustainable momentum through repeatable systems. Each element connects directly to outcomes while remaining achievable for small teams.
+
+### Core Focus Areas
 
 - **Content Foundation**: Establish 3-4 recurring themes that address audience pain points and showcase {brand}'s unique value
 - **Publishing Rhythm**: Maintain 5-7 posts weekly across primary platforms with optimized timing for {industry} audiences
@@ -126,17 +137,21 @@ This approach transforms random posting into a strategic system that compounds r
 
 def _stub_quick_social_final_summary(brand: str, goal: str) -> str:
     """Quick Social final_summary: ~200 words, 1 heading, 5 bullets, no forbidden phrases."""
-    return f"""This quick social media strategy gives {brand} a clear, actionable plan to achieve {goal}. The plan focuses on proven content themes, optimal publishing schedules, and platform-specific best practices that drive real engagement and measurable results.
+    return f"""This social media strategy gives {brand} a clear, actionable plan to achieve {goal}. The plan focuses on proven content themes, optimal publishing schedules, and platform-specific tactics that drive real engagement and measurable results.
 
-Success comes from consistent execution across all channels. Maintain the defined brand voice, follow the recommended content calendar, and monitor performance metrics weekly. Track what resonates with your audience and adapt based on data insights. This systematic approach replaces random activity with strategic content that builds audience loyalty and drives sustainable growth for {brand}.
+Success comes from consistent execution across all channels. Maintain the defined brand voice, follow the recommended content calendar, and monitor performance metrics weekly. Track what resonates with the audience and adapt based on data insights. This systematic approach replaces random activity with strategic content that builds audience loyalty and drives sustainable growth for {brand}.
+
+The framework provided here is designed to be immediately actionable, with specific posting schedules, content themes, and measurement criteria. Each element has been selected based on what works for brands in similar spaces, adapted specifically for {brand}'s unique positioning and audience.
 
 ### Key Takeaways
 
-- **Focus on Quality**: Prioritize high-performing content themes over posting frequency. This maximizes engagement and reach.
+- **Focus on Quality**: Prioritize high-performing content themes over posting frequency to maximize engagement and reach
 - **Stay Consistent**: Follow the content calendar and maintain brand voice across all channels for cohesive messaging
-- **Track Performance**: Monitor key metrics weekly and double down on what works best for your specific audience
+- **Track Performance**: Monitor key metrics weekly and double down on what works for the specific audience
 - **Engage Authentically**: Respond to comments and build genuine connections with {brand}'s audience to foster community
-- **Adapt Quickly**: Use data insights to refine content strategy and optimize for better results month over month"""
+- **Adapt Quickly**: Use data insights to refine content strategy and optimize for better results month over month
+
+Implementation begins with the detailed 30-day calendar provided in this playbook. Start with Week 1 content, measure results, and adjust based on what the data reveals about audience preferences and engagement patterns."""
 
 
 def _stub_quick_social_calendar(brand: str) -> str:
@@ -159,7 +174,7 @@ This calendar provides a structured approach to content distribution for {brand}
 | Saturday | Instagram | Lifestyle Content | Brand values or weekend inspiration | 11:00 AM |
 | Sunday | Instagram Story | Preview/Teaser | Next week's content or announcement | 7:00 PM |
 
-## Content Production Notes
+### Content Production Notes
 
 Batch-create content on Mondays and Thursdays to maintain efficiency. Repurpose top performers across platforms with platform-specific adjustments. Reserve 30 minutes daily for community management and real-time engagement opportunities."""
 
@@ -175,7 +190,7 @@ Content that teaches, informs, and positions {brand} as an authority in {industr
 - Tips and quick wins that deliver immediate value
 - Behind-the-scenes looks at your process or methodology
 
-## Social Proof & Trust
+### Social Proof & Trust
 
 Content that builds credibility through evidence of results, customer satisfaction, and real-world application of your solutions.
 
@@ -184,7 +199,7 @@ Content that builds credibility through evidence of results, customer satisfacti
 - Case studies demonstrating your approach and results
 - Team expertise and credentials that build confidence
 
-## Offers & Conversion
+### Offers & Conversion
 
 Content designed to move engaged audience members toward business outcomes, balancing promotional with non-promotional content at a 4:1 ratio.
 
@@ -208,7 +223,7 @@ Instagram serves as {brand}'s primary visual storytelling platform, leveraging f
 - Maintain 9-grid aesthetic with consistent color palette and design elements
 - Stories 2-3x daily: Mix polls, questions, and swipe-up links to drive engagement
 
-## LinkedIn Approach
+### LinkedIn Approach
 
 LinkedIn positions {brand} as a thought leader, targeting professional audiences with insights, case studies, and industry commentary.
 
@@ -217,7 +232,7 @@ LinkedIn positions {brand} as a thought leader, targeting professional audiences
 - Include relevant hashtags (3-5 max) and tag mentioned companies/people
 - Engage with comments within first hour of posting for maximum reach
 
-## TikTok & Reels
+### TikTok & Reels
 
 Short-form video content designed for discovery, using trends and hooks to attract new audiences while staying on-brand.
 
@@ -226,31 +241,43 @@ Short-form video content designed for discovery, using trends and hooks to attra
 - Keep videos 15-30 seconds for maximum completion rate
 - Include text overlays for sound-off viewing and accessibility
 
-## Platform Optimization
+### Platform Optimization
 
 Optimize posting times based on when your specific audience is most active. Review Instagram and LinkedIn analytics monthly to refine timing and content mix."""
 
 
 def _stub_quick_social_hashtag_strategy(brand: str, industry: str) -> str:
-    """Hashtag strategy: ~180 words, 4 headings, 12 bullets."""
+    """Hashtag strategy: required sections including Campaign Hashtags with 3+ tags and Usage Guidelines."""
+    brand_tag = brand.replace(" ", "").replace("&", "and").lower()
+    industry_tag = industry.split()[0].replace("/", "").lower() if industry else "market"
+
     return f"""### Brand Hashtags
 
 Proprietary hashtags that build {brand} equity and community. Use consistently across all posts to create searchable brand content.
 
-- #{brand.lower().replace(' ', '')}
-- #{brand.lower().replace(' ', '')}Community
-- #{brand.lower().replace(' ', '')}Way
+- #{brand_tag}
+- #{brand_tag}community
+- #{brand_tag}experience
 
-## Industry Hashtags
+### Industry Hashtags
 
 Target 8-12 relevant industry tags per post to maximize discoverability within {industry} audiences.
 
-- #{industry.lower().replace(' ', '')}
-- #{industry.lower().replace(' ', '')}Tips
-- #{industry.lower().replace(' ', '')}Business
-- #{industry.lower().replace(' ', '')}Community
+- #{industry_tag}
+- #{industry_tag}insider
+- #{industry_tag}daily
+- #{industry_tag}community
 
-## Size Mix Strategy
+### Campaign Hashtags
+
+Campaign-specific tags for tracking promotional efforts and user-generated content:
+
+- #{brand_tag}challenge
+- #{brand_tag}giveaway
+- #{brand_tag}rewards
+- #{brand_tag}featured
+
+### Size Mix Strategy
 
 Balance hashtag reach by mixing popular, medium, and niche tags to maximize visibility across audience segments.
 
@@ -258,9 +285,14 @@ Balance hashtag reach by mixing popular, medium, and niche tags to maximize visi
 - 4-5 medium hashtags (50K-500K posts) for engaged communities
 - 3-4 niche hashtags (under 50K posts) for targeted visibility
 
-## Best Practices
+### Usage Guidelines
 
-Research competitor hashtags monthly to discover new opportunities. Avoid banned or spam-associated hashtags that limit post reach. Update mix quarterly based on performance analytics and trending topics."""
+Research competitor hashtags monthly to discover new opportunities. Avoid banned or spam-associated hashtags that limit post reach. Update mix quarterly based on performance analytics and trending topics.
+
+**Primary Posts**: Use 3-5 brand + industry hashtags for maximum reach  
+**Stories**: Use 1-2 hashtags maximum for cleaner aesthetic  
+**Reels/TikTok**: Test trending hashtags alongside brand tags  
+**Rotation**: Refresh hashtag mix monthly based on performance data"""
 
 
 def _stub_quick_social_30_day_calendar(brand: str, industry: str) -> str:
@@ -300,7 +332,7 @@ def _stub_quick_social_30_day_calendar(brand: str, industry: str) -> str:
 | 29 | LinkedIn | Month in review: Highlights and thank you | Community | See recap |
 | 30 | Instagram | Next month sneak peek | Experience | Stay tuned |
 
-## Implementation Notes
+### Implementation Notes
 
 Batch-create content weekly. Adjust timing based on platform analytics. Maintain 70% educational/community, 30% promotional balance."""
 
@@ -311,7 +343,7 @@ def _stub_quick_social_messaging_framework(brand: str, industry: str) -> str:
 
 {brand} delivers authentic {industry.lower()} experiences that transform daily routines into meaningful moments. The brand voice balances approachability with expertise, making quality accessible to everyday customers.
 
-## Key Pillars
+### Key Pillars
 
 Strategic messaging organized into distinct themes that address different audience motivations:
 
@@ -320,7 +352,7 @@ Strategic messaging organized into distinct themes that address different audien
 - **Accessibility**: Demonstrate that quality doesn't require premium prices, making excellence approachable
 - **Expertise**: Showcase team knowledge and passion, educating customers while respecting their intelligence
 
-## Voice & Tone
+### Voice & Tone
 
 {brand}'s communication style maintains consistency across platforms while adapting to context:
 
@@ -343,7 +375,7 @@ Track how many people see {brand} content across platforms to measure top-of-fun
 - Twitter impressions and profile visits
 - Overall follower growth rate month-over-month
 
-## Engagement Metrics
+### Engagement Metrics
 
 Measure how audiences interact with content, indicating message resonance and community strength:
 
@@ -352,7 +384,7 @@ Measure how audiences interact with content, indicating message resonance and co
 - Twitter retweets, replies, and bookmark rate
 - Engagement rate per post (interactions/reach)
 
-## Traffic & Conversion
+### Traffic & Conversion
 
 Connect social activity to business outcomes and bottom-line impact for {goal}:
 
@@ -361,7 +393,7 @@ Connect social activity to business outcomes and bottom-line impact for {goal}:
 - Store visits tracked through location tags
 - Conversion rate from social visitors to customers
 
-## Growth Indicators
+### Growth Indicators
 
 Long-term health metrics that show sustainable audience building and brand strength:
 
@@ -384,7 +416,7 @@ Establish core systems and content infrastructure to enable efficient execution:
 - Set up analytics tracking and baseline metrics dashboard
 - Batch-create first week of content (5-7 posts)
 
-## Weeks 2-4: Momentum Building
+### Weeks 2-4: Momentum Building
 
 Execute consistently while refining approach based on early performance signals:
 
@@ -395,7 +427,7 @@ Execute consistently while refining approach based on early performance signals:
 - Build content library with top performers for repurposing
 - Identify brand advocates and collaboration opportunities
 
-## Ongoing Optimization
+### Ongoing Optimization
 
 Systematic improvement cycle that compounds results month over month:
 
@@ -405,7 +437,7 @@ Systematic improvement cycle that compounds results month over month:
 - Continuous A/B testing of hooks, formats, and posting times
 - Community nurture through consistent engagement and features
 
-## Next Steps
+### Next Steps
 
 Start by auditing existing profiles this week. Set up tracking systems before creating new content. Batch-produce content weekly to maintain consistency without daily creative pressure. {brand} should see measurable engagement improvements within 30 days of consistent execution."""
 
@@ -421,11 +453,11 @@ def _stub_strategy_overview(brand: str, goal: str, industry: str = "Technology")
 
 {brand} is establishing a systematic marketing approach that creates sustainable competitive advantages through integrated campaigns and data-driven optimization.
 
-## Industry
+### Industry
 
 Operating in the {industry} space, this strategy addresses market-specific dynamics while leveraging proven frameworks that scale across customer segments.
 
-## Primary Goal
+### Primary Goal
 
 The core objective is to {goal}, achieved through coordinated campaigns that build momentum over time rather than relying on isolated tactical efforts.
 
@@ -447,7 +479,7 @@ Drive measurable progress toward {goal} for {brand} through integrated marketing
 
 This objective balances brand-building with performance marketing, recognizing that sustainable growth requires both immediate conversions and long-term brand equity that reduces acquisition costs over time.
 
-## Secondary Objectives
+### Secondary Objectives
 
 Beyond the primary goal, this campaign aims to establish foundational assets and capabilities that compound value beyond the initial 90-day period:
 
@@ -457,7 +489,7 @@ Beyond the primary goal, this campaign aims to establish foundational assets and
 - Develop customer insights and data that inform product development and positioning
 - Generate case studies and testimonials that strengthen future marketing effectiveness
 
-## Time Horizon
+### Time Horizon
 
 The campaign follows a 90-day primary cycle with built-in learning checkpoints at 30 and 60 days. This allows for tactical adjustments while maintaining strategic consistency. Success metrics are tracked weekly, with major optimizations occurring monthly based on accumulated performance data.
 
@@ -474,7 +506,7 @@ This big idea differentiates {brand} by focusing on customer outcomes rather tha
 
 The approach creates a distinctive point of view that cuts through category noise, making {brand} memorable and desirable to target audiences who currently view competitors as interchangeable commodities.
 
-## Creative Territory
+### Creative Territory
 
 The creative execution explores three interconnected themes that work individually and compound when combined across touchpoints:
 
@@ -484,7 +516,7 @@ The creative execution explores three interconnected themes that work individual
 - **Community & Belonging**: Showcasing customers who've succeeded, creating aspirational peer group that prospects want to join
 - **Innovation Edge**: Highlighting {brand}'s unique approach or methodology that delivers superior outcomes compared to standard solutions
 
-## Why It Works
+### Why It Works
 
 This idea succeeds because it addresses both rational and emotional drivers of purchase decisions. Target customers feel overwhelmed by options and frustrated by past solutions that underdelivered. This campaign cuts through confusion with clarity, backs claims with evidence, and creates emotional resonance through authentic customer stories.
 
@@ -499,7 +531,7 @@ Success requires three key commitments: (1) Consistent execution of the content 
 
 The framework outlined here transforms random marketing activities into a repeatable, scalable system. By concentrating efforts on proven content buckets, maintaining platform-specific best practices, and measuring results against clear benchmarks, {brand} will build momentum that compounds over time. This systematic approach replaces guesswork with strategy, creating a foundation for long-term marketing success.
 
-## Key Takeaways
+### Key Takeaways
 
 **Critical Success Factors for {brand}:**
 
@@ -523,7 +555,7 @@ This comprehensive growth framework establishes an integrated system for {brand}
 
 The framework recognizes that modern customers rarely follow linear paths, requiring multiple touchpoints across awareness, consideration, conversion, and retention stages. This strategy creates cohesive experiences that build trust progressively while providing multiple entry points for different customer segments.
 
-## Growth Framework
+### Growth Framework
 
 - **Awareness Engine**: Top-of-funnel tactics that generate qualified traffic through content marketing, paid acquisition, partnerships, and organic visibility across channels where target customers spend time
 - **Consideration Nurture**: Middle-funnel sequences that educate prospects, address objections, demonstrate value, and build preference through case studies, comparisons, and proof points
@@ -546,7 +578,7 @@ This specialized strategy addresses the unique challenges and opportunities faci
 
 Rather than generic advice, this plan provides actionable frameworks tailored to your current situation, resources, and market position. Each recommendation connects directly to business outcomes while remaining achievable given realistic constraints.
 
-## Strategic Approach
+### Strategic Approach
 
 - **Situation Analysis**: Comprehensive assessment of current state, identifying strengths to leverage and gaps to address through targeted interventions
 - **Priority Actions**: Sequenced initiatives that deliver quick wins while building toward long-term objectives, maintaining momentum throughout execution
@@ -583,7 +615,7 @@ This section provides strategic guidance for {brand} to achieve {goal} within th
 
 The strategy outlined here connects directly to business outcomes while remaining practical given resource constraints. Each element builds on established best practices while accounting for your unique market position and competitive landscape.
 
-## Key Elements
+### Key Elements
 
 - **Foundation**: Comprehensive analysis of current state identifies strengths to leverage and gaps to address through targeted initiatives
 - **Strategy**: Clear roadmap with prioritized actions that deliver quick wins while building sustainable competitive advantages

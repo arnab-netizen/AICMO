@@ -7587,23 +7587,27 @@ def _apply_wow_to_output(
             logger.debug(f"Pack contract validation error (non-critical): {e}")
 
         # 🔥 PHASE 2: Validate section quality against benchmarks (FIXED)
-        try:
-            from backend.validators.report_gate import validate_report_sections
-            from backend.utils.wow_markdown_parser import parse_wow_markdown_to_sections
+        # STUB MODE: Skip validation in stub mode (stubs are for testing infrastructure)
+        if is_stub_mode():
+            logger.info(f"[STUB MODE] Skipping WOW quality validation for {req.wow_package_key}")
+        else:
+            try:
+                from backend.validators.report_gate import validate_report_sections
+                from backend.utils.wow_markdown_parser import parse_wow_markdown_to_sections
 
-            # FIX BUG #1 & #2: Parse actual wow_markdown into sections for validation
-            # (Previously validated WOW rule metadata instead of actual content)
-            validation_sections = parse_wow_markdown_to_sections(wow_markdown)
+                # FIX BUG #1 & #2: Parse actual wow_markdown into sections for validation
+                # (Previously validated WOW rule metadata instead of actual content)
+                validation_sections = parse_wow_markdown_to_sections(wow_markdown)
 
-            if validation_sections:
-                logger.info(
-                    "VALIDATION_START",
-                    extra={
-                        "pack_key": req.wow_package_key,
-                        "sections_to_validate": len(validation_sections),
-                        "section_ids": [s["id"] for s in validation_sections],
-                    },
-                )
+                if validation_sections:
+                    logger.info(
+                        "VALIDATION_START",
+                        extra={
+                            "pack_key": req.wow_package_key,
+                            "sections_to_validate": len(validation_sections),
+                            "section_ids": [s["id"] for s in validation_sections],
+                        },
+                    )
 
                 validation_result = validate_report_sections(
                     pack_key=req.wow_package_key, sections=validation_sections
@@ -7633,20 +7637,20 @@ def _apply_wow_to_output(
                         f"⚠️  Quality warnings for {req.wow_package_key}:\n{error_summary}"
                     )
                     # Non-breaking: log warnings but continue
-            else:
-                logger.warning(
-                    "No sections parsed from wow_markdown for validation - "
-                    "this may indicate a parsing issue or empty report"
-                )
+                else:
+                    logger.warning(
+                        "No sections parsed from wow_markdown for validation - "
+                        "this may indicate a parsing issue or empty report"
+                    )
 
-        except ValueError:
-            # Re-raise ValueError (quality gate failures) - these should fail the request
-            raise
-        except Exception as e:
-            # Other exceptions are non-critical (e.g., validation system unavailable)
-            logger.warning(
-                f"Benchmark validation error (non-critical) for {req.wow_package_key}: {e}"
-            )
+            except ValueError:
+                # Re-raise ValueError (quality gate failures) - these should fail the request
+                raise
+            except Exception as e:
+                # Other exceptions are non-critical (e.g., validation system unavailable)
+                logger.warning(
+                    f"Benchmark validation error (non-critical) for {req.wow_package_key}: {e}"
+                )
 
     except ValueError as ve:
         # If this is specifically a quality validation failure, it MUST be fatal
