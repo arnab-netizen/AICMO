@@ -1,0 +1,38 @@
+2025-12-04 06:53:45 | INFO     | backend.main | 🔥 [HTTP LEARNING] Status: DISABLED (default)
+
+================================================================================
+AICMO PACK HARDENING - COMPREHENSIVE VALIDATION
+================================================================================
+Testing 5 packs
+Reference standard: strategy_campaign_standard (0 errors, 2 warnings)
+================================================================================
+
+================================================================================
+TESTING: LAUNCH_GTM_PACK
+================================================================================
+Traceback (most recent call last):
+  File "/workspaces/AICMO/scripts/validate_all_packs.py", line 261, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/workspaces/AICMO/scripts/validate_all_packs.py", line 201, in main
+    result = test_pack(pack_name)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "/workspaces/AICMO/scripts/validate_all_packs.py", line 107, in test_pack
+    req = create_test_brief(pack_name)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspaces/AICMO/scripts/validate_all_packs.py", line 76, in create_test_brief
+    brand = BrandBrief(
+            ^^^^^^^^^^^
+  File "/usr/local/python/3.12.1/lib/python3.12/site-packages/pydantic/main.py", line 212, in __init__
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pydantic_core._pydantic_core.ValidationError: 3 validation errors for BrandBrief
+product_service
+  Field required [type=missing, input_value={'brand_name': 'LaunchPro...ts-driven, data-backed'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.9/v/missing
+primary_goal
+  Field required [type=missing, input_value={'brand_name': 'LaunchPro...ts-driven, data-backed'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.9/v/missing
+primary_customer
+  Field required [type=missing, input_value={'brand_name': 'LaunchPro...ts-driven, data-backed'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.9/v/missing
