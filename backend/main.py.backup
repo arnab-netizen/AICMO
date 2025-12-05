@@ -586,12 +586,11 @@ def _gen_overview(
         f"delivering exceptional {b.product_service or 'products and services'} to {b.primary_customer or 'target customers'}. "
         f"{industry_desc.split('. ', 1)[1] if '. ' in industry_desc else industry_desc}\n\n"
         f"### Strategic Approach\n\n"
-        f"This initiative focuses on measurable outcomes and sustainable growth through data-driven execution:\n\n"
+        f"This initiative focuses on measurable outcomes and sustainable growth:\n\n"
         f"- Build consistent content calendar across key platforms (social media, email, paid advertising)\n"
-        f"- Track engagement metrics (reach, click-through rate, conversion rate) with weekly reviews\n"
+        f"- Track engagement metrics (reach, click-through rate, conversion rate)\n"
         f"- Establish authentic brand voice through customer stories and proof points\n"
-        f"- Optimize based on real-time performance data with monthly strategic reviews\n"
-        f"- Implement systematic testing to identify winning approaches and scale results"
+        f"- Optimize based on real-time performance data"
     )
     return sanitize_output(raw, req.brief)
 
@@ -818,17 +817,12 @@ def _gen_messaging_framework(
         f"real impact for {g.primary_goal or 'their goals'}. This messaging foundation drives all brand "
         f"communications and ensures customer-centered consistency across channels."
         f"{positioning_line}{competitor_line}\n\n"
-        f"The core message establishes {b.brand_name}'s market positioning while remaining flexible enough "
-        f"for channel-specific adaptation across touchpoints. Whether communicating through social media, email campaigns, or "
-        f"paid advertising, this central promise anchors every customer interaction with consistent value delivery and authentic engagement.\n\n"
         f"## Key Themes\n\n"
         f"**Strategic Pillars for All Communications:**\n\n"
         + "\n".join(f"- {msg}" for msg in key_messages if msg)
         + "\n\n"
         "These themes guide all brand communications, ensuring consistency while allowing platform-specific "
-        "adaptation. Each message reinforces brand values and customer benefits while maintaining authentic voice. "
-        "Content creators should reference these themes when developing campaigns, ensuring alignment across "
-        "all channels and customer journey stages from initial awareness through conversion.\n\n"
+        "adaptation. Each message reinforces brand values and customer benefits while maintaining authentic voice.\n\n"
         "## Proof Points\n\n" + "\n".join(f"- {pp}" for pp in proof_points if pp) + "\n\n"
         "This messaging framework ensures all communications maintain consistency and authenticity "
         "across every customer touchpoint, building trust through reliable, value-driven interactions."
@@ -1753,17 +1747,7 @@ def _gen_kpi_and_budget_plan(req: GenerateRequest, **kwargs) -> str:
     b = req.brief.brand
 
     raw = (
-        f"## KPIs\n\n"
-        f"**Primary Success Metrics for {b.brand_name}:**\n\n"
-        f"- Awareness: Reach {b.primary_customer or 'target audience'} with 50K+ impressions monthly\n"
-        f"- Engagement: Achieve >2.5% average engagement rate across platforms\n"
-        f"- Lead Generation: Capture 100+ qualified leads at <$50 cost-per-lead\n"
-        f"- Conversion: Drive {g.primary_goal or 'target conversions'} with 3%+ landing page conversion rate\n"
-        f"- Revenue Impact: Generate 3.5:1 return on ad spend minimum\n"
-        f"- Audience Growth: Increase email list by 15% and social following by 20% quarterly\n\n"
-        f"Track weekly for tactical adjustments. Review monthly for strategic optimization. "
-        f"Conduct quarterly comprehensive audits to assess campaign health.\n\n"
-        f"## Budget Allocation\n\n"
+        f"### Budget Split by Channel\n\n"
         f"**Strategic Budget Allocation for {g.primary_goal or 'Campaign Objectives'}:**\n\n"
         f"Organic/owned content creation receives 40% (content development, creative production, community management). "
         f"Paid social advertising gets 35% (Facebook/Instagram Ads, LinkedIn, platform campaigns). "
@@ -4440,7 +4424,7 @@ Tailored creative execution optimizing for each platform's unique environment:
 
 **Display/Programmatic**: Visual interruption with clear value proposition. Format: Responsive display ads with 3-5 image/copy variations. Design: Bold headline, clear benefit, brand logo, strong CTA button. Placement: Contextual targeting on relevant content sites plus remarketing to site visitors. Animation: Subtle movement catching eye without being obnoxious.
 
-## Creative Principles
+## Creative Best Practices
 
 Universal principles driving ad performance across all platforms:
 
@@ -5268,15 +5252,14 @@ Monthly A/B testing of subject lines, send times, content formats, and CTA place
 
 def _gen_full_30_day_calendar(req: GenerateRequest, **kwargs) -> str:
     """Generate 'full_30_day_calendar' section - comprehensive 30-day content calendar."""
-    b = req.brief.brand
-    g = req.brief.goal
+    _ = req.brief.brand  # noqa: F841
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
 
     # Full-funnel pack needs detailed weekly table format
     if "full_funnel" in pack_key.lower():
-        return f"""## Week 1: Foundation & Awareness
+        return """## Week 1: Foundation & Awareness
 
-Building initial market presence for {b.brand_name} with educational content targeting {g.primary_goal or 'growth objectives'}. This calendar is tailored specifically for {b.brand_name} in the {b.industry or 'target market'}, focusing on {b.primary_customer or 'your ideal customers'}.
+Building initial market presence with educational content and brand introduction:
 
 | Day | Content Type | Platform | Topic/Theme | Format | CTA | Success Metric |
 |-----|-------------|----------|-------------|--------|-----|----------------|
@@ -5290,7 +5273,7 @@ Building initial market presence for {b.brand_name} with educational content tar
 
 ## Week 2: Social Proof & Validation
 
-Establishing {b.brand_name} credibility in {b.industry or 'the market'} through customer stories and validation:
+Establishing credibility through customer stories and expert validation:
 
 | Day | Content Type | Platform | Topic/Theme | Format | CTA | Success Metric |
 |-----|-------------|----------|-------------|--------|-----|----------------|
@@ -5304,7 +5287,7 @@ Establishing {b.brand_name} credibility in {b.industry or 'the market'} through 
 
 ## Week 3: Engagement & Conversion
 
-Driving {b.brand_name} engagement and conversion tactics for {g.primary_goal or 'growth goals'}:
+Driving active engagement and conversion-focused content:
 
 | Day | Content Type | Platform | Topic/Theme | Format | CTA | Success Metric |
 |-----|-------------|----------|-------------|--------|-----|----------------|
@@ -5318,7 +5301,7 @@ Driving {b.brand_name} engagement and conversion tactics for {g.primary_goal or 
 
 ## Week 4: Consolidation & Expansion
 
-Reinforcing {b.brand_name} momentum and expanding {b.primary_customer or 'audience'} reach:
+Reinforcing momentum and expanding reach:
 
 | Day | Content Type | Platform | Topic/Theme | Format | CTA | Success Metric |
 |-----|-------------|----------|-------------|--------|-----|----------------|
@@ -5330,19 +5313,19 @@ Reinforcing {b.brand_name} momentum and expanding {b.primary_customer or 'audien
 | Sat | Community spotlight | Newsletter | Top contributors | Recognition post | Nominate Others | 50+ nominations |
 | Sun | Preview next month | Social + Email | Coming attractions | Teaser campaign | Stay Tuned | 35%+ engagement |
 
-**Posting Cadence for {b.brand_name}**: Daily content targeting {b.primary_customer or 'the audience'} across 3-5 platforms with these execution principles:
+**Posting Cadence**: Daily content across 3-5 platforms maintaining consistent presence with these execution principles:
 
-- Monday-Friday focus on high-value educational content driving {g.primary_goal or 'business objectives'} and conversion
+- Monday-Friday focus on high-value educational and conversion content driving business objectives
 - Weekends lighter with community-building and recap content maintaining engagement without overwhelming audience
 - All posts scheduled 2 weeks ahead with 20% buffer for reactive/timely content capitalizing on trends
 - Cross-platform repurposing maximizing content ROI - one blog becomes social posts, email content, video script
 - Platform-native formatting ensuring content feels organic not copy-pasted - LinkedIn long-form, Twitter threads, Instagram stories
 - Morning posts (8-10am) for professional content, evening posts (6-8pm) for consumer/entertainment content optimizing engagement
 - Quarterly content audits reviewing top performers and eliminating low-engagement content types streamlining efforts
-- {b.brand_name} team collaboration workflow with content calendar, approval process, and performance tracking dashboard ensuring consistency
-- {b.brand_name} community management protocols responding to {b.primary_customer or 'customer'} comments/DMs within 2 hours building relationships
-- Monthly {b.brand_name} content retrospectives analyzing what resonated with {b.primary_customer or 'the audience'}, what flopped, and strategic adjustments for continuous improvement
-- Paid promotion budget allocated to boost top {b.brand_name} organic performers amplifying {g.primary_goal or 'goal achievement'}
+- Team collaboration workflow with content calendar, approval process, and performance tracking dashboard ensuring consistency
+- Community management protocols responding to comments/DMs within 2 hours building relationships and addressing questions
+- Monthly content retrospectives analyzing what worked, what flopped, and strategic adjustments for continuous improvement
+- Paid promotion budget allocated to boost top organic performers amplifying reach and conversion potential
 - A/B testing on headlines, images, CTAs identifying high-performing formats to scale across future content
 - Influencer collaboration schedule partnering with 2-3 micro-influencers monthly expanding audience reach authentically"""
     else:
