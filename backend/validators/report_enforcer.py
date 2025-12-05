@@ -66,6 +66,7 @@ def enforce_benchmarks_with_regen(
         Callable[[List[str], List[Dict[str, Any]]], List[Dict[str, str]]]
     ] = None,
     max_attempts: int = 2,
+    fallback_to_original: Optional[Dict[str, str]] = None,
 ) -> EnforcementOutcome:
     """
     Enforce benchmarks on a set of sections for a given pack.
@@ -79,7 +80,9 @@ def enforce_benchmarks_with_regen(
            content for only those sections.
         -> Merge regenerated sections into the list and validate again.
     - If still failing after max_attempts:
-        -> Raise BenchmarkEnforcementError with details.
+        -> NEW: If fallback_to_original is provided for failing section IDs, use those
+           original templates instead of raising an error.
+        -> Otherwise, raise BenchmarkEnforcementError with details.
 
     Args:
         pack_key: The pack being generated (e.g. "quick_social_basic").
@@ -89,12 +92,16 @@ def enforce_benchmarks_with_regen(
             - failing_issues: List[Dict[str, Any]] (per-section issue summaries)
           and returns a NEW list of sections (matching those ids) with improved content.
         max_attempts: Maximum number of validation attempts (including the first one).
+        fallback_to_original: Optional dict mapping section_id -> original template content.
+          If provided, failing sections after max_attempts will transparently fall back
+          to these safe template versions instead of raising errors.
 
     Returns:
         EnforcementOutcome with the final validated sections and validation result.
 
     Raises:
-        BenchmarkEnforcementError: If content still fails after regeneration attempts.
+        BenchmarkEnforcementError: If content still fails after regeneration attempts
+          AND no fallback is available.
     """
     if max_attempts < 1:
         raise ValueError("max_attempts must be >= 1")
@@ -119,7 +126,7 @@ def enforce_benchmarks_with_regen(
                 validation=validation,
             )
 
-        # If we have no callback or we've reached max attempts, fail loudly.
+        # If we have no callback or we've reached max attempts, check for fallback.
         if regenerate_failed_sections is None or attempt >= max_attempts:
             failing_ids = [getattr(fr, "section_id", "UNKNOWN") for fr in failing]
 
@@ -141,6 +148,50 @@ def enforce_benchmarks_with_regen(
                 if len(issues) > 10:
                     logger.error(f"   ... and {len(issues) - 10} more issues")
             logger.error(f"{'='*80}\n")
+
+            # NEW: Try fallback to original template for sections that have it
+            if fallback_to_original:
+                fallback_applied = False
+                indexed = _index_sections_by_id(current_sections)
+
+                for sid in failing_ids:
+                    if sid in fallback_to_original:
+                        logger.warning(
+                            f"[BENCHMARK FALLBACK] Section '{sid}' failed after {attempt} "
+                            f"attempt(s). Falling back to safe template version."
+                        )
+                        indexed[sid] = {
+                            "id": sid,
+                            "content": fallback_to_original[sid],
+                        }
+                        fallback_applied = True
+
+                if fallback_applied:
+                    # Re-merge and validate one more time with fallback content
+                    current_sections = list(indexed.values())
+                    final_validation = validate_report_sections(
+                        pack_key=pack_key,
+                        sections=current_sections,
+                    )
+                    final_status = getattr(final_validation, "status", "PASS")
+                    final_failing = list(final_validation.failing_sections())
+
+                    if not final_failing:
+                        logger.info(
+                            f"[BENCHMARK FALLBACK] Successfully recovered with template "
+                            f"fallback for {len([s for s in failing_ids if s in fallback_to_original])} section(s)"
+                        )
+                        return EnforcementOutcome(
+                            status=final_status,
+                            sections=current_sections,
+                            validation=final_validation,
+                        )
+                    else:
+                        # Even fallback failed (shouldn't happen if template is known-good)
+                        logger.error(
+                            "[BENCHMARK FALLBACK] Fallback templates still failed validation! "
+                            "This indicates a bug in the fallback mechanism."
+                        )
 
             raise BenchmarkEnforcementError(
                 f"Benchmark validation failed for pack '{pack_key}' "
