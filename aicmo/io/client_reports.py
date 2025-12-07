@@ -335,6 +335,8 @@ class AICMOOutputReport(BaseModel):
     action_plan: Optional[ActionPlan] = None
     # TURBO: agency-grade extra sections (title → markdown body)
     extra_sections: Dict[str, str] = Field(default_factory=dict)
+    # Structured brand strategy block (used for rendering and exports)
+    brand_strategy_block: Optional[Dict[str, Any]] = None
     # Auto-detected competitors via OSM or Google Places
     auto_detected_competitors: Optional[List[Dict]] = None
     # Competitor visual benchmark (auto-detected or user-uploaded)
