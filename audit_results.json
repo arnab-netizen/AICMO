@@ -1,0 +1,794 @@
+[
+  {
+    "pack_key": "quick_social_basic",
+    "sections": {
+      "A": {
+        "status": "PASS",
+        "files_found": [
+          "backend/main.py (PACK_SECTION_WHITELIST)",
+          "backend/validators/pack_schemas.py",
+          "learning/benchmarks/ (1 files)",
+          "backend/templates/pdf/quick_social_basic.html"
+        ],
+        "symbols_found": [
+          "PACK_SECTION_WHITELIST['quick_social_basic'] = {8 sections}",
+          "PackSchema for quick_social_basic",
+          "Benchmark: pack_quick_social_basic_d2c.json",
+          "PDF HTML Template"
+        ],
+        "gaps": []
+      },
+      "B": {
+        "status": "PASS",
+        "entry_point": "api_aicmo_generate_report() in backend/main.py",
+        "call_chain": [
+          "Request validation: GenerateRequest.wow_package_key",
+          "Whitelist enforcement: 8 allowed sections",
+          "Schema validation: 10 required sections"
+        ],
+        "schema_match": true,
+        "issues": []
+      },
+      "C": {
+        "status": "PASS",
+        "config_items": [
+          "Pack registered in PACK_SECTION_WHITELIST with 8 sections",
+          "Schema defined with 10 required sections"
+        ],
+        "template_items": [
+          "PDF template: quick_social_basic.html"
+        ],
+        "registration": "PASS",
+        "issues": []
+      },
+      "D": {
+        "status": "PASS",
+        "test_files": [
+          "benchmark_utils.py",
+          "test_agency_report_benchmark_integration.py",
+          "test_benchmark_validation.py",
+          "test_report_benchmark_enforcement.py",
+          "test_benchmarks_wiring.py",
+          "test_benchmark_enforcement_smoke.py",
+          "test_quick_social_driftwood.py",
+          "test_quick_social_hygiene.py"
+        ],
+        "benchmark_files": [
+          "pack_quick_social_basic_d2c.json"
+        ],
+        "coverage_gaps": [
+          "\u2713 Benchmark config loads successfully",
+          "Missing comprehensive pack-level test for quick_social_basic"
+        ]
+      },
+      "E": {
+        "status": "PASS",
+        "commands": [
+          "pytest backend/tests/test_benchmark_enforcement_smoke.py -k quick_social_basic -v",
+          "python backend/debug/print_benchmark_issues.py quick_social_basic"
+        ],
+        "scripts": [
+          "dev_validate_strategy_campaign_standard.py",
+          "dev_generate_sample_pdf.py",
+          "dev_smoke_test_packs_llm_architecture.py",
+          "dev_validate_benchmark_proof.py",
+          "dev_compare_pdf_for_pack.py",
+          "dev_validate_launch_gtm_pack.py",
+          "dev_compare_quick_social_pdf.py",
+          "dev_validate_retention_crm_booster.py"
+        ]
+      },
+      "F": {
+        "status": "PASS",
+        "required_sections": [
+          "overview",
+          "audience_segments",
+          "messaging_framework",
+          "content_buckets",
+          "weekly_social_calendar",
+          "creative_direction_light",
+          "hashtag_strategy",
+          "platform_guidelines",
+          "kpi_plan_light",
+          "final_summary"
+        ],
+        "quality_checks": [
+          "\u2713 No stub/placeholder content",
+          "\u2713 All sections non-empty (>50 chars)",
+          "\u2713 Markdown properly formatted",
+          "\u2713 No hardcoded brand examples (generic)",
+          "\u2713 Consistent tone and structure",
+          "\u2713 No truncated sections (<90% expected)"
+        ],
+        "gaps": []
+      },
+      "G": {
+        "status": "PASS",
+        "export_template": "quick_social_basic.html",
+        "wiring_checks": [
+          "\u2713 PDF template exists",
+          "\u2713 Pack referenced in export_utils.py",
+          "\u2713 Pack referenced in pdf_renderer.py"
+        ],
+        "issues": []
+      },
+      "H": {
+        "status": "PASS",
+        "error_checks": [
+          "\u2713 Try/except blocks present",
+          "\u2713 Pack-specific code present"
+        ],
+        "logging_checks": [
+          "\u2713 Logger usage detected"
+        ],
+        "gaps": []
+      }
+    },
+    "final_summary": {
+      "pack_key": "quick_social_basic",
+      "completeness": "PASS",
+      "wiring_correctness": "PASS",
+      "output_correctness": "PASS",
+      "section_scores": {
+        "A": "PASS",
+        "B": "PASS",
+        "C": "PASS",
+        "D": "PASS",
+        "E": "PASS",
+        "F": "PASS",
+        "G": "PASS",
+        "H": "PASS"
+      },
+      "pass_count": 8,
+      "fail_count": 0,
+      "todos": [
+        "[D] Missing comprehensive pack-level test for quick_social_basic"
+      ]
+    },
+    "all_todos": [
+      "[D] Missing comprehensive pack-level test for quick_social_basic"
+    ]
+  },
+  {
+    "pack_key": "strategy_campaign_standard",
+    "sections": {
+      "A": {
+        "status": "FAIL",
+        "files_found": [
+          "backend/main.py (PACK_SECTION_WHITELIST)",
+          "backend/validators/pack_schemas.py",
+          "backend/tests/ (1 test files)"
+        ],
+        "symbols_found": [
+          "PACK_SECTION_WHITELIST['strategy_campaign_standard'] = {17 sections}",
+          "PackSchema for strategy_campaign_standard",
+          "Test: test_strategy_campaign_standard_full_report.py"
+        ],
+        "gaps": [
+          "Missing PDF template: strategy_campaign_standard.html"
+        ]
+      },
+      "B": {
+        "status": "PASS",
+        "entry_point": "api_aicmo_generate_report() in backend/main.py",
+        "call_chain": [
+          "Request validation: GenerateRequest.wow_package_key",
+          "Whitelist enforcement: 17 allowed sections",
+          "Schema validation: 17 required sections"
+        ],
+        "schema_match": true,
+        "issues": []
+      },
+      "C": {
+        "status": "FAIL",
+        "config_items": [
+          "Pack registered in PACK_SECTION_WHITELIST with 17 sections",
+          "Schema defined with 17 required sections"
+        ],
+        "template_items": [],
+        "registration": "PASS",
+        "issues": [
+          "Missing PDF template: strategy_campaign_standard.html"
+        ]
+      },
+      "D": {
+        "status": "PASS",
+        "test_files": [
+          "benchmark_utils.py",
+          "test_agency_report_benchmark_integration.py",
+          "test_benchmark_validation.py",
+          "test_report_benchmark_enforcement.py",
+          "test_benchmarks_wiring.py",
+          "test_benchmark_enforcement_smoke.py",
+          "test_strategy_campaign_standard_full_report.py",
+          "test_hashtag_strategy_perplexity.py"
+        ],
+        "benchmark_files": [],
+        "coverage_gaps": [
+          "\u2713 Benchmark config loads successfully",
+          "Missing comprehensive pack-level test for strategy_campaign_standard"
+        ]
+      },
+      "E": {
+        "status": "PASS",
+        "commands": [
+          "pytest backend/tests/test_benchmark_enforcement_smoke.py -k strategy_campaign_standard -v",
+          "python backend/debug/print_benchmark_issues.py strategy_campaign_standard"
+        ],
+        "scripts": [
+          "dev_validate_strategy_campaign_standard.py",
+          "dev_generate_sample_pdf.py",
+          "dev_smoke_test_packs_llm_architecture.py",
+          "dev_validate_benchmark_proof.py",
+          "dev_compare_pdf_for_pack.py",
+          "dev_validate_launch_gtm_pack.py",
+          "dev_compare_quick_social_pdf.py",
+          "dev_validate_retention_crm_booster.py"
+        ]
+      },
+      "F": {
+        "status": "PASS",
+        "required_sections": [
+          "overview",
+          "campaign_objective",
+          "core_campaign_idea",
+          "messaging_framework",
+          "channel_plan",
+          "audience_segments",
+          "persona_cards",
+          "creative_direction",
+          "influencer_strategy",
+          "promotions_and_offers",
+          "detailed_30_day_calendar",
+          "email_and_crm_flows",
+          "ad_concepts",
+          "kpi_and_budget_plan",
+          "execution_roadmap",
+          "post_campaign_analysis",
+          "final_summary"
+        ],
+        "quality_checks": [
+          "\u2713 No stub/placeholder content",
+          "\u2713 All sections non-empty (>50 chars)",
+          "\u2713 Markdown properly formatted",
+          "\u2713 No hardcoded brand examples (generic)",
+          "\u2713 Consistent tone and structure",
+          "\u2713 No truncated sections (<90% expected)"
+        ],
+        "gaps": []
+      },
+      "G": {
+        "status": "FAIL",
+        "export_template": null,
+        "wiring_checks": [
+          "\u2713 Pack referenced in export_utils.py",
+          "\u2713 Pack referenced in pdf_renderer.py"
+        ],
+        "issues": [
+          "\u274c Missing PDF template"
+        ]
+      },
+      "H": {
+        "status": "PASS",
+        "error_checks": [
+          "\u2713 Try/except blocks present",
+          "\u2713 Pack-specific code present"
+        ],
+        "logging_checks": [
+          "\u2713 Logger usage detected"
+        ],
+        "gaps": []
+      }
+    },
+    "final_summary": {
+      "pack_key": "strategy_campaign_standard",
+      "completeness": "FAIL",
+      "wiring_correctness": "PASS",
+      "output_correctness": "PASS",
+      "section_scores": {
+        "A": "FAIL",
+        "B": "PASS",
+        "C": "FAIL",
+        "D": "PASS",
+        "E": "PASS",
+        "F": "PASS",
+        "G": "FAIL",
+        "H": "PASS"
+      },
+      "pass_count": 5,
+      "fail_count": 3,
+      "todos": [
+        "[A1] strategy_campaign_standard: Missing PDF template: strategy_campaign_standard.html",
+        "[C] strategy_campaign_standard: Missing PDF template: strategy_campaign_standard.html",
+        "[D] Missing comprehensive pack-level test for strategy_campaign_standard",
+        "[G] strategy_campaign_standard: \u274c Missing PDF template"
+      ]
+    },
+    "all_todos": [
+      "[A1] strategy_campaign_standard: Missing PDF template: strategy_campaign_standard.html",
+      "[C] strategy_campaign_standard: Missing PDF template: strategy_campaign_standard.html",
+      "[D] Missing comprehensive pack-level test for strategy_campaign_standard",
+      "[G] strategy_campaign_standard: \u274c Missing PDF template"
+    ]
+  },
+  {
+    "pack_key": "launch_gtm_pack",
+    "sections": {
+      "A": {
+        "status": "FAIL",
+        "files_found": [
+          "backend/main.py (PACK_SECTION_WHITELIST)",
+          "backend/validators/pack_schemas.py"
+        ],
+        "symbols_found": [
+          "PACK_SECTION_WHITELIST['launch_gtm_pack'] = {13 sections}",
+          "PackSchema for launch_gtm_pack"
+        ],
+        "gaps": [
+          "Missing PDF template: launch_gtm_pack.html"
+        ]
+      },
+      "B": {
+        "status": "PASS",
+        "entry_point": "api_aicmo_generate_report() in backend/main.py",
+        "call_chain": [
+          "Request validation: GenerateRequest.wow_package_key",
+          "Whitelist enforcement: 13 allowed sections",
+          "Schema validation: 13 required sections"
+        ],
+        "schema_match": true,
+        "issues": []
+      },
+      "C": {
+        "status": "FAIL",
+        "config_items": [
+          "Pack registered in PACK_SECTION_WHITELIST with 13 sections",
+          "Schema defined with 13 required sections"
+        ],
+        "template_items": [],
+        "registration": "PASS",
+        "issues": [
+          "Missing PDF template: launch_gtm_pack.html"
+        ]
+      },
+      "D": {
+        "status": "PASS",
+        "test_files": [
+          "benchmark_utils.py",
+          "test_agency_report_benchmark_integration.py",
+          "test_benchmark_validation.py",
+          "test_report_benchmark_enforcement.py",
+          "test_benchmarks_wiring.py",
+          "test_benchmark_enforcement_smoke.py"
+        ],
+        "benchmark_files": [],
+        "coverage_gaps": [
+          "\u2713 Benchmark config loads successfully",
+          "Missing comprehensive pack-level test for launch_gtm_pack"
+        ]
+      },
+      "E": {
+        "status": "PASS",
+        "commands": [
+          "pytest backend/tests/test_benchmark_enforcement_smoke.py -k launch_gtm_pack -v",
+          "python backend/debug/print_benchmark_issues.py launch_gtm_pack"
+        ],
+        "scripts": [
+          "dev_validate_strategy_campaign_standard.py",
+          "dev_generate_sample_pdf.py",
+          "dev_smoke_test_packs_llm_architecture.py",
+          "dev_validate_benchmark_proof.py",
+          "dev_compare_pdf_for_pack.py",
+          "dev_validate_launch_gtm_pack.py",
+          "dev_compare_quick_social_pdf.py",
+          "dev_validate_retention_crm_booster.py"
+        ]
+      },
+      "F": {
+        "status": "PASS",
+        "required_sections": [
+          "overview",
+          "market_landscape",
+          "product_positioning",
+          "messaging_framework",
+          "launch_phases",
+          "channel_plan",
+          "audience_segments",
+          "creative_direction",
+          "launch_campaign_ideas",
+          "content_calendar_launch",
+          "ad_concepts",
+          "execution_roadmap",
+          "final_summary"
+        ],
+        "quality_checks": [
+          "\u2713 No stub/placeholder content",
+          "\u2713 All sections non-empty (>50 chars)",
+          "\u2713 Markdown properly formatted",
+          "\u2713 No hardcoded brand examples (generic)",
+          "\u2713 Consistent tone and structure",
+          "\u2713 No truncated sections (<90% expected)"
+        ],
+        "gaps": []
+      },
+      "G": {
+        "status": "FAIL",
+        "export_template": null,
+        "wiring_checks": [
+          "\u2713 Pack referenced in export_utils.py",
+          "\u2713 Pack referenced in pdf_renderer.py"
+        ],
+        "issues": [
+          "\u274c Missing PDF template"
+        ]
+      },
+      "H": {
+        "status": "PASS",
+        "error_checks": [
+          "\u2713 Try/except blocks present",
+          "\u2713 Pack-specific code present"
+        ],
+        "logging_checks": [
+          "\u2713 Logger usage detected"
+        ],
+        "gaps": []
+      }
+    },
+    "final_summary": {
+      "pack_key": "launch_gtm_pack",
+      "completeness": "FAIL",
+      "wiring_correctness": "PASS",
+      "output_correctness": "PASS",
+      "section_scores": {
+        "A": "FAIL",
+        "B": "PASS",
+        "C": "FAIL",
+        "D": "PASS",
+        "E": "PASS",
+        "F": "PASS",
+        "G": "FAIL",
+        "H": "PASS"
+      },
+      "pass_count": 5,
+      "fail_count": 3,
+      "todos": [
+        "[A1] launch_gtm_pack: Missing PDF template: launch_gtm_pack.html",
+        "[C] launch_gtm_pack: Missing PDF template: launch_gtm_pack.html",
+        "[D] Missing comprehensive pack-level test for launch_gtm_pack",
+        "[G] launch_gtm_pack: \u274c Missing PDF template"
+      ]
+    },
+    "all_todos": [
+      "[A1] launch_gtm_pack: Missing PDF template: launch_gtm_pack.html",
+      "[C] launch_gtm_pack: Missing PDF template: launch_gtm_pack.html",
+      "[D] Missing comprehensive pack-level test for launch_gtm_pack",
+      "[G] launch_gtm_pack: \u274c Missing PDF template"
+    ]
+  },
+  {
+    "pack_key": "brand_turnaround_lab",
+    "sections": {
+      "A": {
+        "status": "FAIL",
+        "files_found": [
+          "backend/main.py (PACK_SECTION_WHITELIST)",
+          "backend/validators/pack_schemas.py"
+        ],
+        "symbols_found": [
+          "PACK_SECTION_WHITELIST['brand_turnaround_lab'] = {14 sections}",
+          "PackSchema for brand_turnaround_lab"
+        ],
+        "gaps": [
+          "Missing PDF template: brand_turnaround_lab.html"
+        ]
+      },
+      "B": {
+        "status": "PASS",
+        "entry_point": "api_aicmo_generate_report() in backend/main.py",
+        "call_chain": [
+          "Request validation: GenerateRequest.wow_package_key",
+          "Whitelist enforcement: 14 allowed sections",
+          "Schema validation: 14 required sections"
+        ],
+        "schema_match": true,
+        "issues": []
+      },
+      "C": {
+        "status": "FAIL",
+        "config_items": [
+          "Pack registered in PACK_SECTION_WHITELIST with 14 sections",
+          "Schema defined with 14 required sections"
+        ],
+        "template_items": [],
+        "registration": "PASS",
+        "issues": [
+          "Missing PDF template: brand_turnaround_lab.html"
+        ]
+      },
+      "D": {
+        "status": "PASS",
+        "test_files": [
+          "benchmark_utils.py",
+          "test_agency_report_benchmark_integration.py",
+          "test_benchmark_validation.py",
+          "test_report_benchmark_enforcement.py",
+          "test_benchmarks_wiring.py",
+          "test_benchmark_enforcement_smoke.py",
+          "test_brand_research_integration.py"
+        ],
+        "benchmark_files": [],
+        "coverage_gaps": [
+          "\u2713 Benchmark config loads successfully",
+          "Missing comprehensive pack-level test for brand_turnaround_lab"
+        ]
+      },
+      "E": {
+        "status": "PASS",
+        "commands": [
+          "pytest backend/tests/test_benchmark_enforcement_smoke.py -k brand_turnaround_lab -v",
+          "python backend/debug/print_benchmark_issues.py brand_turnaround_lab"
+        ],
+        "scripts": [
+          "dev_validate_strategy_campaign_standard.py",
+          "dev_generate_sample_pdf.py",
+          "dev_smoke_test_packs_llm_architecture.py",
+          "dev_validate_benchmark_proof.py",
+          "dev_compare_pdf_for_pack.py",
+          "dev_validate_launch_gtm_pack.py",
+          "dev_compare_quick_social_pdf.py",
+          "dev_validate_retention_crm_booster.py"
+        ]
+      },
+      "F": {
+        "status": "PASS",
+        "required_sections": [
+          "overview",
+          "brand_audit",
+          "customer_insights",
+          "competitor_analysis",
+          "problem_diagnosis",
+          "new_positioning",
+          "messaging_framework",
+          "creative_direction",
+          "channel_reset_strategy",
+          "reputation_recovery_plan",
+          "promotions_and_offers",
+          "30_day_recovery_calendar",
+          "execution_roadmap",
+          "final_summary"
+        ],
+        "quality_checks": [
+          "\u2713 No stub/placeholder content",
+          "\u2713 All sections non-empty (>50 chars)",
+          "\u2713 Markdown properly formatted",
+          "\u2713 No hardcoded brand examples (generic)",
+          "\u2713 Consistent tone and structure",
+          "\u2713 No truncated sections (<90% expected)"
+        ],
+        "gaps": []
+      },
+      "G": {
+        "status": "FAIL",
+        "export_template": null,
+        "wiring_checks": [
+          "\u2713 Pack referenced in export_utils.py",
+          "\u2713 Pack referenced in pdf_renderer.py"
+        ],
+        "issues": [
+          "\u274c Missing PDF template"
+        ]
+      },
+      "H": {
+        "status": "PASS",
+        "error_checks": [
+          "\u2713 Try/except blocks present",
+          "\u2713 Pack-specific code present"
+        ],
+        "logging_checks": [
+          "\u2713 Logger usage detected"
+        ],
+        "gaps": []
+      }
+    },
+    "final_summary": {
+      "pack_key": "brand_turnaround_lab",
+      "completeness": "FAIL",
+      "wiring_correctness": "PASS",
+      "output_correctness": "PASS",
+      "section_scores": {
+        "A": "FAIL",
+        "B": "PASS",
+        "C": "FAIL",
+        "D": "PASS",
+        "E": "PASS",
+        "F": "PASS",
+        "G": "FAIL",
+        "H": "PASS"
+      },
+      "pass_count": 5,
+      "fail_count": 3,
+      "todos": [
+        "[A1] brand_turnaround_lab: Missing PDF template: brand_turnaround_lab.html",
+        "[C] brand_turnaround_lab: Missing PDF template: brand_turnaround_lab.html",
+        "[D] Missing comprehensive pack-level test for brand_turnaround_lab",
+        "[G] brand_turnaround_lab: \u274c Missing PDF template"
+      ]
+    },
+    "all_todos": [
+      "[A1] brand_turnaround_lab: Missing PDF template: brand_turnaround_lab.html",
+      "[C] brand_turnaround_lab: Missing PDF template: brand_turnaround_lab.html",
+      "[D] Missing comprehensive pack-level test for brand_turnaround_lab",
+      "[G] brand_turnaround_lab: \u274c Missing PDF template"
+    ]
+  },
+  {
+    "pack_key": "full_funnel_growth_suite",
+    "sections": {
+      "A": {
+        "status": "FAIL",
+        "files_found": [
+          "backend/main.py (PACK_SECTION_WHITELIST)",
+          "backend/validators/pack_schemas.py",
+          "learning/benchmarks/ (1 files)"
+        ],
+        "symbols_found": [
+          "PACK_SECTION_WHITELIST['full_funnel_growth_suite'] = {23 sections}",
+          "PackSchema for full_funnel_growth_suite",
+          "Benchmark: pack_full_funnel_growth_suite_saas.json"
+        ],
+        "gaps": [
+          "Missing PDF template: full_funnel_growth_suite.html"
+        ]
+      },
+      "B": {
+        "status": "PASS",
+        "entry_point": "api_aicmo_generate_report() in backend/main.py",
+        "call_chain": [
+          "Request validation: GenerateRequest.wow_package_key",
+          "Whitelist enforcement: 23 allowed sections",
+          "Schema validation: 23 required sections"
+        ],
+        "schema_match": true,
+        "issues": []
+      },
+      "C": {
+        "status": "FAIL",
+        "config_items": [
+          "Pack registered in PACK_SECTION_WHITELIST with 23 sections",
+          "Schema defined with 23 required sections"
+        ],
+        "template_items": [],
+        "registration": "PASS",
+        "issues": [
+          "Missing PDF template: full_funnel_growth_suite.html"
+        ]
+      },
+      "D": {
+        "status": "PASS",
+        "test_files": [
+          "benchmark_utils.py",
+          "test_agency_report_benchmark_integration.py",
+          "test_benchmark_validation.py",
+          "test_report_benchmark_enforcement.py",
+          "test_benchmarks_wiring.py",
+          "test_benchmark_enforcement_smoke.py",
+          "test_strategy_campaign_standard_full_report.py",
+          "test_fullstack_simulation.py"
+        ],
+        "benchmark_files": [
+          "pack_full_funnel_growth_suite_saas.json"
+        ],
+        "coverage_gaps": [
+          "\u2713 Benchmark config loads successfully",
+          "Missing comprehensive pack-level test for full_funnel_growth_suite"
+        ]
+      },
+      "E": {
+        "status": "PASS",
+        "commands": [
+          "pytest backend/tests/test_benchmark_enforcement_smoke.py -k full_funnel_growth_suite -v",
+          "python backend/debug/print_benchmark_issues.py full_funnel_growth_suite"
+        ],
+        "scripts": [
+          "dev_validate_strategy_campaign_standard.py",
+          "dev_generate_sample_pdf.py",
+          "dev_smoke_test_packs_llm_architecture.py",
+          "dev_validate_benchmark_proof.py",
+          "dev_compare_pdf_for_pack.py",
+          "dev_validate_launch_gtm_pack.py",
+          "dev_compare_quick_social_pdf.py",
+          "dev_validate_retention_crm_booster.py"
+        ]
+      },
+      "F": {
+        "status": "PASS",
+        "required_sections": [
+          "overview",
+          "market_landscape",
+          "competitor_analysis",
+          "funnel_breakdown",
+          "audience_segments",
+          "persona_cards",
+          "value_proposition_map",
+          "messaging_framework",
+          "awareness_strategy",
+          "consideration_strategy",
+          "conversion_strategy",
+          "retention_strategy",
+          "landing_page_blueprint",
+          "email_automation_flows",
+          "remarketing_strategy",
+          "ad_concepts_multi_platform",
+          "creative_direction",
+          "full_30_day_calendar",
+          "kpi_and_budget_plan",
+          "measurement_framework",
+          "execution_roadmap",
+          "optimization_opportunities",
+          "final_summary"
+        ],
+        "quality_checks": [
+          "\u2713 No stub/placeholder content",
+          "\u2713 All sections non-empty (>50 chars)",
+          "\u2713 Markdown properly formatted",
+          "\u2713 No hardcoded brand examples (generic)",
+          "\u2713 Consistent tone and structure",
+          "\u2713 No truncated sections (<90% expected)"
+        ],
+        "gaps": []
+      },
+      "G": {
+        "status": "FAIL",
+        "export_template": null,
+        "wiring_checks": [
+          "\u2713 Pack referenced in export_utils.py",
+          "\u2713 Pack referenced in pdf_renderer.py"
+        ],
+        "issues": [
+          "\u274c Missing PDF template"
+        ]
+      },
+      "H": {
+        "status": "PASS",
+        "error_checks": [
+          "\u2713 Try/except blocks present",
+          "\u2713 Pack-specific code present"
+        ],
+        "logging_checks": [
+          "\u2713 Logger usage detected"
+        ],
+        "gaps": []
+      }
+    },
+    "final_summary": {
+      "pack_key": "full_funnel_growth_suite",
+      "completeness": "FAIL",
+      "wiring_correctness": "PASS",
+      "output_correctness": "PASS",
+      "section_scores": {
+        "A": "FAIL",
+        "B": "PASS",
+        "C": "FAIL",
+        "D": "PASS",
+        "E": "PASS",
+        "F": "PASS",
+        "G": "FAIL",
+        "H": "PASS"
+      },
+      "pass_count": 5,
+      "fail_count": 3,
+      "todos": [
+        "[A1] full_funnel_growth_suite: Missing PDF template: full_funnel_growth_suite.html",
+        "[C] full_funnel_growth_suite: Missing PDF template: full_funnel_growth_suite.html",
+        "[D] Missing comprehensive pack-level test for full_funnel_growth_suite",
+        "[G] full_funnel_growth_suite: \u274c Missing PDF template"
+      ]
+    },
+    "all_todos": [
+      "[A1] full_funnel_growth_suite: Missing PDF template: full_funnel_growth_suite.html",
+      "[C] full_funnel_growth_suite: Missing PDF template: full_funnel_growth_suite.html",
+      "[D] Missing comprehensive pack-level test for full_funnel_growth_suite",
+      "[G] full_funnel_growth_suite: \u274c Missing PDF template"
+    ]
+  }
+]
