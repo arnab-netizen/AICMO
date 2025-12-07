@@ -118,16 +118,7 @@ from backend.exceptions import QualityGateFailedError, BlankPdfError  # noqa: E4
 from backend.pdf_utils import text_to_pdf_bytes  # noqa: E402
 from backend.routers.health import router as health_router  # noqa: E402
 from backend.api.routes_learn import router as learn_router  # noqa: E402
-from backend.services.wow_reports import (  # noqa: E402
-    build_wow_report,
-)
 from aicmo.presets.package_presets import PACKAGE_PRESETS  # noqa: E402
-from aicmo.presets.wow_rules import get_wow_rule  # noqa: E402
-from backend.humanizer import (  # noqa: E402
-    humanize_report_text,
-    HumanizerConfig,
-)
-from backend.industry_config import get_industry_config  # noqa: E402
 from backend.generators.social.video_script_generator import (  # noqa: E402
     generate_video_script_for_day,
 )
@@ -7653,243 +7644,116 @@ def _apply_wow_to_output(
     req: GenerateRequest,
 ) -> AICMOOutputReport:
     """
-    Optional WOW template wrapping using the new WOW system.
+    Validate WOW-enabled report markdown against quality benchmarks.
 
-    If wow_enabled=True and wow_package_key is provided:
-    - Fetches WOW rule structure (with sections) for the package
-    - Builds a complete WOW report using the section assembly
-    - Stores in wow_markdown field
-    - Stores package_key for reference
-    - Applies humanization layer for style improvement (non-breaking)
+    If wow_enabled=False or wow_package_key is None/empty:
+        → Returns output unchanged (pure pass-through)
 
-    Non-breaking: if WOW fails or is disabled, output is returned unchanged.
+    If wow_enabled=True and wow_package_key is set:
+        → Parses output.wow_markdown into sections
+        → Validates sections against pack benchmarks
+        → If validation FAILS → raises ValueError (FATAL)
+        → If validation PASSES → returns output unchanged
+        → Unexpected exceptions → logged and re-raised (FATAL)
+
+    Key: Never returns None. Always returns AICMOOutputReport or raises.
     """
-    # 🔥 DIAGNOSTIC LOGGING: Track fallback decision
-    logger.info(
-        "FALLBACK_DECISION_START",
-        extra={
-            "wow_enabled": req.wow_enabled,
-            "wow_package_key": req.wow_package_key,
-            "will_apply_wow": bool(req.wow_enabled and req.wow_package_key),
-        },
-    )
-
-    if not req.wow_enabled or not req.wow_package_key:
-        fallback_reason = ""
-        if not req.wow_enabled:
-            fallback_reason = "wow_enabled=False"
-        elif not req.wow_package_key:
-            fallback_reason = "wow_package_key is None/empty"
-
-        logger.info(
-            "FALLBACK_DECISION_RESULT",
-            extra={
-                "fallback_reason": fallback_reason,
-                "action": "SKIP_WOW_FALLBACK_TO_STUB",
-            },
-        )
+    # Early exit: WOW disabled
+    if not getattr(req, "wow_enabled", False) or not getattr(req, "wow_package_key", None):
         return output
 
-
-def _apply_wow_optional(output: AICMOOutputReport, req: GenerateRequest) -> AICMOOutputReport:
-    """Compatibility alias expected by tests; forwards to _apply_wow_to_output."""
-    return _apply_wow_to_output(output, req)
+    # Check for markdown content
+    report_markdown = getattr(output, "wow_markdown", None) or getattr(
+        output, "report_markdown", None
+    )
+    if not report_markdown or not report_markdown.strip():
+        logger.warning(
+            "WOW validation skipped: no markdown content in output (wow_markdown or report_markdown empty)"
+        )
+        # No markdown to validate; return output unchanged
+        return output
 
     try:
-        # Fetch the WOW rule for this package (contains section structure)
-        wow_rule = get_wow_rule(req.wow_package_key)
-        sections = wow_rule.get("sections", [])
+        # 1. Parse markdown into sections
+        from backend.utils.wow_markdown_parser import parse_wow_markdown_to_sections
 
-        # 🔥 DIAGNOSTIC LOGGING: Log WOW package and sections
-        logger.info(
-            "WOW_PACKAGE_RESOLUTION",
-            extra={
-                "wow_package_key": req.wow_package_key,
-                "sections_found": len(sections),
-                "section_keys": [s.get("key") for s in sections],
-            },
-        )
+        sections = parse_wow_markdown_to_sections(report_markdown)
 
-        # Debug: Log which WOW pack and sections are being used
-        if len(sections) == 0:
+        if not sections:
             logger.warning(
-                "WOW_PACKAGE_EMPTY_SECTIONS",
-                extra={
-                    "wow_package_key": req.wow_package_key,
-                    "action": "FALLBACK_TO_STUB",
-                    "reason": "WOW rule has empty sections list",
-                },
+                f"WOW validation: no sections parsed from markdown for {req.wow_package_key}"
             )
-            # No sections defined for this package - return stub output
+            # No sections to validate; return output unchanged
             return output
 
-        # Build the WOW report using the new unified system
-        wow_markdown = build_wow_report(
-            req=req, wow_rule=wow_rule, extra_sections=output.extra_sections
+        # 2. Run gate validation for this pack
+        from backend.validators.report_gate import validate_report_sections
+
+        result = validate_report_sections(
+            pack_key=req.wow_package_key,
+            sections=sections,
         )
-
-        # Apply humanization layer: light style cleanup, no structural changes
-        try:
-            industry_key = (
-                getattr(req.brief, "industry_key", None) or getattr(req.brief, "industry", "") or ""
-            )
-        except Exception:
-            industry_key = ""
-
-        try:
-            industry_profile = get_industry_config(industry_key) if industry_key else None
-            industry_profile_dict = dict(industry_profile) if industry_profile else {}
-        except Exception:
-            industry_profile_dict = {}
-
-        # Determine humanization level based on pack type
-        pack_humanize_level = "light"
-        if req.wow_package_key in {
-            "strategy_campaign_standard",
-            "full_funnel_growth_suite",
-            "launch_gtm_pack",
-        }:
-            pack_humanize_level = "medium"
-
-        try:
-            humanizer_config = HumanizerConfig(level=pack_humanize_level)
-            wow_markdown = humanize_report_text(
-                wow_markdown,
-                brief=req.brief,
-                pack_key=req.wow_package_key,
-                industry_key=str(industry_key),
-                config=humanizer_config,
-                industry_profile=industry_profile_dict,
-            )
-            logger.debug(
-                f"Humanization applied to {req.wow_package_key} (level={pack_humanize_level})"
-            )
-        except Exception as e:
-            logger.debug(f"Humanization failed (non-breaking): {e}")
-            # Continue without humanization
-
-        # Store in output
-        output.wow_markdown = wow_markdown
-        output.wow_package_key = req.wow_package_key
 
         logger.info(
-            "WOW_APPLICATION_SUCCESS",
+            "WOW validation completed",
             extra={
-                "wow_package_key": req.wow_package_key,
-                "sections_count": len(sections),
-                "action": "WOW_APPLIED_SUCCESSFULLY",
+                "pack_key": req.wow_package_key,
+                "status": result.status,
+                "sections_validated": len(result.section_results),
             },
         )
-        logger.debug(f"WOW report built successfully: {req.wow_package_key}")
-        logger.info(f"WOW system used {len(sections)} sections for {req.wow_package_key}")
 
-        # 🔥 PHASE 1: Validate pack contract after WOW report is built
-        try:
-            from backend.validators.output_validator import validate_pack_contract
+        # 3. Enforce the gate: FATAL if FAIL
+        if result.status == "FAIL":
+            error_summary = result.get_error_summary()
+            logger.error(
+                f"WOW validation FAILED for {req.wow_package_key}",
+                extra={
+                    "pack_key": req.wow_package_key,
+                    "status": result.status,
+                    "failing_sections": len(result.failing_sections()),
+                },
+            )
+            # FATAL: Raise ValueError so callers and tests can catch it
+            raise ValueError(
+                f"WOW validation FAILED for {req.wow_package_key}. "
+                f"The report does not meet minimum quality standards:\n{error_summary}"
+            )
 
-            validate_pack_contract(req.wow_package_key, output)
-            logger.info(f"✅ Pack contract validation passed for {req.wow_package_key}")
-        except ValueError as ve:
-            logger.warning(f"⚠️  Pack contract validation failed for {req.wow_package_key}: {ve}")
-            # Non-breaking: log warning but don't fail report generation
-        except Exception as e:
-            logger.debug(f"Pack contract validation error (non-critical): {e}")
+        # 4. PASS or PASS_WITH_WARNINGS: log and return output
+        if result.status == "PASS_WITH_WARNINGS":
+            logger.warning(
+                f"WOW validation PASS_WITH_WARNINGS for {req.wow_package_key}",
+                extra={
+                    "pack_key": req.wow_package_key,
+                    "sections_with_warnings": len([s for s in result.section_results if s.issues]),
+                },
+            )
 
-        # 🔥 PHASE 2: Validate section quality against benchmarks (FIXED)
-        # STUB MODE: Skip validation in stub mode (stubs are for testing infrastructure)
-        if is_stub_mode():
-            logger.info(f"[STUB MODE] Skipping WOW quality validation for {req.wow_package_key}")
-        else:
-            try:
-                from backend.validators.report_gate import validate_report_sections
-                from backend.utils.wow_markdown_parser import parse_wow_markdown_to_sections
+        logger.info(f"✅ WOW validation PASSED for {req.wow_package_key}")
+        return output
 
-                # FIX BUG #1 & #2: Parse actual wow_markdown into sections for validation
-                # (Previously validated WOW rule metadata instead of actual content)
-                validation_sections = parse_wow_markdown_to_sections(wow_markdown)
-
-                if validation_sections:
-                    logger.info(
-                        "VALIDATION_START",
-                        extra={
-                            "pack_key": req.wow_package_key,
-                            "sections_to_validate": len(validation_sections),
-                            "section_ids": [s["id"] for s in validation_sections],
-                        },
-                    )
-
-                validation_result = validate_report_sections(
-                    pack_key=req.wow_package_key, sections=validation_sections
-                )
-
-                logger.info(
-                    f"✅ Benchmark validation completed for {req.wow_package_key}: "
-                    f"status={validation_result.status}, "
-                    f"sections={len(validation_result.section_results)}, "
-                    f"issues={sum(len(r.issues) for r in validation_result.section_results)}"
-                )
-
-                # FIX BUG #3: Make validation BREAKING instead of non-breaking
-                if validation_result.status == "FAIL":
-                    error_summary = validation_result.get_error_summary()
-                    logger.error(
-                        f"❌ Quality gate FAILED for {req.wow_package_key}:\n{error_summary}"
-                    )
-                    # BREAKING: Raise exception to stop generation
-                    raise ValueError(
-                        f"Quality validation FAILED for {req.wow_package_key}. "
-                        f"The report does not meet minimum quality standards:\n{error_summary}"
-                    )
-                elif validation_result.status == "PASS_WITH_WARNINGS":
-                    error_summary = validation_result.get_error_summary()
-                    logger.warning(
-                        f"⚠️  Quality warnings for {req.wow_package_key}:\n{error_summary}"
-                    )
-                    # Non-breaking: log warnings but continue
-                else:
-                    logger.warning(
-                        "No sections parsed from wow_markdown for validation - "
-                        "this may indicate a parsing issue or empty report"
-                    )
-
-            except ValueError:
-                # Re-raise ValueError (quality gate failures) - these should fail the request
-                raise
-            except Exception as e:
-                # Other exceptions are non-critical (e.g., validation system unavailable)
-                logger.warning(
-                    f"Benchmark validation error (non-critical) for {req.wow_package_key}: {e}"
-                )
-
-    except ValueError as ve:
-        # If this is specifically a quality validation failure, it MUST be fatal
-        if "Quality validation FAILED" in str(ve):
-            logger.error(f"🚨 FATAL: Quality gate blocked generation for {req.wow_package_key}")
-            raise  # Re-raise to block generation
-        # Other ValueErrors can be treated as non-critical WOW failures
+    except ValueError:
+        # Validation error: re-raise so caller sees it
         logger.warning(
-            "WOW_APPLICATION_FAILED",
+            "WOW validation raised ValueError",
             extra={
-                "wow_package_key": req.wow_package_key,
-                "error": str(ve),
-                "exception_type": "ValueError",
-                "action": "FALLBACK_TO_STUB",
+                "pack_key": getattr(req, "wow_package_key", None),
+                "wow_enabled": getattr(req, "wow_enabled", None),
             },
         )
-    except Exception as e:
-        # Only truly unexpected runtime errors are non-critical
-        logger.warning(
-            "WOW_APPLICATION_FAILED",
-            extra={
-                "wow_package_key": req.wow_package_key,
-                "error": str(e),
-                "exception_type": type(e).__name__,
-                "action": "FALLBACK_TO_STUB",
-            },
-        )
-        # Non-breaking: continue without WOW
+        raise
 
-    return output
+    except Exception:
+        # Unexpected error: log and re-raise (FATAL)
+        logger.exception(
+            "Unexpected error in WOW validation",
+            extra={
+                "pack_key": getattr(req, "wow_package_key", None),
+                "wow_enabled": getattr(req, "wow_enabled", None),
+            },
+        )
+        raise
 
 
 def _dev_apply_wow_and_validate(pack_key: str, wow_markdown: str):

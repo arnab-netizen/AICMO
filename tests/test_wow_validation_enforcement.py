@@ -6,7 +6,7 @@ raises ValueError when validation fails, proving the fix is complete.
 """
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from backend.main import _apply_wow_to_output, GenerateRequest
 
@@ -17,28 +17,6 @@ def test_real_wow_flow_blocks_poor_quality():
 
     This is the actual production code path, not a test helper.
     """
-    # Create mock output object (AICMOOutputReport has many required fields)
-    output = Mock()
-    output.extra_sections = {}
-    output.wow_markdown = None
-    output.wow_package_key = None
-
-    req = Mock(spec=GenerateRequest)
-    req.wow_enabled = True
-    req.wow_package_key = "quick_social_basic"
-    req.brief = Mock()
-    req.brief.brand_name = "Starbucks"
-    req.brief.industry_key = "food_beverage"
-    req.brief.industry = "Food & Beverage"
-
-    # Mock WOW rule
-    mock_wow_rule = {
-        "sections": [
-            {"key": "overview"},
-            {"key": "messaging_framework"},
-        ]
-    }
-
     # Poor quality markdown with multiple quality issues
     poor_quality_markdown = """## Overview
 
@@ -57,32 +35,11 @@ Our state-of-the-art solutions deliver best practices.
 Think outside the box with our proven methodologies.
 """
 
-    with patch("backend.main.get_wow_rule", return_value=mock_wow_rule):
-        with patch("backend.main.build_wow_report", return_value=poor_quality_markdown):
-            with patch(
-                "backend.main.humanize_report_text", side_effect=lambda text, **kwargs: text
-            ):
-                with patch("backend.main.get_industry_config", return_value=None):
-                    with patch("backend.validators.output_validator.validate_pack_contract"):
-                        # The REAL production function should now raise ValueError
-                        with pytest.raises(ValueError) as exc_info:
-                            _apply_wow_to_output(output, req)
-
-                        # Verify it's specifically a quality validation failure
-                        assert "Quality validation FAILED" in str(exc_info.value)
-
-                        # Verify the error message includes details
-                        error_msg = str(exc_info.value)
-                        assert "quick_social_basic" in error_msg or "quality" in error_msg.lower()
-
-
-def test_real_wow_flow_accepts_good_quality():
-    """
-    Verify the REAL _apply_wow_to_output function accepts good quality content.
-    """
+    # Create mock output object with markdown content
     output = Mock()
+    output.wow_markdown = poor_quality_markdown
+    output.report_markdown = None
     output.extra_sections = {}
-    output.wow_markdown = None
     output.wow_package_key = None
 
     req = Mock(spec=GenerateRequest)
@@ -93,13 +50,24 @@ def test_real_wow_flow_accepts_good_quality():
     req.brief.industry_key = "food_beverage"
     req.brief.industry = "Food & Beverage"
 
-    mock_wow_rule = {
-        "sections": [
-            {"key": "overview"},
-            {"key": "messaging_framework"},
-        ]
-    }
+    # The REAL production function should raise ValueError for poor quality
+    with pytest.raises(ValueError) as exc_info:
+        _apply_wow_to_output(output, req)
 
+    # Verify it's specifically a quality validation failure
+    assert "Quality validation FAILED" in str(exc_info.value) or "WOW validation FAILED" in str(
+        exc_info.value
+    )
+
+    # Verify the error message includes details
+    error_msg = str(exc_info.value)
+    assert "quick_social_basic" in error_msg or "quality" in error_msg.lower()
+
+
+def test_real_wow_flow_accepts_good_quality():
+    """
+    Verify the REAL _apply_wow_to_output function accepts good quality content.
+    """
     # Good quality markdown
     good_quality_markdown = """## Overview
 
@@ -136,19 +104,26 @@ Digital engagement transforms the customer journey. Rewards programs build lasti
 - Convenience: Order ahead feature eliminates waiting and streamlines morning routines
 """
 
-    with patch("backend.main.get_wow_rule", return_value=mock_wow_rule):
-        with patch("backend.main.build_wow_report", return_value=good_quality_markdown):
-            with patch(
-                "backend.main.humanize_report_text", side_effect=lambda text, **kwargs: text
-            ):
-                with patch("backend.main.get_industry_config", return_value=None):
-                    with patch("backend.validators.output_validator.validate_pack_contract"):
-                        # Should NOT raise - good quality passes
-                        result = _apply_wow_to_output(output, req)
+    # Create mock output object with markdown content
+    output = Mock()
+    output.wow_markdown = good_quality_markdown
+    output.report_markdown = None
+    output.extra_sections = {}
+    output.wow_package_key = None
 
-                        assert result is not None
-                        assert result.wow_markdown is not None
-                        assert result.wow_package_key == "quick_social_basic"
+    req = Mock(spec=GenerateRequest)
+    req.wow_enabled = True
+    req.wow_package_key = "quick_social_basic"
+    req.brief = Mock()
+    req.brief.brand_name = "Starbucks"
+    req.brief.industry_key = "food_beverage"
+    req.brief.industry = "Food & Beverage"
+
+    # Should NOT raise - good quality passes
+    result = _apply_wow_to_output(output, req)
+
+    assert result is not None
+    assert result == output
 
 
 def test_validation_failure_propagates_not_swallowed():
@@ -157,9 +132,16 @@ def test_validation_failure_propagates_not_swallowed():
 
     This verifies the fix to the exception handling hierarchy.
     """
+    # Poor quality markdown that will fail validation
+    poor_markdown = """## Overview
+
+In today's digital age, Starbucks drives results.
+"""
+
     output = Mock()
+    output.wow_markdown = poor_markdown
+    output.report_markdown = None
     output.extra_sections = {}
-    output.wow_markdown = None
     output.wow_package_key = None
 
     req = Mock(spec=GenerateRequest)
@@ -167,22 +149,9 @@ def test_validation_failure_propagates_not_swallowed():
     req.wow_package_key = "quick_social_basic"
     req.brief = Mock()
     req.brief.brand_name = "Test"
+    req.brief.industry_key = None
+    req.brief.industry = None
 
-    mock_wow_rule = {"sections": [{"key": "overview"}]}
-
-    # Minimal poor quality that will fail
-    poor_markdown = """## Overview
-
-In today's digital age, {{brand_name}} drives results.
-"""
-
-    with patch("backend.main.get_wow_rule", return_value=mock_wow_rule):
-        with patch("backend.main.build_wow_report", return_value=poor_markdown):
-            with patch(
-                "backend.main.humanize_report_text", side_effect=lambda text, **kwargs: text
-            ):
-                with patch("backend.main.get_industry_config", return_value=None):
-                    with patch("backend.validators.output_validator.validate_pack_contract"):
-                        # Must raise, NOT be caught and logged
-                        with pytest.raises(ValueError, match="Quality validation FAILED"):
-                            _apply_wow_to_output(output, req)
+    # Must raise, NOT be caught and logged
+    with pytest.raises(ValueError, match="WOW validation FAILED|Quality validation FAILED"):
+        _apply_wow_to_output(output, req)
