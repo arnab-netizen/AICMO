@@ -17,6 +17,15 @@
   </div>
 </div>
 
+{% if brand_strategy_html %}
+<div class="section-block">
+  <h2>Brand Strategy</h2>
+  <div class="section-body">
+    {{ brand_strategy_html | safe }}
+  </div>
+</div>
+{% endif %}
+
 <!-- 2. MARKET LANDSCAPE -->
 {% if report.get('market_landscape_html') %}
 <h2>Current Market Position</h2>

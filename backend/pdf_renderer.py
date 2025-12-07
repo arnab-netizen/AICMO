@@ -22,7 +22,9 @@ except Exception:
     CSS = None  # type: ignore
     WEASYPRINT_AVAILABLE = False
 
+from backend.agency_report_schema import AgencyReport, agency_report_to_pdf_context
 from backend.exceptions import BlankPdfError, PdfRenderError
+from backend.generators.brand_strategy_generator import strategy_dict_to_markdown
 
 logger = logging.getLogger("aicmo.pdf_renderer")
 
@@ -283,9 +285,6 @@ def _strip_html(html: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-from backend.agency_report_schema import AgencyReport, agency_report_to_pdf_context
-
-
 def build_agency_pdf_context(report: AgencyReport) -> dict:
     return agency_report_to_pdf_context(report)
 
@@ -302,6 +301,18 @@ def convert_markdown_to_html(md_text: str) -> str:
         import html
 
         return f"<p>{html.escape(md_text)}</p>"
+
+
+def brand_strategy_block_to_html(strategy: Optional[Dict[str, Any]], brand_name: str) -> str:
+    """Convert a brand strategy block dict into HTML for templating."""
+    if not strategy:
+        return ""
+    try:
+        md = strategy_dict_to_markdown(strategy, brand_name or "Your Brand")
+        return convert_markdown_to_html(md)
+    except Exception as e:
+        logger.debug(f"Failed to render brand strategy block: {e}")
+        return ""
 
 
 def resolve_pdf_template_for_pack(wow_package_key: str) -> str:
@@ -575,6 +586,16 @@ def build_pdf_context_for_wow_package(
         "roi_model": {},
         "brand_identity": {},
     }
+
+    brand_strategy_block = (
+        report_data.get("brand_strategy")
+        or report_data.get("brand_strategy_block")
+        or report_data.get("brand_strategy_data")
+    )
+    base_context["brand_strategy_html"] = brand_strategy_block_to_html(
+        brand_strategy_block, base_context["brand_name"]
+    )
+    base_context["brand_strategy"] = brand_strategy_block or {}
 
     # Select section mapping from central registry
     section_map = PACK_SECTION_MAPS.get(wow_package_key, {})

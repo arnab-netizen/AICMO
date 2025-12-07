@@ -611,13 +611,13 @@ def build_client_brief_payload() -> Dict[str, Any]:
 def call_backend_generate(
     stage: str,  # "draft" | "refine" | "final"
     extra_feedback: str = "",
-) -> Optional[str]:
+) -> Optional[Dict[str, Any]]:
     """
     Main integration point:
     - builds payload
     - calls backend API if configured
     - falls back to local OpenAI call if needed
-    - returns markdown report or None on failure
+    - returns backend response dict or None on failure
     """
 
     # Default mode: unknown until we successfully hit one of the paths
@@ -730,45 +730,69 @@ def call_backend_generate(
             )
             return None
 
-        # Try multiple key names for report content (fallback support)
-        report_text = None
-        if "report_markdown" in data:
-            report_text = data["report_markdown"]
-            key_found = "report_markdown"
-        elif "markdown" in data:
-            report_text = data["markdown"]
-            key_found = "markdown"
-        elif "report" in data and isinstance(data.get("report"), dict):
-            report_text = data["report"].get("markdown") or data["report"].get("text")
-            key_found = "report.markdown/text"
-        else:
-            # No valid report key found - show what we got
-            st.error(
-                f"❌ Backend returned unexpected structure. No report content found.\n\n"
-                f"**Expected keys:** report_markdown, markdown, or report.markdown\n"
-                f"**Got keys:** {list(data.keys())}\n"
-                f"**Full response:** {json.dumps(data, indent=2)[:500]}"
-            )
-            return None
-
-        # Validate that report_text is not empty
-        if not report_text or not isinstance(report_text, str) or not report_text.strip():
-            st.error(
-                f"❌ Report content is empty or invalid.\n\n"
-                f"**Key:** {key_found}\n"
-                f"**Type:** {type(report_text)}\n"
-                f"**Length:** {len(report_text) if isinstance(report_text, str) else 'N/A'}"
-            )
-            return None
-
-        # Success - report content is valid
-        st.session_state["generation_mode"] = "http-backend"
-        st.success(f"✅ Report generated using backend with Phase-L learning. (key: {key_found})")
-        return report_text
+        return data
 
     else:
         st.error("⚠️  AICMO_BACKEND_URL is not configured. Backend pipeline cannot be used.")
         return None
+
+
+def _process_backend_response(
+    response: Optional[Dict[str, Any]], stage_label: str
+) -> Optional[str]:
+    """Interpret backend payload, surface errors, and return markdown when available."""
+
+    if not response:
+        return None
+
+    st.session_state["last_backend_response"] = response
+
+    if not isinstance(response, dict):
+        st.error("❌ Backend returned a non-dict response payload.")
+        with st.expander("Full backend payload"):
+            st.write(response)
+        return None
+
+    error_code = response.get("error") or response.get("error_type")
+    detail = response.get("detail") or response.get("error_message", "")
+
+    if not response.get("success", True) or error_code:
+        st.error(
+            f"❌ Backend error ({stage_label}): {error_code or 'unknown_error'} - {detail or 'no detail available'}"
+        )
+        with st.expander("See backend response"):
+            st.json(response)
+        return None
+
+    report_md: Optional[str] = None
+    key_found = "report_markdown"
+
+    if isinstance(response.get("report_markdown"), str):
+        report_md = response["report_markdown"]
+        key_found = "report_markdown"
+    elif isinstance(response.get("markdown"), str):
+        report_md = response["markdown"]
+        key_found = "markdown"
+    elif isinstance(response.get("report"), dict):
+        report_obj = response["report"]
+        if isinstance(report_obj.get("markdown"), str):
+            report_md = report_obj["markdown"]
+            key_found = "report.markdown"
+        elif isinstance(report_obj.get("text"), str):
+            report_md = report_obj["text"]
+            key_found = "report.text"
+
+    if not report_md or not report_md.strip():
+        st.error(
+            "The backend returned an empty report. Check backend logs or try a different refinement mode."
+        )
+        with st.expander("Debug payload"):
+            st.json(response)
+        return None
+
+    st.session_state["generation_mode"] = "http-backend"
+    st.success(f"✅ Backend {stage_label} report generated (key: {key_found}).")
+    return report_md.strip()
 
 
 def _apply_humanization(
@@ -1030,15 +1054,20 @@ This will generate an agency-grade WOW report with:
             use_container_width=True,
             disabled=not is_valid,
         ):
+            backend_response: Optional[Dict[str, Any]] = None
             with st.spinner("Generating draft report with AICMO..."):
-                report_md = call_backend_generate(stage="draft")
-            if report_md:
-                # Apply humanization layer to make it sound less AI-like
-                brand_name = st.session_state["client_brief_meta"].get("brand_name")
-                objectives = st.session_state["client_brief_meta"].get("objectives")
-                humanized_report = _apply_humanization(report_md, brand_name, objectives)
-                st.session_state["draft_report"] = humanized_report
-                st.toast("Draft report generated. Go to the Workshop tab.", icon="✅")
+                backend_response = call_backend_generate(stage="draft")
+
+            report_md = _process_backend_response(backend_response, "draft")
+            if not report_md:
+                return
+
+            # Apply humanization layer to make it sound less AI-like
+            brand_name = st.session_state["client_brief_meta"].get("brand_name")
+            objectives = st.session_state["client_brief_meta"].get("objectives")
+            humanized_report = _apply_humanization(report_md, brand_name, objectives)
+            st.session_state["draft_report"] = humanized_report
+            st.toast("Draft report generated. Go to the Workshop tab.", icon="✅")
 
 
 def render_workshop_tab() -> None:
@@ -1097,7 +1126,7 @@ def render_workshop_tab() -> None:
                     if idx < len(mode_names) - 1:
                         st.session_state["refinement_mode"] = mode_names[idx + 1]
 
-                refined_md = call_backend_generate(
+                backend_response = call_backend_generate(
                     stage="refine",
                     extra_feedback=st.session_state.get("feedback_notes", ""),
                 )
@@ -1105,6 +1134,7 @@ def render_workshop_tab() -> None:
                 # restore mode
                 st.session_state["refinement_mode"] = original_mode
 
+            refined_md = _process_backend_response(backend_response, "refine")
             if refined_md:
                 # Apply humanization layer to refined output
                 brand_name = st.session_state["client_brief_meta"].get("brand_name")

@@ -93,18 +93,6 @@ from aicmo.io.client_reports import (  # noqa: E402
 )
 
 
-class PackOutput:
-    """Lightweight container used in validation tests.
-
-    Compatibility shim providing expected attributes without affecting runtime.
-    """
-
-    def __init__(self) -> None:
-        self.extra_sections: Dict[str, Any] = {}
-        self.wow_markdown: str = ""
-        self.wow_package_key: str = ""
-
-
 from backend.schemas import (  # noqa: E402
     ClientIntakeForm,
     MarketingPlanReport,
@@ -119,15 +107,14 @@ from backend.templates import (  # noqa: E402
     generate_blank_social_calendar_template,
     generate_blank_performance_review_template,
 )
-from backend.agency_report_pipeline import (
+from backend.agency_report_pipeline import (  # noqa: E402
     plan_agency_report_json,
     expand_agency_report_sections,
     assert_agency_grade,
 )
-from backend.domain_detection import infer_domain_from_input
-from backend.exceptions import QualityGateFailedError, BlankPdfError
+from backend.domain_detection import infer_domain_from_input  # noqa: E402
+from backend.exceptions import QualityGateFailedError, BlankPdfError  # noqa: E402
 
-USE_AGENCY_REPORT_PIPELINE = True
 from backend.pdf_utils import text_to_pdf_bytes  # noqa: E402
 from backend.routers.health import router as health_router  # noqa: E402
 from backend.api.routes_learn import router as learn_router  # noqa: E402
@@ -153,6 +140,21 @@ from backend.generators.reviews.review_responder import (  # noqa: E402
 from aicmo.analysis.competitor_finder import (  # noqa: E402
     find_competitors_for_brief,
 )
+
+
+class PackOutput:
+    """Lightweight container used in validation tests.
+
+    Compatibility shim providing expected attributes without affecting runtime.
+    """
+
+    def __init__(self) -> None:
+        self.extra_sections: Dict[str, Any] = {}
+        self.wow_markdown: str = ""
+        self.wow_package_key: str = ""
+
+
+USE_AGENCY_REPORT_PIPELINE = True
 
 # 🔥 Mapping from package display names to preset keys
 # Allows code to convert "Strategy + Campaign Pack (Standard)" → "strategy_campaign_standard"
@@ -380,6 +382,7 @@ class GenerateRequest(BaseModel):
     wow_package_key: Optional[str] = None  # WOW: Package key (e.g., "quick_social_basic")
     stage: str = "draft"  # 🔥 FIX #2: Stage for section selection ("draft", "final")
     research: Optional[Any] = None  # STEP 1: ComprehensiveResearchData from ResearchService
+    brand_strategy_block: Optional[Dict[str, Any]] = None  # Runtime brand strategy data
 
 
 app = FastAPI(title="AICMO API")
@@ -3392,37 +3395,36 @@ def _gen_brand_positioning(req: GenerateRequest, **kwargs) -> str:
     """
     Generate 'brand_positioning' section.
 
-    STEP 3: Optional CreativeService polish for high-value narrative text.
+    Now uses structured brand strategy generator for richer, JSON-validated output.
     """
+    from backend.generators.brand_strategy_generator import (
+        generate_brand_strategy_block,
+        strategy_dict_to_markdown,
+    )
     from backend.services.creative_service import CreativeService
 
     b = req.brief.brand
     a = req.brief.audience
-    base_text = f"""Strategic brand positioning defining how {b.brand_name} occupies distinct competitive space in {b.industry or 'the market'}.
 
-## Positioning Statement
+    # Build brief dict for strategy generator
+    brief_dict = {
+        "brand_name": b.brand_name or "Your Brand",
+        "industry": b.industry or "your industry",
+        "product_service": b.product_service or "solutions",
+        "primary_customer": a.primary_customer or "target customers",
+        "pain_points": a.pain_points if hasattr(a, "pain_points") else [],
+        "objectives": getattr(req.brief.goal, "primary_goal", "growth") or "growth",
+        "business_type": getattr(b, "business_type", "") or "",
+    }
 
-For {a.primary_customer or 'mid-market companies'} in {b.industry or 'the industry'} who need {a.pain_points[0] if a.pain_points else 'solutions to complex challenges'}, {b.brand_name} is the strategic partner that delivers measurable results through proven frameworks and authentic client relationships.
+    # Generate structured brand strategy
+    strategy = generate_brand_strategy_block(brief_dict)
 
-Unlike competitors who prioritize scale over quality or tactics over strategy, {b.brand_name} combines deep expertise with personalized attention ensuring clients achieve sustainable growth rather than temporary gains.
+    # Persist structured block for downstream rendering and export paths
+    req.brand_strategy_block = strategy
 
-## Competitive Differentiation
-
-Key factors distinguishing {b.brand_name} from alternatives:
-
-- **Strategic Depth Over Tactical Execution**: Go beyond campaign execution to address root business challenges with comprehensive strategy development
-- **Proof-Based Methodology**: Replace marketing guesswork with data-driven decisions backed by industry benchmarks and performance tracking
-- **Integrated Approach**: Coordinate across channels and touchpoints rather than siloed tactics creating cohesive customer experience
-- **Transparent Reporting**: Provide real-time access to campaign performance, budget utilization, and ROI metrics building client confidence
-- **Long-Term Partnership Model**: Focus on sustainable growth and client success over transactional project relationships or aggressive upselling
-- **Industry Specialization**: Deep knowledge of {b.industry or 'target industry'} dynamics, customer behavior, and competitive landscape informing relevant strategies
-
-## Brand Promise
-
-{b.brand_name} commitment to clients:
-
-Consistent, measurable growth through clear strategy, repeatable execution, and genuine partnership. We succeed when our clients succeed—measured in revenue growth, market share gains, and brand strength improvements that withstand market volatility and economic uncertainty. This promise reflects our dedication to long-term client success over short-term transactional relationships, ensuring sustainable competitive advantage.
-"""
+    # Convert to markdown
+    base_text = strategy_dict_to_markdown(strategy, b.brand_name or "Your Brand")
 
     # STEP 3: Optional CreativeService polish
     creative_service = CreativeService()
@@ -6105,41 +6107,40 @@ Systematic approach to identifying winning creative:
 # - Target word count: ~450 (under 650 max)
 def _gen_new_positioning(req: GenerateRequest, **kwargs) -> str:
     """Generate 'new_positioning' section - new brand positioning."""
+    from backend.generators.brand_strategy_generator import (
+        generate_brand_strategy_block,
+        strategy_dict_to_markdown,
+    )
+
     b = req.brief.brand
     g = req.brief.goal
+    a = req.brief.audience
+
+    # Build brief dict for strategy generator
+    brief_dict = {
+        "brand_name": b.brand_name or "Your Brand",
+        "industry": b.industry or "your industry",
+        "product_service": b.product_service or "solutions",
+        "primary_customer": a.primary_customer or "target customers",
+        "pain_points": a.pain_points if hasattr(a, "pain_points") else [],
+        "objectives": g.primary_goal or "growth",
+        "business_type": getattr(b, "business_type", "") or "",
+    }
+
+    # Generate structured brand strategy
+    strategy = generate_brand_strategy_block(brief_dict)
+
+    # Persist structured block for downstream rendering and export paths
+    req.brand_strategy_block = strategy
+
+    # Convert to markdown with intro context
     brand = b.brand_name or "your brand"
-    industry = b.industry or "your industry"
-    customer = b.primary_customer or "target customers"
-    goal = g.primary_goal or "growth"
-    product = b.product_service or "solutions"
+    intro = f"## Target Audience\n\nWe serve {a.primary_customer or 'target customers'} in {b.industry or 'the industry'} who seek strategic partnerships driving {g.primary_goal or 'growth'}. These professionals are frustrated by generic vendors and demand proven expertise.\n\n"
 
-    raw = f"""## Target Audience
+    strategy_md = strategy_dict_to_markdown(strategy, brand)
 
-We serve {customer} in {industry} who seek strategic partnerships driving {goal}. These professionals are frustrated by generic vendors and demand proven expertise. They invest premium for differentiated outcomes, choosing partners based on trust and track record rather than price alone.
+    raw = intro + strategy_md
 
-This audience represents 35% of the {industry} market but drives 68% of category profit through higher lifetime value and retention.
-
-## Positioning Statement
-
-**{brand} is the strategic growth partner for {customer} in {industry} that transforms business challenges into competitive advantages through {product}—unlike transactional vendors offering commoditized solutions.**
-
-## Supporting Pillars
-
-**Innovation Leadership**: We pioneer {industry} approaches creating client advantages. Proprietary methodologies and technology set category standards. Proof: 3 awards, 25+ breakthrough case studies, executive speaking at major {industry} conferences.
-
-**Expert Partnership**: Clients gain specialized {industry} expertise from 12+ years navigating complex challenges. We provide strategic advisory—proactive insights, customized recommendations, dedicated support. Proof: 94% satisfaction, 15+ certifications, quarterly business reviews.
-
-**Measurable Impact**: Every engagement includes clear metrics and transparent reporting toward {goal}. Clients achieve 3.2x average ROI within 6 months with documented improvements across efficiency, revenue, and competitive positioning in {industry}. Proof: Performance dashboards and verified case studies.
-
-## Activation Plan
-
-**Phase 1 - Internal Alignment (Weeks 1-2)**: Leadership workshop internalizes new positioning. Sales training covers messaging, competitive differentiation for {customer} in {industry}, and objection handling. Create positioning one-pager.
-
-**Phase 2 - Asset Refresh (Weeks 3-6)**: Rewrite website homepage, about page, key landing pages for {customer}. Update sales decks, proposals, email templates reflecting new {brand} language for {industry}.
-
-**Phase 3 - Market Launch (Weeks 7-10)**: Announce repositioning via email to {customer}. Launch thought leadership demonstrating {industry} expertise. Activate PR targeting {industry} publications. Run awareness campaigns with client success stories.
-
-**Success Metrics**: Track awareness lift among {customer}, message comprehension, inbound inquiry quality, sales cycle reduction, win rate improvement in {industry}. Expect 3-6 months for market perception shift toward {goal}."""
     return sanitize_output(raw, req.brief)
 
 
@@ -6276,43 +6277,47 @@ Timeline expectation: 6-9 months for repositioning to gain traction with leading
 
 def _gen_product_positioning(req: GenerateRequest, **kwargs) -> str:
     """Generate 'product_positioning' section - positioning individual products."""
+    from backend.generators.brand_strategy_generator import (
+        generate_brand_strategy_block,
+        strategy_dict_to_markdown,
+    )
+
     b = req.brief.brand
     a = req.brief.audience
-    raw = f"""## Target Audience
 
-{a} operating in {b.industry} who need streamlined solutions that deliver results without complexity.
+    # Build brief dict for strategy generator
+    brief_dict = {
+        "brand_name": b.brand_name or "Your Brand",
+        "industry": b.industry or "your industry",
+        "product_service": b.product_service or "solutions",
+        "primary_customer": a.primary_customer or "target customers",
+        "pain_points": a.pain_points if hasattr(a, "pain_points") else [],
+        "objectives": "product adoption and market leadership",
+        "business_type": getattr(b, "business_type", "") or "",
+    }
+
+    # Generate structured brand strategy
+    strategy = generate_brand_strategy_block(brief_dict)
+
+    # Persist structured block for downstream rendering and export paths
+    req.brand_strategy_block = strategy
+
+    # Convert to markdown with product context
+    intro = f"""## Target Audience
+
+{a.primary_customer or 'Target customers'} operating in {b.industry} who need streamlined solutions that deliver results without complexity.
 
 **Primary Audience Profile**:
 - Mid-market companies (100-500 employees) with established operations seeking growth acceleration
 - Decision-makers include VP Marketing, Director Operations, department heads with budget authority
 - Pain points center on fragmented tools, inefficient processes, inability to scale current approaches
 - Willing to invest in proven solutions demonstrating clear ROI within 90 days of implementation
-- Value vendor partnerships over transactional relationships preferring strategic guidance alongside product delivery
 
-**Secondary Audiences**:
-- Enterprise teams seeking agile solutions bypassing lengthy procurement cycles
-- Fast-growing startups (50-100 employees) anticipating rapid scaling needs in next 12-18 months
-- Industry-specific segments (healthcare, financial services, retail) with specialized compliance requirements
-
-## Positioning Statement
-
-**{b.brand_name} is the integrated solution for {a} in {b.industry} that transforms fragmented operations into streamlined growth engines through intuitive technology and expert guidance—unlike complex enterprise platforms or limited point solutions.**
-
-**Positioning Rationale**:
-
-- **Category Definition**: Integrated solution positions product as comprehensive platform rather than single-feature tool
-- **Target Clarity**: Specifically appeals to {a} avoiding vague generic messaging that dilutes appeal
-- **Core Benefit**: Transforms fragmented operations into streamlined growth engines speaks directly to audience pain point
-- **Differentiation**: Intuitive technology and expert guidance emphasizes dual value (product plus partnership) competitors lack
-- **Competitive Frame**: Positions between enterprise complexity and SMB limitations claiming valuable middle ground
-- **Rapid Implementation**: 14-day onboarding vs 3-6 month competitor timelines enabling faster value realization
-- **Proven Results**: Customer average 3.2x ROI within 6 months with documented case studies across industries
-- **Expert Partnership**: Dedicated success managers provide strategic guidance not just technical support
-- **Scalable Platform**: Architecture grows with customer needs from 50 to 500+ employees without platform migration
-- **Transparent Pricing**: Published pricing tiers eliminate lengthy negotiation and procurement friction
-
-Launch messaging emphasizes speed results and partnership differentiators through customer stories and data-driven proof points.
 """
+
+    strategy_md = strategy_dict_to_markdown(strategy, b.brand_name or "Your Brand")
+    raw = intro + strategy_md
+
     return sanitize_output(raw, req.brief)
 
 
@@ -7606,6 +7611,8 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
                 action_plan=action_plan,
             )
 
+            brand_strategy_block = getattr(req, "brand_strategy_block", None)
+
     # 🔥 FIX #8: Normalize persona_cards before instantiation to handle partial LLM-generated personas
     if persona_cards:
         normalised_personas = []
@@ -7636,6 +7643,7 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
         persona_cards=persona_cards,
         action_plan=action_plan,
         extra_sections=extra_sections,
+        brand_strategy_block=brand_strategy_block,
     )
     return out
 
@@ -7979,8 +7987,6 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
     prod_llm_ready = is_production_llm_ready()  # Check all LLM providers
     allow_stubs = allow_stubs_in_production()
     use_llm = os.getenv("AICMO_USE_LLM", "0") == "1"
-    stub_used = False  # Track whether stub content was used
-
     # Auto-enable LLM when production keys exist
     if prod_llm_ready and not use_llm:
         logger.info("🔑 [AUTO-LLM] Production LLM keys detected, auto-enabling LLM mode")
@@ -8002,7 +8008,6 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
             base_output = _generate_stub_output(req)
             # Update with LLM-generated marketing plan
             base_output.marketing_plan = marketing_plan
-            stub_used = False  # LLM successfully used
         except Exception as e:
             # LLM failed - never fall back to stubs when production keys exist
             if prod_llm_ready:
@@ -8020,11 +8025,9 @@ async def aicmo_generate(req: GenerateRequest) -> AICMOOutputReport:
                 )
             logger.warning(f"LLM marketing plan generation failed, using stub: {e}", exc_info=False)
             base_output = _generate_stub_output(req)
-            stub_used = True  # Fell back to stub
     else:
         # Default: offline & deterministic (current behaviour)
         base_output = _generate_stub_output(req)
-        stub_used = True  # No LLM configured
 
     if not use_llm:
         # Default: offline & deterministic (current behaviour)
@@ -8366,6 +8369,7 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
     status_flag = "ok"
     error_detail = None
     stub_used = False  # Track whether stub content was used
+    quality_passed = True
 
     try:
         # Extract top-level payload fields
@@ -8762,6 +8766,41 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
 
         report_markdown = sanitize_final_report_text(report_markdown)
         logger.info("✅ [SANITIZER] Applied final report sanitization pass")
+        quality_result_summary: Optional[list[str]] = None
+
+        if not report_markdown or not report_markdown.strip():
+            status_flag = "empty_report"
+            error_detail = "Report markdown sanitized to empty string"
+            brief_id = getattr(brief, "id", None)
+            quality_status = "not_run"
+            if quality_passed is False:
+                quality_status = "failed"
+            elif not stub_used:
+                quality_status = "not_run"
+            logger.warning(
+                "Backend generated empty report_markdown",
+                extra={
+                    "brief_id": brief_id,
+                    "pack_key": resolved_preset_key,
+                    "refinement_mode": refinement_mode,
+                    "stage": effective_stage,
+                    "validation_status": "passed",
+                    "quality_status": quality_status,
+                    "quality_flags": quality_result_summary,
+                    "stub_used": stub_used,
+                },
+            )
+            return error_response(
+                pack_key=resolved_preset_key,
+                error_type="empty_report",
+                error_message="Report generation produced empty content. Check quality gates or inputs.",
+                stub_used=stub_used,
+                debug_hint="Sanitized report markdown length is zero",
+                meta={
+                    "stage": effective_stage,
+                    "refinement_mode": refinement_mode,
+                },
+            )
 
         # 🔍 DEBUG: Add diagnostics footer to report (if AICMO_DEBUG_REPORT_FOOTER env var is set)
         import os
@@ -8824,6 +8863,7 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
                 markdown=report_markdown,
                 brand_name=brand_name,
             )
+            quality_result_summary = getattr(quality_result, "failure_reasons", None)
 
             if not quality_result.passed:
                 logger.error(
@@ -8864,6 +8904,7 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
                 "stage": effective_stage,
                 "wow_enabled": wow_enabled,
             },
+            brand_strategy=report.brand_strategy_block,
         )
 
         # PHASE 2: Final guard - prevent stub content in production environments

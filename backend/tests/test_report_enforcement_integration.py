@@ -111,3 +111,37 @@ def test_generate_report_fails_on_intentionally_broken_content():
         pytest.fail(
             f"Expected 200 (pass) or 500 (enforcer block), got {resp.status_code}: {resp.text}"
         )
+
+
+def test_generate_report_empty_markdown_returns_structured_error(monkeypatch):
+    """Ensure empty markdown generation surfaces a structured error instead of blank content."""
+
+    def fake_generate_output_report_markdown(brief, report):
+        return ""
+
+    monkeypatch.setattr(
+        "backend.main.generate_output_report_markdown", fake_generate_output_report_markdown
+    )
+
+    payload = {
+        "pack_key": "quick_social_basic",
+        "stage": "draft",
+        "client_brief": {
+            "brand_name": "Test Brand",
+            "industry": "Food & Beverage",
+            "product_service": "Platform",
+            "primary_goal": "Launch",
+            "primary_customer": "Growth teams",
+        },
+    }
+
+    resp = client.post("/api/aicmo/generate_report", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["success"] is False
+    assert data["error"] == "empty_report"
+    assert data.get("error_type") == "empty_report"
+    assert data["report_markdown"] is None
+    assert data["markdown"] is None
+    assert data.get("detail"), "Error detail should explain empty content"

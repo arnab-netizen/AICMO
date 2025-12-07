@@ -21,6 +21,7 @@ ErrorType = Literal[
     "runtime_quality_failed",
     "pdf_render_error",
     "agency_pipeline_error",
+    "empty_report",
 ]
 
 
@@ -31,6 +32,7 @@ def success_response(
     quality_passed: bool = True,
     pdf_bytes_b64: Optional[str] = None,
     meta: Optional[Dict[str, Any]] = None,
+    brand_strategy: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Build standardized success response.
@@ -61,6 +63,9 @@ def success_response(
 
     if meta:
         response["meta"] = meta
+
+    if brand_strategy is not None:
+        response["brand_strategy"] = brand_strategy
 
     return response
 
@@ -93,9 +98,11 @@ def error_response(
         "pack_key": pack_key,
         "stub_used": stub_used,
         "error_type": error_type,
+        "error": error_type,
         "error_message": error_message,
-        "report_markdown": "",  # Legacy compatibility
-        "markdown": "",
+        "detail": error_message,
+        "report_markdown": None,
+        "markdown": None,
     }
 
     if debug_hint:

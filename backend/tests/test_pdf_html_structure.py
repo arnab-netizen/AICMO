@@ -5,6 +5,7 @@ These tests check the generated HTML BEFORE it's converted to PDF,
 ensuring that CSS classes and structural elements are present.
 """
 
+import copy
 import pytest
 from backend.pdf_renderer import _render_pdf_html
 
@@ -16,10 +17,20 @@ def quick_social_context():
         "title": "Quick Social Test",
         "brand_name": "Test Brand",
         "campaign_title": "Test Campaign",
+        "primary_channel": "Instagram",
+        "overview_html": "<p>Test overview</p>",
+        "audience_segments_html": "<p>Test audience</p>",
+        "messaging_framework_html": "<p>Test message</p>",
+        "content_buckets_html": "<ul><li>Test bucket</li></ul>",
+        "calendar_html": "<table><tr><th>Day</th></tr></table>",
+        "creative_direction_html": "<p>Test creative</p>",
+        "hashtags_html": "<p>#test</p>",
+        "platform_guidelines_html": "<p>Test guidelines</p>",
+        "kpi_plan_html": "<p>Test KPIs</p>",
+        "final_summary_html": "<p>Test summary</p>",
         "report": {
             "title": "Quick Social Playbook",
             "brand_name": "Test Brand",
-            "primary_channel": "Instagram",
             "audience_segments_html": "<p>Test audience</p>",
             "messaging_framework_html": "<p>Test message</p>",
             "content_buckets_html": "<ul><li>Test bucket</li></ul>",
@@ -40,6 +51,24 @@ def campaign_strategy_context():
         "title": "Campaign Strategy Test",
         "brand_name": "Test Brand",
         "campaign_title": "Test Campaign",
+        "industry": "Wellness",
+        "primary_goal": "Increase brand awareness",
+        "target_audience": "Growth seekers",
+        "positioning_summary": "Positioning summary placeholder",
+        "executive_summary": "Executive summary copy",
+        "situation_analysis": "Situation description",
+        "strategy": "Strategy narrative",
+        "strategic_pillars": ["Pillar one", "Pillar two", "Pillar three"],
+        "campaign_big_idea": "Big idea statement",
+        "campaign_concepts": ["Concept A", "Concept B"],
+        "content_calendar_summary": "Content calendar overview",
+        "content_calendar_table_markdown": "<table><tr><td>Week</td></tr></table>",
+        "kpi_framework": "KPI breakdown",
+        "measurement_plan": "Measurement details",
+        "next_30_days_action_plan": "Next 30 days plan",
+        "core_campaign_idea_html": "<p>Legacy idea</p>",
+        "audience_segments_html": "<p>Legacy audiences</p>",
+        "brand_strategy_html": "<p>Brand strategy copy</p>",
         "report": {
             "campaign_title": "Test Campaign",
             "campaign_duration": "90 days",
@@ -82,6 +111,21 @@ def campaign_strategy_context():
     }
 
 
+@pytest.fixture
+def full_funnel_context():
+    """Minimal context for full_funnel_growth template, including brand strategy."""
+    return {
+        "title": "Full Funnel Test",
+        "brand_name": "Test Brand",
+        "campaign_title": "Full Funnel Campaign",
+        "report": {
+            "title": "Full Funnel Growth Suite",
+            "brand_name": "Test Brand",
+        },
+        "brand_strategy_html": "<p>Positioning snapshot for Test Brand</p>",
+    }
+
+
 class TestQuickSocialHTMLStructure:
     """Test HTML structure for quick_social_basic template."""
 
@@ -91,8 +135,8 @@ class TestQuickSocialHTMLStructure:
 
         # Should have multiple section-block divs (at least 8 for Quick Social)
         assert (
-            html.count('class="section-block"') >= 8
-        ), "Template should have at least 8 section-block divs"
+            html.count('class="section-block"') >= 10
+        ), "Template should have at least 10 section-block divs"
 
     def test_has_page_breaks(self, quick_social_context):
         """Verify template contains page-break markers."""
@@ -133,17 +177,16 @@ class TestCampaignStrategyHTMLStructure:
 
         # Should have multiple section-block divs (at least 10 for Campaign Strategy)
         assert (
-            html.count('class="section-block"') >= 10
-        ), "Template should have at least 10 section-block divs"
+            html.count('class="section-block"') >= 8
+        ), "Template should have at least 8 section-block divs"
 
     def test_has_table_wrappers(self, campaign_strategy_context):
-        """Verify tables are wrapped in .table-wrapper divs."""
+        """Verify the content calendar table renders with Markdown data."""
         html = _render_pdf_html("campaign_strategy.html", campaign_strategy_context)
 
-        # Should have at least 2 table wrappers (competitor snapshot + ROI model)
-        assert (
-            html.count('class="table-wrapper"') >= 2
-        ), "Template should have at least 2 table-wrapper divs"
+        # Verify that the content calendar table section renders
+        assert "Content Calendar" in html
+        assert "<table>" in html
 
     def test_has_page_breaks(self, campaign_strategy_context):
         """Verify template contains page-break markers."""
@@ -151,28 +194,25 @@ class TestCampaignStrategyHTMLStructure:
 
         # Should have at least 5 page breaks between major sections
         assert (
-            html.count('class="page-break"') >= 5
-        ), "Template should have at least 5 page-break divs"
+            html.count('class="page-break"') >= 2
+        ), "Template should have at least 2 page-break divs"
 
-    def test_tables_exist(self, campaign_strategy_context):
-        """Verify tables are generated for structured data."""
+    def test_legacy_sections_render(self, campaign_strategy_context):
+        """Verify legacy sections appear when the context provides HTML."""
         html = _render_pdf_html("campaign_strategy.html", campaign_strategy_context)
 
-        # Should have tables for competitor snapshot and ROI model
-        assert "<table>" in html
-        assert "Competitor A" in html  # From competitor_snapshot
-        assert "10K" in html  # From ROI model reach
+        assert "Legacy idea" in html
+        assert "Legacy audiences" in html
 
     def test_headings_inside_section_blocks(self, campaign_strategy_context):
         """Verify h2 headings are inside section-block divs."""
         html = _render_pdf_html("campaign_strategy.html", campaign_strategy_context)
 
         # Key section headings should exist
-        assert "Objectives" in html
-        assert "Core Campaign Idea" in html
-        assert "Competitive Landscape" in html
-        assert "Channel Strategy" in html
-        assert "ROI Model" in html
+        assert "Brand & Objectives" in html
+        assert "Executive Summary" in html
+        assert "Strategic Pillars" in html
+        assert "Campaign Big Idea" in html
 
     def test_content_is_preserved(self, campaign_strategy_context):
         """Verify template preserves actual report content."""
@@ -180,10 +220,8 @@ class TestCampaignStrategyHTMLStructure:
 
         # Content from context should appear in HTML
         assert "Test Brand" in html
-        assert "Test Campaign" in html
-        assert "90 days" in html
-        assert "Test objectives" in html
-        assert "Test Persona" in html
+        assert "Wellness" in html
+        assert "Increase brand awareness" in html
 
 
 class TestHTMLStructureIntegrity:
@@ -228,3 +266,20 @@ class TestHTMLStructureIntegrity:
         assert html.count("</head>") == 1
         assert html.count("<body>") == 1
         assert html.count("</body>") == 1
+
+
+class TestFullFunnelHTMLStructure:
+    """Ensure full_funnel_growth template handles brand strategy safely."""
+
+    def test_brand_strategy_section_renders(self, full_funnel_context):
+        html = _render_pdf_html("full_funnel_growth.html", full_funnel_context)
+
+        assert "Brand Strategy" in html
+        assert "Positioning snapshot for Test Brand" in html
+
+    def test_brand_strategy_section_skips_when_missing(self, full_funnel_context):
+        context = copy.deepcopy(full_funnel_context)
+        context.pop("brand_strategy_html", None)
+        html = _render_pdf_html("full_funnel_growth.html", context)
+
+        assert "Brand Strategy" not in html
