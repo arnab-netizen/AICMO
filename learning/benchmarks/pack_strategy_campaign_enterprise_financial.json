@@ -1,0 +1,38 @@
+{
+  "pack_key": "strategy_campaign_enterprise",
+  "brand_name": "Meridian Financial Group",
+  "industry": "Financial Services",
+  "domain": "generic",
+  "brief": {
+    "brand_name": "Meridian Financial Group",
+    "industry": "Financial Services",
+    "product_service": "Wealth management and investment advisory for high-net-worth individuals",
+    "primary_goal": "Acquire 200 qualified HNW clients and grow AUM by $500M in 2025",
+    "geography": "United States (major metro areas)",
+    "target_audience": "High-net-worth individuals aged 40-65 with $2M+ investable assets seeking personalized wealth management",
+    "voice": "sophisticated, trustworthy, strategic",
+    "positioning_summary": "Boutique wealth management firm delivering personalized strategies and white-glove service to discerning investors."
+  },
+  "required_terms": [
+    "Meridian Financial",
+    "wealth management",
+    "high-net-worth",
+    "investment"
+  ],
+  "forbidden_terms": [
+    "luxury car",
+    "showroom",
+    "dealership",
+    "test drive",
+    "ideal customers",
+    "ProductHunt",
+    "G2"
+  ],
+  "min_brand_mentions": 12,
+  "quality_checks": {
+    "min_sections": 35,
+    "must_have_industry_analysis": true,
+    "must_have_cxo_summary": true,
+    "must_have_risk_assessment": true
+  }
+}

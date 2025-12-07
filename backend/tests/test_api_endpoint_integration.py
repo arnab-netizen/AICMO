@@ -88,15 +88,13 @@ async def test_http_endpoint_strategy_campaign_standard_full_report():
         }
 
         # Call the HTTP endpoint via test client
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post("/api/aicmo/generate_report", json=payload)
 
         # Validate response structure
-        assert response.status_code == 200, (
-            f"Expected 200, got {response.status_code}. Error: {response.text}"
-        )
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}. Error: {response.text}"
         result = response.json()
         assert "report_markdown" in result, "Missing report_markdown in response"
         assert result["status"] == "success", f"Status is {result.get('status')}, not success"
@@ -111,9 +109,9 @@ async def test_http_endpoint_strategy_campaign_standard_full_report():
         )
 
         # Validate report length
-        assert len(report_markdown) >= 3000, (
-            f"Expected report ≥ 3000 chars, got {len(report_markdown)}."
-        )
+        assert (
+            len(report_markdown) >= 3000
+        ), f"Expected report ≥ 3000 chars, got {len(report_markdown)}."
 
         # Validate debug footer shows correct values
         assert "DEBUG FOOTER (HTTP ENDPOINT PATH)" in report_markdown
@@ -121,7 +119,7 @@ async def test_http_endpoint_strategy_campaign_standard_full_report():
         assert "Effective Stage" in report_markdown and "final" in report_markdown
         assert "Effective Max Tokens" in report_markdown and "12000" in report_markdown
 
-        print(f"\n✅ HTTP ENDPOINT TEST PASSED")
+        print("\n✅ HTTP ENDPOINT TEST PASSED")
         print(f"   Sections: {section_count}")
         print(f"   Length: {len(report_markdown)} chars")
 
@@ -161,9 +159,7 @@ async def test_http_endpoint_full_report_without_debug_footer():
         "use_learning": False,
     }
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post("/api/aicmo/generate_report", json=payload)
 
     assert response.status_code == 200
@@ -177,7 +173,7 @@ async def test_http_endpoint_full_report_without_debug_footer():
     section_count = report_markdown.count("## ")
     assert section_count >= 17, f"Expected 17+ sections, got {section_count}"
 
-    print(f"\n✅ PRODUCTION MODE TEST PASSED")
+    print("\n✅ PRODUCTION MODE TEST PASSED")
     print(f"   Sections: {section_count}")
 
 
@@ -214,9 +210,7 @@ async def test_http_endpoint_token_ceiling_enforced():
             "use_learning": False,
         }
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post("/api/aicmo/generate_report", json=payload)
 
         assert response.status_code == 200
@@ -227,8 +221,8 @@ async def test_http_endpoint_token_ceiling_enforced():
         section_count = report_markdown.count("## ")
         assert section_count >= 17
 
-        print(f"\n✅ TOKEN CEILING TEST PASSED")
-        print(f"   Effective max_tokens: 12000")
+        print("\n✅ TOKEN CEILING TEST PASSED")
+        print("   Effective max_tokens: 12000")
 
     finally:
         if "AICMO_DEBUG_REPORT_FOOTER" in os.environ:
@@ -309,5 +303,62 @@ async def test_direct_generator_with_display_name():
     assert section_count >= 17, f"Expected 17+ sections, got {section_count}"
     assert len(report_markdown) >= 3000
 
-    print(f"\n✅ DIRECT GENERATOR TEST PASSED")
+    print("\n✅ DIRECT GENERATOR TEST PASSED")
     print(f"   Sections: {section_count}")
+
+
+@pytest.mark.asyncio
+async def test_standardized_response_schema():
+    """
+    Test that api_aicmo_generate_report returns standardized response schema
+    for both success and error cases.
+    """
+    from backend.main import api_aicmo_generate_report
+
+    # Test with minimal valid payload
+    payload = {
+        "pack_key": "quick_social_basic",
+        "stage": "draft",
+        "client_brief": {
+            "brand_name": "Test Brand",
+            "industry": "Test Industry",
+            "primary_goal": "Test Goal",
+        },
+        "services": {
+            "marketing_plan": True,
+        },
+    }
+
+    result = await api_aicmo_generate_report(payload)
+
+    # Verify standardized response fields exist
+    assert "success" in result
+    assert "status" in result  # Legacy compatibility
+    assert "pack_key" in result
+    assert "stub_used" in result
+    assert "report_markdown" in result
+    assert "markdown" in result
+
+    if result["success"]:
+        # Success response validation
+        assert "quality_passed" in result
+        assert isinstance(result["stub_used"], bool)
+        assert isinstance(result["report_markdown"], str)
+    else:
+        # Error response validation
+        assert "error_type" in result
+        assert "error_message" in result
+        assert result["error_type"] in [
+            "quality_gate_failed",
+            "blank_pdf",
+            "llm_unavailable",
+            "validation_error",
+            "unexpected_error",
+            "runtime_quality_failed",
+            "pdf_render_error",
+            "agency_pipeline_error",
+        ]
+
+    print("\n✅ RESPONSE SCHEMA VALIDATION PASSED")
+    print(f"   success: {result['success']}")
+    print(f"   stub_used: {result['stub_used']}")

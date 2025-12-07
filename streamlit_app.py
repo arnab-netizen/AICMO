@@ -11,10 +11,15 @@ client marketing reports. Integrates with backend endpoints:
 
 import json
 import os
+import subprocess
 from typing import Any, Dict, Optional
 
 import requests
 import streamlit as st
+
+# Import AICMO API client
+from backend.client.aicmo_api_client import call_generate_report
+from backend.utils.config import is_production_llm_ready, allow_stubs_in_current_env
 
 # ═══════════════════════════════════════════════════════════════════════
 # SECRETS BRIDGE → os.environ
@@ -415,6 +420,59 @@ with st.sidebar:
     )
 
     st.markdown("---")
+
+    # STEP 3: Environment indicator
+    st.markdown("#### 🔧 Environment Status")
+    prod_llm_ready = is_production_llm_ready()
+    stubs_allowed = allow_stubs_in_current_env()
+
+    if prod_llm_ready:
+        st.success("**LLM Mode:** PRODUCTION")
+        st.caption("✅ Real LLM keys configured (no stubs)")
+
+        # STEP 3: Add LLM health check button (only in production)
+        if st.button("🏥 Check LLM Health", key="sidebar_health_check"):
+            with st.spinner("Checking LLM health..."):
+                try:
+                    # Call the /health/llm endpoint
+                    health_response = call_backend("GET", api_base, "/health/llm", timeout=30)
+
+                    if health_response.status_code == 200:
+                        health_data = health_response.json()
+
+                        # Display results
+                        st.markdown("**Health Check Results:**")
+
+                        # Overall status
+                        if health_data.get("ok"):
+                            st.success("✅ Overall: HEALTHY")
+                        else:
+                            st.error("❌ Overall: UNHEALTHY")
+
+                        # Details
+                        st.markdown(f"- **LLM Ready:** {health_data.get('llm_ready')}")
+                        st.markdown(f"- **Used Stub:** {health_data.get('used_stub')}")
+                        st.markdown(f"- **Quality Passed:** {health_data.get('quality_passed')}")
+
+                        # Error details if present
+                        if health_data.get("error_type"):
+                            st.warning(f"⚠️ **Error:** {health_data.get('error_type')}")
+                            st.caption(health_data.get("debug_hint", "No details"))
+
+                    else:
+                        st.error(f"Health check failed: HTTP {health_response.status_code}")
+
+                except Exception as exc:
+                    st.error(f"Health check error: {exc}")
+    else:
+        st.info("**LLM Mode:** DEV/LOCAL")
+        if stubs_allowed:
+            st.caption("⚠️ Stub content allowed (no LLM keys)")
+        else:
+            st.warning("⚠️ Stubs disabled but no LLM keys")
+
+    st.markdown("---")
+
     nav = st.radio(
         "Navigation",
         [
@@ -572,38 +630,118 @@ elif nav == "Brief & Generate":
                 st.error("Select at least one output for AICMO to generate.")
             else:
                 with st.status(
-                    "Calling AICMO (CopyHook) to generate hero variants…", expanded=True
+                    "Generating AICMO report with production-ready pipeline…", expanded=True
                 ) as status:
                     try:
-                        result = aicmo_generate(
-                            api_base=api_base,
-                            brief=brief,
-                            industry=selected_industry,
-                            outputs=selected_outputs,
-                            timeout=int(timeout),
-                        )
+                        # Build payload for AICMO API
+                        payload = {
+                            "pack_key": "quick_social_basic",  # Default pack
+                            "client_brief": brief,
+                            "stage": "draft",
+                            "services": {
+                                "marketing_plan": gen_marketing_plan,
+                                "campaign_blueprint": gen_campaign_blueprint,
+                                "social_calendar": gen_social_calendar,
+                                "performance_review": gen_performance_review,
+                                "creatives": gen_creatives,
+                            },
+                        }
+
+                        # Add industry if selected
+                        if selected_industry:
+                            payload["industry_key"] = selected_industry
+
+                        # Call the hardened API
+                        result = call_generate_report(payload)
+
+                        # Store results
                         st.session_state.current_brief = brief
                         st.session_state.generated_report = result
 
-                        status.update(label="Variants generated.", state="complete")
-                        st.success("CopyHook variants generated successfully.")
+                        # Check response
+                        if result.get("success"):
+                            status.update(
+                                label="✅ Report generated successfully", state="complete"
+                            )
+                            st.success("AICMO report generated successfully!")
 
-                        # Show them in a nice way
-                        variants = result.get("variants") or result.get("headlines") or []
-                        if variants:
-                            for i, v in enumerate(variants, 1):
-                                st.markdown(f"### Variant {i}")
-                                headline = v.get("headline") or v.get("title") or ""
-                                body = v.get("body") or v.get("copy") or ""
-                                st.write(f"**{headline}**")
-                                if body:
-                                    st.write(body)
-                                st.markdown("---")
+                            # Show LLM status badge
+                            col1, col2 = st.columns([3, 1])
+                            with col1:
+                                st.markdown("### Generated Report")
+                            with col2:
+                                stub_used = result.get("stub_used", False)
+                                quality_passed = result.get("quality_passed", True)
+
+                                if stub_used:
+                                    st.warning("⚠️ Stub content (dev only)")
+                                else:
+                                    st.success("✅ LLM: Real")
+
+                                if not quality_passed:
+                                    st.warning("⚠️ Quality checks")
+
+                            # Display the markdown report
+                            markdown = result.get("markdown", "")
+                            if markdown:
+                                st.markdown(markdown)
+                            else:
+                                st.warning("No markdown content in response")
+
+                            # Show debug section
+                            with st.expander("Debug (AICMO raw response)"):
+                                st.json(result)
+
                         else:
-                            st.json(result)
+                            # Handle error response
+                            status.update(label="❌ Generation failed", state="error")
+                            error_type = result.get("error_type", "unknown")
+                            error_message = result.get("error_message", "No error message provided")
+
+                            st.error(f"**Error:** {error_type}")
+                            st.error(error_message)
+
+                            # Show specific guidance for error types
+                            if error_type == "runtime_quality_failed":
+                                debug_hint = result.get("debug_hint", "")
+                                st.warning(f"💡 **Hint:** {debug_hint}")
+
+                                extra = result.get("extra", {})
+                                if extra:
+                                    with st.expander("Quality Check Details"):
+                                        if "missing_terms" in extra and extra["missing_terms"]:
+                                            st.write("**Missing required terms:**")
+                                            st.write(", ".join(extra["missing_terms"]))
+                                        if "forbidden_terms" in extra and extra["forbidden_terms"]:
+                                            st.write("**Forbidden terms found:**")
+                                            st.write(", ".join(extra["forbidden_terms"]))
+                                        if "brand_mentions" in extra:
+                                            st.write(
+                                                f"**Brand mentions:** {extra['brand_mentions']}"
+                                            )
+
+                            elif error_type in ["llm_chain_failed", "llm_failure"]:
+                                st.info(
+                                    "💡 Check OpenAI and Perplexity API status. All LLM providers may be unavailable."
+                                )
+
+                            elif error_type == "stub_in_production_forbidden":
+                                st.error(
+                                    "🔴 **CRITICAL:** Stub content was generated in production mode. This should never happen!"
+                                )
+                                st.info("Check application logs for AICMO_RUNTIME errors.")
+
+                            # Show debug section
+                            with st.expander("Debug (AICMO error response)"):
+                                st.json(result)
+
                     except Exception as exc:
                         status.update(label="Generation failed.", state="error")
-                        st.error(f"Generation failed: {exc}")
+                        st.error(f"Unexpected error: {exc}")
+                        import traceback
+
+                        with st.expander("Stack trace"):
+                            st.code(traceback.format_exc())
 
 # ═══════════════════════════════════════════════════════════════════════
 # WORKSHOP (MARKETING PLAN)
@@ -947,6 +1085,80 @@ elif nav == "Settings":
             st.success(f"Backend responded: {resp.status_code} – {resp.text[:200]}")
         except Exception as exc:
             st.error(f"Health check failed: {exc}")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # STEP 4: Admin smoke test panel
+    st.markdown('<div class="aicmo-card">', unsafe_allow_html=True)
+    st.markdown("### 🚀 Admin: Smoke Test All Packs")
+    st.caption("⚠️ Requires LLM keys configured. Runs all packs end-to-end.")
+
+    admin_password = st.text_input("Admin password", type="password", key="smoke_pw")
+    if st.button("🔥 Run Full Smoke Test", use_container_width=True):
+        if admin_password != "admin123":  # Replace with env var in production
+            st.error("❌ Invalid admin password")
+        else:
+            with st.spinner("Running smoke tests for all packs..."):
+                try:
+                    result = subprocess.run(
+                        ["python", "scripts/smoke_run_all_packs.py"],
+                        capture_output=True,
+                        text=True,
+                        timeout=300,
+                        cwd="/workspaces/AICMO",
+                    )
+                    st.success("✅ Smoke test completed")
+                    with st.expander("📋 Test Output", expanded=True):
+                        st.code(result.stdout, language="text")
+                        if result.stderr:
+                            st.warning("Stderr:")
+                            st.code(result.stderr, language="text")
+                except subprocess.TimeoutExpired:
+                    st.error("❌ Smoke test timed out (>5 minutes)")
+                except Exception as exc:
+                    st.error(f"❌ Smoke test failed: {exc}")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # STEP 3: Admin live LLM verification
+    st.markdown('<div class="aicmo-card">', unsafe_allow_html=True)
+    st.markdown("### 🔬 Admin: Live LLM Verification")
+    st.caption("⚠️ Requires LLM keys. Tests real packs with production API.")
+
+    if st.button("🧪 Run Live LLM Check", use_container_width=True, key="live_llm_check"):
+        with st.spinner("Running live LLM verification..."):
+            try:
+                result = subprocess.run(
+                    ["python", "scripts/check_llm_live.py"],
+                    capture_output=True,
+                    text=True,
+                    timeout=180,  # 3 minutes
+                    cwd="/workspaces/AICMO",
+                )
+
+                # Check exit code
+                if result.returncode == 0:
+                    st.success("✅ All live LLM tests PASSED")
+                else:
+                    st.error(f"❌ Live LLM tests FAILED (exit code: {result.returncode})")
+
+                # Show output
+                with st.expander("📋 Test Output", expanded=True):
+                    # Filter out backend logs for cleaner display
+                    output_lines = result.stdout.split("\n")
+                    filtered_lines = [
+                        line
+                        for line in output_lines
+                        if not line.startswith("2025-") and not line.startswith("[LLM Enhance]")
+                    ]
+                    st.code("\n".join(filtered_lines), language="text")
+
+                    if result.stderr:
+                        st.warning("Stderr:")
+                        st.code(result.stderr, language="text")
+
+            except subprocess.TimeoutExpired:
+                st.error("❌ Live LLM check timed out (>3 minutes)")
+            except Exception as exc:
+                st.error(f"❌ Live LLM check failed: {exc}")
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="aicmo-card">', unsafe_allow_html=True)

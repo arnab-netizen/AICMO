@@ -1,0 +1,34 @@
+{
+  "brand_name": "Luxotica Automobiles",
+  "industry": "Automotive",
+  "domain": "automotive_dealership",
+  "brief": {
+    "brand_name": "Luxotica Automobiles",
+    "industry": "Automotive",
+    "product_service": "Luxury car dealership",
+    "primary_goal": "Increase qualified leads and showroom visits",
+    "geography": "Kolkata",
+    "target_audience": "Affluent car buyers in Kolkata",
+    "voice": "premium, concierge, trustworthy",
+    "positioning_summary": "Boutique luxury dealership focused on curated premium vehicles and white-glove service."
+  },
+  "required_terms": [
+    "Luxotica Automobiles",
+    "showroom",
+    "test drive",
+    "luxury car"
+  ],
+  "forbidden_terms": [
+    "ProductHunt",
+    "G2",
+    "MRR",
+    "ARR",
+    "SaaS",
+    "activation",
+    "onboarding",
+    "churn",
+    "subscription plan",
+    "ideal customers"
+  ],
+  "min_brand_mentions": 3
+}

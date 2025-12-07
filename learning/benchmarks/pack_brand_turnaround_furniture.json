@@ -1,0 +1,35 @@
+{
+  "pack_key": "brand_turnaround_lab",
+  "brand_name": "Heritage Furniture Co",
+  "industry": "Home & Furniture",
+  "domain": "generic",
+  "brief": {
+    "brand_name": "Heritage Furniture Co",
+    "industry": "Home & Furniture",
+    "product_service": "Mid-century modern furniture for residential and small commercial spaces",
+    "primary_goal": "Reverse declining sales and restore brand reputation after quality issues",
+    "geography": "Northeast US",
+    "target_audience": "Homeowners aged 30-55 and interior designers seeking quality, timeless furniture",
+    "voice": "authentic, quality-focused, transparent",
+    "positioning_summary": "Family-owned furniture maker committed to craftsmanship, sustainability, and customer trust."
+  },
+  "required_terms": [
+    "Heritage Furniture",
+    "brand",
+    "turnaround",
+    "reputation"
+  ],
+  "forbidden_terms": [
+    "luxury car",
+    "showroom visit",
+    "test drive",
+    "dealership",
+    "ideal customers"
+  ],
+  "min_brand_mentions": 8,
+  "quality_checks": {
+    "min_sections": 12,
+    "must_have_audit": true,
+    "must_have_recovery_plan": true
+  }
+}

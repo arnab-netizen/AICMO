@@ -1,0 +1,39 @@
+{
+  "pack_key": "strategy_campaign_basic",
+  "brand_name": "FitFusion Studio",
+  "industry": "Fitness & Wellness",
+  "domain": "generic",
+  "brief": {
+    "brand_name": "FitFusion Studio",
+    "industry": "Fitness & Wellness",
+    "product_service": "Boutique fitness studio offering hybrid yoga and HIIT classes",
+    "primary_goal": "Launch membership campaign to hit 200 active members in 90 days",
+    "geography": "Austin, TX",
+    "target_audience": "Busy professionals aged 28-45 seeking convenient, results-driven workouts",
+    "voice": "motivational, community-focused, energetic",
+    "positioning_summary": "Community-driven fitness studio combining mindfulness and intensity for busy urban professionals."
+  },
+  "required_terms": [
+    "FitFusion Studio",
+    "fitness",
+    "membership",
+    "community"
+  ],
+  "forbidden_terms": [
+    "ProductHunt",
+    "G2",
+    "MRR",
+    "SaaS",
+    "churn rate",
+    "activation",
+    "luxury car",
+    "showroom",
+    "ideal customers"
+  ],
+  "min_brand_mentions": 6,
+  "quality_checks": {
+    "min_sections": 5,
+    "must_have_calendar": true,
+    "must_have_messaging": true
+  }
+}

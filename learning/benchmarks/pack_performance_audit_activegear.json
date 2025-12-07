@@ -1,0 +1,35 @@
+{
+  "pack_key": "performance_audit_revamp",
+  "brand_name": "ActiveGear",
+  "industry": "Ecommerce Apparel",
+  "domain": "generic",
+  "brief": {
+    "brand_name": "ActiveGear",
+    "industry": "Ecommerce Apparel",
+    "product_service": "Performance athletic wear for runners and gym enthusiasts",
+    "primary_goal": "Fix underperforming paid campaigns and improve ROAS from 1.8x to 3.5x",
+    "geography": "United States & UK",
+    "target_audience": "Fitness enthusiasts aged 22-45 who prioritize performance and style",
+    "voice": "energetic, results-driven, supportive",
+    "positioning_summary": "High-performance athletic apparel engineered for serious athletes who demand both function and style."
+  },
+  "required_terms": [
+    "ActiveGear",
+    "performance",
+    "campaign",
+    "ROAS"
+  ],
+  "forbidden_terms": [
+    "luxury car",
+    "showroom",
+    "dealership",
+    "test drive",
+    "ideal customers"
+  ],
+  "min_brand_mentions": 7,
+  "quality_checks": {
+    "min_sections": 14,
+    "must_have_audit": true,
+    "must_have_revamp_strategy": true
+  }
+}

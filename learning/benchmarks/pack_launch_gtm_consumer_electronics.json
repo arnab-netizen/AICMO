@@ -1,0 +1,35 @@
+{
+  "pack_key": "launch_gtm_pack",
+  "brand_name": "NutriBlend Pro",
+  "industry": "Consumer Electronics",
+  "domain": "generic",
+  "brief": {
+    "brand_name": "NutriBlend Pro",
+    "industry": "Consumer Electronics",
+    "product_service": "Smart nutrition blender with app-guided recipes",
+    "primary_goal": "Successful product launch with 10K pre-orders and strong market positioning",
+    "geography": "United States & Canada",
+    "target_audience": "Health-conscious millennials and Gen Z who value convenience and nutrition tracking",
+    "voice": "innovative, health-forward, accessible",
+    "positioning_summary": "The first smart blender that learns your nutritional needs and creates personalized smoothie recipes."
+  },
+  "required_terms": [
+    "NutriBlend Pro",
+    "launch",
+    "product",
+    "market"
+  ],
+  "forbidden_terms": [
+    "luxury car",
+    "showroom",
+    "dealership",
+    "test drive",
+    "ideal customers"
+  ],
+  "min_brand_mentions": 7,
+  "quality_checks": {
+    "min_sections": 12,
+    "must_have_launch_phases": true,
+    "must_have_gtm_strategy": true
+  }
+}

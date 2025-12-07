@@ -1,3 +1,79 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import List, Dict
+import re
+
+from backend.domain_detection import PackDomain, AUTOMOTIVE_BANNED_TERMS
+
+
+PLACEHOLDER_PATTERNS = [
+    r"\bideal customers\b",
+    r"\bPRIMARY_GOAL\b",
+    r"\bBrand adjectives: Not specified\b",
+    r"\bSecondary customer: Not specified\b",
+    r"\bTimeline: Not specified\b",
+]
+
+TOO_GENERIC_PHRASES = [
+    "replace random marketing activity",
+    "build momentum through consistent brand storytelling",
+    "Stop posting randomly. Start compounding your brand.",
+    "You don't need 100 ideas. You need 5 ideas repeated",
+    "Most brands don't have a marketing problem. They have a focus problem.",
+]
+
+
+@dataclass
+class QualityResult:
+    ok: bool
+    reasons: List[str]
+    scores: Dict[str, float] = field(default_factory=dict)
+
+
+def _count_matches(text: str, patterns: List[str], regex: bool = True) -> int:
+    if not text:
+        return 0
+    count = 0
+    for p in patterns:
+        if regex:
+            count += len(re.findall(p, text, flags=re.IGNORECASE))
+        else:
+            count += text.lower().count(p.lower())
+    return count
+
+
+def section_quality_score(text: str, domain: PackDomain) -> QualityResult:
+    reasons: List[str] = []
+    scores: Dict[str, float] = {}
+
+    # Placeholder detection
+    placeholder_hits = _count_matches(text or "", PLACEHOLDER_PATTERNS, regex=True)
+    scores["placeholders"] = float(placeholder_hits)
+    if placeholder_hits > 0:
+        reasons.append(f"Contains {placeholder_hits} placeholder patterns")
+
+    # Generic phrase detection
+    generic_hits = _count_matches(text or "", TOO_GENERIC_PHRASES, regex=False)
+    scores["generic_phrases"] = float(generic_hits)
+    if generic_hits > 0:
+        reasons.append(f"Contains {generic_hits} too-generic phrases")
+
+    # Domain mismatch checks
+    domain_hits = 0
+    if domain == PackDomain.AUTOMOTIVE_DEALERSHIP:
+        domain_hits = _count_matches(text or "", AUTOMOTIVE_BANNED_TERMS, regex=False)
+        scores["domain_mismatch_terms"] = float(domain_hits)
+        if domain_hits > 0:
+            reasons.append(f"Contains {domain_hits} domain-banned terms for automotive")
+    else:
+        scores["domain_mismatch_terms"] = 0.0
+
+    # Very simple OK thresholding: any hits fail
+    ok = placeholder_hits == 0 and generic_hits == 0 and domain_hits == 0
+    return QualityResult(ok=ok, reasons=reasons, scores=scores)
+
+
 """
 Genericity Penalty Scorer (v1)
 
@@ -6,9 +82,6 @@ marketing language. It doesn't rewrite anything; it just tells you when to
 ask the LLM for a less-generic rewrite.
 """
 
-from __future__ import annotations
-
-import re
 from collections import Counter
 from functools import lru_cache
 from typing import Iterable, Pattern

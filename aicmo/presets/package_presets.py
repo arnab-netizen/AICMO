@@ -8,6 +8,7 @@ Each package specifies which sections to include, research requirements, and com
 from __future__ import annotations
 
 from typing import List, TypedDict
+from backend.domain_detection import PackDomain  # type: ignore
 
 
 class PackageConfig(TypedDict):
@@ -15,6 +16,8 @@ class PackageConfig(TypedDict):
     requires_research: bool
     complexity: str
     label: str
+    # Optional domain hint for specialized packs
+    domain: PackDomain | None
 
 
 PACKAGE_PRESETS: dict[str, PackageConfig] = {
@@ -39,6 +42,7 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
         ],
         "requires_research": False,
         "complexity": "low",
+        "domain": PackDomain.GENERIC,
     },
     # ----- 2. Strategy + Campaign Pack (Standard - 16 sections) -----
     "strategy_campaign_standard": {
@@ -66,6 +70,7 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
         ],
         "requires_research": True,
         "complexity": "medium",
+        "domain": PackDomain.GENERIC,
     },
     # ============================================================
     # STRATEGY + CAMPAIGN PACK TIER SYSTEM
@@ -92,6 +97,7 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
         ],
         "requires_research": False,
         "complexity": "low",
+        "domain": PackDomain.GENERIC,
     },
     # Note: strategy_campaign_standard stays at 17 sections (moved below)
     # ============================================================
@@ -129,6 +135,7 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
         ],
         "requires_research": True,
         "complexity": "high",
+        "domain": PackDomain.GENERIC,
     },
     # -------------------------------------------------------------
     # 4. Launch & GTM Pack
@@ -152,6 +159,7 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
         ],
         "requires_research": True,
         "complexity": "medium-high",
+        "domain": PackDomain.GENERIC,
     },
     # -------------------------------------------------------------
     # 5. Brand Turnaround Lab
@@ -176,6 +184,7 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
         ],
         "requires_research": True,
         "complexity": "high",
+        "domain": PackDomain.GENERIC,
     },
     # -------------------------------------------------------------
     # 6. Retention & CRM Booster
@@ -200,6 +209,7 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
         ],
         "requires_research": True,
         "complexity": "medium",
+        "domain": PackDomain.GENERIC,
     },
     # -------------------------------------------------------------
     # 7. Performance Audit & Revamp
@@ -226,6 +236,7 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
         ],
         "requires_research": True,
         "complexity": "medium-high",
+        "domain": PackDomain.GENERIC,
     },
     # ============================================================
     # 8. Strategy + Campaign Pack (Premium - 25 sections)
@@ -266,6 +277,7 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
         ],
         "requires_research": True,
         "complexity": "high",
+        "domain": PackDomain.GENERIC,
     },
     # ============================================================
     # 9. Strategy + Campaign Pack (Enterprise - 30 sections)
@@ -317,5 +329,6 @@ PACKAGE_PRESETS: dict[str, PackageConfig] = {
         ],
         "requires_research": True,
         "complexity": "very-high",
+        "domain": PackDomain.GENERIC,
     },
 }

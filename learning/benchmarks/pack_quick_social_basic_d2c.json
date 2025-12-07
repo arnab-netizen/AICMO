@@ -1,0 +1,39 @@
+{
+  "pack_key": "quick_social_basic",
+  "brand_name": "Glow Botanicals",
+  "industry": "D2C Beauty",
+  "domain": "generic",
+  "brief": {
+    "brand_name": "Glow Botanicals",
+    "industry": "D2C Beauty",
+    "product_service": "Natural skincare products for sensitive skin",
+    "primary_goal": "Increase social media engagement and drive e-commerce traffic",
+    "geography": "United States",
+    "target_audience": "Women aged 25-40 with sensitive skin seeking clean beauty alternatives",
+    "voice": "authentic, educational, empowering",
+    "positioning_summary": "Clean beauty brand focused on transparency and effective formulations for sensitive skin."
+  },
+  "required_terms": [
+    "Glow Botanicals",
+    "sensitive skin",
+    "clean beauty",
+    "social media"
+  ],
+  "forbidden_terms": [
+    "ProductHunt",
+    "G2",
+    "MRR",
+    "ARR",
+    "SaaS",
+    "test drive",
+    "showroom",
+    "dealership",
+    "ideal customers"
+  ],
+  "min_brand_mentions": 5,
+  "quality_checks": {
+    "min_sections": 7,
+    "must_have_calendar": true,
+    "min_calendar_days": 25
+  }
+}

@@ -4,269 +4,94 @@
 
 <div class="doc-content">
 
-<!-- CAMPAIGN STRATEGY - Agency-Grade Deck -->
+<!-- CAMPAIGN STRATEGY - Agency-Grade Deck (AgencyReport bound) -->
 
-<!-- 1. COVER / OVERVIEW -->
+<!-- 1. COVER / OVERVIEW (AgencyReport) -->
 <div class="section-block">
   <h1>{{ brand_name }}</h1>
-  <p class="subtitle">{{ campaign_title }}</p>
-  {% if campaign_duration %}
-  <p><strong>Duration:</strong> {{ campaign_duration }}</p>
-  {% endif %}
+  <p><strong>Industry:</strong> {{ industry }}</p>
+  <p><strong>Primary Goal:</strong> {{ primary_goal }}</p>
 </div>
 
 <div class="page-break"></div>
 
-<!-- 2. OBJECTIVES -->
-{% if objectives_html %}
+<!-- 2. BRAND & OBJECTIVES (AgencyReport) -->
 <div class="section-block">
-  <h2>Objectives</h2>
-  <div class="section-body">
-    {{ objectives_html | safe }}
-  </div>
+  <h2>Brand & Objectives</h2>
+  <p><strong>Target Audience:</strong> {{ target_audience }}</p>
+  <p><strong>Positioning Summary:</strong> {{ positioning_summary }}</p>
 </div>
-{% endif %}
 
-<!-- 3. CORE CAMPAIGN IDEA -->
+<!-- 3. EXECUTIVE SUMMARY + STRATEGY (AgencyReport) -->
+<div class="section-block">
+  <h2>Executive Summary</h2>
+  <p>{{ executive_summary }}</p>
+
+  <h2>Situation Analysis</h2>
+  <p>{{ situation_analysis }}</p>
+
+  <h2>Strategy</h2>
+  <p>{{ strategy }}</p>
+</div>
+
+<!-- 4. STRATEGIC PILLARS (AgencyReport) -->
+<div class="section-block">
+  <h3>Strategic Pillars</h3>
+  <ul>
+    {% for pillar in strategic_pillars %}
+      <li>{{ pillar }}</li>
+    {% endfor %}
+  </ul>
+</div>
+
+<div class="page-break"></div>
+
+<!-- 5. CAMPAIGN & CALENDAR (AgencyReport) -->
+<div class="section-block">
+  <h2>Campaign Big Idea</h2>
+  <p>{{ campaign_big_idea }}</p>
+
+  <h2>Campaign Concepts</h2>
+  <ul>
+    {% for concept in campaign_concepts %}
+      <li>{{ concept }}</li>
+    {% endfor %}
+  </ul>
+
+  <h2>Content Calendar Summary</h2>
+  <p>{{ content_calendar_summary }}</p>
+
+  <h3>Content Calendar</h3>
+  {{ content_calendar_table_markdown|safe }}
+</div>
+
+<!-- 6. KPIs & NEXT 30 DAYS (AgencyReport) -->
+<div class="section-block">
+  <h2>KPI Framework</h2>
+  <p>{{ kpi_framework }}</p>
+
+  <h2>Measurement Plan</h2>
+  <p>{{ measurement_plan }}</p>
+
+  <h2>Next 30 Days – Action Plan</h2>
+  <p>{{ next_30_days_action_plan }}</p>
+</div>
+
+<!-- (Legacy sections retained below if upstream context is provided) -->
 {% if core_campaign_idea_html %}
 <div class="section-block">
-  <h2>Core Campaign Idea</h2>
+  <h2>Core Campaign Idea (Legacy)</h2>
   <div class="section-body">
     {{ core_campaign_idea_html | safe }}
   </div>
-</div>
-{% endif %}
-
-<!-- 4. COMPETITIVE LANDSCAPE -->
-{% if competitor_snapshot %}
-<div class="section-block">
-  <h2>Competitive Landscape</h2>
-  <div class="table-wrapper">
-    <table>
-      <thead>
-        <tr>
-          <th>Competitor</th>
-          <th>Position</th>
-          <th>Key Message</th>
-          <th>Channels</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for competitor in competitor_snapshot %}
-        <tr>
-          <td>{{ competitor.get('name', 'N/A') }}</td>
-          <td>{{ competitor.get('position', 'N/A') }}</td>
-          <td>{{ competitor.get('key_message', 'N/A') }}</td>
-          <td>{{ competitor.get('channels', 'N/A') }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
   </div>
-</div>
 {% endif %}
 
-<div class="page-break"></div>
-
-<!-- 5. CHANNEL STRATEGY -->
-{% if channel_plan_html %}
-<div class="section-block">
-  <h2>Channel Strategy</h2>
-  <div class="section-body">
-    {{ channel_plan_html | safe }}
-  </div>
-</div>
-{% endif %}
-
-<!-- 6. AUDIENCE SEGMENTS -->
 {% if audience_segments_html %}
 <div class="section-block">
-  <h2>Audience Segments</h2>
+  <h2>Audience Segments (Legacy)</h2>
   <div class="section-body">
     {{ audience_segments_html | safe }}
-  </div>
-</div>
-{% endif %}
-
-<!-- 7. KEY PERSONAS -->
-{% if personas %}
-<div class="section-block">
-  <h2>Key Personas</h2>
-  {% for persona in personas %}
-  <div class="persona-card">
-    <div class="persona-header">{{ persona.get('name', 'Persona') }}</div>
-    <div class="persona-detail">
-      <strong>Role:</strong> {{ persona.get('role', 'N/A') }}<br>
-      <strong>Goals:</strong> {{ persona.get('goals', 'N/A') }}<br>
-      <strong>Challenges:</strong> {{ persona.get('challenges', 'N/A') }}
-    </div>
-  </div>
-  {% endfor %}
-</div>
-{% endif %}
-
-<div class="page-break"></div>
-
-<!-- 8. ROI MODEL -->
-{% if roi_model %}
-<div class="section-block">
-  <h2>ROI Model</h2>
-  <div class="table-wrapper">
-    <table>
-      <thead>
-        <tr>
-          <th>Metric</th>
-          <th>Q1</th>
-          <th>Q2</th>
-          <th>Q3</th>
-          <th>Q4</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% set roi = roi_model %}
-        {% if roi.get('reach') %}
-        <tr>
-          <td>Estimated Reach</td>
-          <td>{{ roi.reach.get('q1', '—') }}</td>
-          <td>{{ roi.reach.get('q2', '—') }}</td>
-          <td>{{ roi.reach.get('q3', '—') }}</td>
-          <td>{{ roi.reach.get('q4', '—') }}</td>
-        </tr>
-        {% endif %}
-        {% if roi.get('engagement') %}
-        <tr>
-          <td>Engagement Rate</td>
-          <td>{{ roi.engagement.get('q1', '—') }}</td>
-          <td>{{ roi.engagement.get('q2', '—') }}</td>
-          <td>{{ roi.engagement.get('q3', '—') }}</td>
-          <td>{{ roi.engagement.get('q4', '—') }}</td>
-        </tr>
-        {% endif %}
-        {% if roi.get('conversion') %}
-        <tr>
-          <td>Conversion Rate</td>
-          <td>{{ roi.conversion.get('q1', '—') }}</td>
-          <td>{{ roi.conversion.get('q2', '—') }}</td>
-          <td>{{ roi.conversion.get('q3', '—') }}</td>
-          <td>{{ roi.conversion.get('q4', '—') }}</td>
-        </tr>
-        {% endif %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endif %}
-
-<!-- 9. CREATIVE DIRECTION -->
-{% if creative_direction_html %}
-<div class="section-block">
-  <h2>Creative Direction</h2>
-  <div class="section-body">
-    {{ creative_direction_html | safe }}
-  </div>
-</div>
-{% endif %}
-
-<!-- 10. BRAND VISUAL IDENTITY -->
-{% if brand_identity %}
-<div class="section-block">
-  <h2>Brand Visual Identity</h2>
-  {% set identity = brand_identity %}
-  
-  {% if identity.get('primary_color') or identity.get('secondary_color') %}
-  <div style="margin-bottom: 0.3cm;">
-    <strong>Color Palette</strong>
-    <div class="brand-palette">
-      {% if identity.get('primary_color') %}
-      <div class="color-swatch" style="background-color: {{ identity.primary_color }};"></div>
-      {% endif %}
-      {% if identity.get('secondary_color') %}
-      <div class="color-swatch" style="background-color: {{ identity.secondary_color }};"></div>
-      {% endif %}
-    </div>
-  </div>
-  {% endif %}
-  
-  {% if identity.get('typography') %}
-  <div style="margin-bottom: 0.2cm;">
-    <strong>Typography:</strong> {{ identity.typography }}
-  </div>
-  {% endif %}
-  
-  {% if identity.get('tone_voice') %}
-  <div style="margin-bottom: 0.2cm;">
-    <strong>Tone & Voice:</strong> {{ identity.tone_voice }}
-  </div>
-  {% endif %}
-  
-  {% if identity.get('visual_elements') %}
-  <div style="margin-bottom: 0.2cm;">
-    <strong>Visual Elements:</strong> {{ identity.visual_elements }}
-  </div>
-  {% endif %}
-</div>
-{% endif %}
-
-<div class="page-break"></div>
-
-<!-- 11. CAMPAIGN CALENDAR -->
-{% if calendar_html %}
-<div class="section-block">
-  <h2>30-Day Campaign Calendar</h2>
-  <div class="table-wrapper">
-    {{ calendar_html | safe }}
-  </div>
-</div>
-{% endif %}
-
-<!-- 12. AD CONCEPTS -->
-{% if ad_concepts_html %}
-<div class="section-block">
-  <h2>Ad Concepts & Variations</h2>
-  <div class="section-body">
-    {{ ad_concepts_html | safe }}
-  </div>
-</div>
-{% endif %}
-
-<!-- 13. KPI & BUDGET -->
-{% if kpi_budget_html %}
-<div class="section-block">
-  <h2>KPIs & Budget Allocation</h2>
-  <div class="section-body">
-    {{ kpi_budget_html | safe }}
-  </div>
-</div>
-{% endif %}
-
-<div class="page-break"></div>
-
-<!-- 14. EXECUTION ROADMAP -->
-{% if execution_html %}
-<div class="section-block">
-  <h2>Execution Roadmap</h2>
-  <div class="section-body">
-    {{ execution_html | safe }}
-  </div>
-</div>
-{% endif %}
-
-<!-- 15. POST-CAMPAIGN ANALYSIS -->
-{% if post_campaign_html %}
-<div class="section-block">
-  <h2>Post-Campaign Analysis</h2>
-  <div class="section-body">
-    {{ post_campaign_html | safe }}
-  </div>
-</div>
-{% endif %}
-
-<!-- 16. FINAL SUMMARY -->
-{% if final_summary_html %}
-<div class="section-block">
-  <h2>Campaign Summary</h2>
-  <div class="section-body">
-    {{ final_summary_html | safe }}
   </div>
 </div>
 {% endif %}

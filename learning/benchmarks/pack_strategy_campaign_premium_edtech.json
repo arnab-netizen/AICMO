@@ -1,0 +1,36 @@
+{
+  "pack_key": "strategy_campaign_premium",
+  "brand_name": "TechEd Academy",
+  "industry": "EdTech",
+  "domain": "generic",
+  "brief": {
+    "brand_name": "TechEd Academy",
+    "industry": "EdTech",
+    "product_service": "Online coding bootcamp and career transition programs",
+    "primary_goal": "Enroll 500 students in Q2 cohort and establish market leadership in career switchers segment",
+    "geography": "Global (English-speaking markets)",
+    "target_audience": "Career switchers aged 25-40 seeking high-income tech roles without traditional CS degrees",
+    "voice": "empowering, practical, success-oriented",
+    "positioning_summary": "Results-driven coding bootcamp with 92% job placement rate, focused on real-world skills and career outcomes."
+  },
+  "required_terms": [
+    "TechEd Academy",
+    "bootcamp",
+    "career",
+    "enrollment"
+  ],
+  "forbidden_terms": [
+    "luxury car",
+    "showroom",
+    "dealership",
+    "test drive",
+    "ideal customers"
+  ],
+  "min_brand_mentions": 10,
+  "quality_checks": {
+    "min_sections": 24,
+    "must_have_funnel": true,
+    "must_have_ugc_strategy": true,
+    "must_have_influencer_strategy": true
+  }
+}

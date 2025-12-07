@@ -1,0 +1,35 @@
+{
+  "pack_key": "retention_crm_booster",
+  "brand_name": "BeanBox Coffee",
+  "industry": "Food & Beverage Subscription",
+  "domain": "generic",
+  "brief": {
+    "brand_name": "BeanBox Coffee",
+    "industry": "Food & Beverage Subscription",
+    "product_service": "Premium coffee subscription service with curated roaster selections",
+    "primary_goal": "Reduce churn rate from 12% to 7% and increase customer lifetime value by 30%",
+    "geography": "United States",
+    "target_audience": "Coffee enthusiasts aged 28-50 who value quality, variety, and discovery",
+    "voice": "warm, knowledgeable, community-oriented",
+    "positioning_summary": "Artisanal coffee discovery service connecting subscribers with America's best independent roasters."
+  },
+  "required_terms": [
+    "BeanBox Coffee",
+    "retention",
+    "subscription",
+    "customer"
+  ],
+  "forbidden_terms": [
+    "luxury car",
+    "showroom",
+    "dealership",
+    "test drive",
+    "ideal customers"
+  ],
+  "min_brand_mentions": 7,
+  "quality_checks": {
+    "min_sections": 12,
+    "must_have_email_flows": true,
+    "must_have_loyalty_program": true
+  }
+}

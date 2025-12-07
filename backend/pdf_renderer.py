@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
+import re
 
 # Guarded WeasyPrint import
 try:
@@ -20,6 +21,8 @@ except Exception:
     HTML = None  # type: ignore
     CSS = None  # type: ignore
     WEASYPRINT_AVAILABLE = False
+
+from backend.exceptions import BlankPdfError, PdfRenderError
 
 logger = logging.getLogger("aicmo.pdf_renderer")
 
@@ -41,17 +44,21 @@ def render_pdf_from_context(
         PDF file as bytes (starts with b'%PDF')
 
     Raises:
-        ImportError: If WeasyPrint is not installed
+        PdfRenderError: If WeasyPrint not available or PDF generation fails
         FileNotFoundError: If template file doesn't exist
-        RuntimeError: If PDF generation fails
+        BlankPdfError: If PDF generation produces empty/invalid output
     """
+    if not WEASYPRINT_AVAILABLE:
+        raise PdfRenderError(
+            "WeasyPrint is not available; cannot render HTML to PDF. "
+            "Install with: pip install weasyprint jinja2"
+        )
+
     try:
         from jinja2 import Environment, FileSystemLoader
-        from weasyprint import HTML
     except ImportError as e:
-        raise ImportError(
-            "WeasyPrint and Jinja2 are required for PDF rendering. "
-            "Install with: pip install weasyprint jinja2"
+        raise PdfRenderError(
+            "Jinja2 is required for PDF rendering. Install with: pip install jinja2"
         ) from e
 
     # Set up Jinja2 environment
@@ -81,11 +88,11 @@ def render_pdf_from_context(
         pdf_bytes = HTML(string=html_str, base_url=base_url).write_pdf()
 
         if not pdf_bytes:
-            raise RuntimeError("PDF generation returned empty bytes")
+            raise BlankPdfError("PDF generation returned empty bytes")
 
         # Validate PDF header
         if not pdf_bytes.startswith(b"%PDF"):
-            raise RuntimeError(
+            raise BlankPdfError(
                 "Generated PDF bytes do not start with '%PDF' header. "
                 "PDF generation may have failed."
             )
@@ -93,9 +100,12 @@ def render_pdf_from_context(
         logger.info(f"PDF rendered successfully: {template_name} ({len(pdf_bytes)} bytes)")
         return pdf_bytes
 
+    except (BlankPdfError, PdfRenderError):
+        # Re-raise our custom exceptions as-is
+        raise
     except Exception as e:
         logger.error(f"PDF generation failed: {e}")
-        raise RuntimeError(f"PDF generation failed: {e}") from e
+        raise PdfRenderError(f"PDF generation failed: {e}") from e
 
 
 def sections_to_html_list(sections: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
@@ -259,6 +269,25 @@ PDF_TEMPLATE_MAP = {
     "retention_crm_booster": "retention_crm.html",
     "performance_audit_revamp": "performance_audit.html",
 }
+
+# Backwards-compatibility alias for tests expecting this constant
+TEMPLATE_BY_WOW_PACKAGE = PDF_TEMPLATE_MAP
+
+# Minimum PDF size heuristic to catch blank PDFs
+MIN_PDF_SIZE_BYTES = 10_000
+
+
+def _strip_html(html: str) -> str:
+    """Very basic HTML-to-text stripper for sanity checks."""
+    text = re.sub(r"<[^>]+>", " ", html)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+from backend.agency_report_schema import AgencyReport, agency_report_to_pdf_context
+
+
+def build_agency_pdf_context(report: AgencyReport) -> dict:
+    return agency_report_to_pdf_context(report)
 
 
 def convert_markdown_to_html(md_text: str) -> str:
@@ -673,3 +702,44 @@ def render_agency_pdf(report_data: Dict[str, Any], wow_package_key: str) -> byte
     print("=" * 80 + "\n")
 
     return render_html_template_to_pdf(template_name, pdf_context)
+
+
+def render_agency_report_pdf(report: AgencyReport, template_name: str) -> bytes:
+    """
+    Render AgencyReport via Jinja template with non-blank checks and size enforcement.
+
+    Raises:
+        PdfRenderError: If WeasyPrint not available or rendering fails
+        BlankPdfError: If output is empty or too small
+    """
+    if not WEASYPRINT_AVAILABLE:
+        raise PdfRenderError(
+            "WeasyPrint is not available; cannot render HTML to PDF. Install with: pip install weasyprint jinja2"
+        )
+
+    context = build_agency_pdf_context(report)
+    html = _render_pdf_html(template_name, context)
+
+    text_only = _strip_html(html)
+    if len(text_only) < 500:
+        raise BlankPdfError("Rendered agency report HTML is too short; likely missing context.")
+
+    template_dir = Path(__file__).parent / "templates" / "pdf"
+    try:
+        css_path = template_dir / "styles.css"
+        stylesheets = []
+        if css_path.exists():
+            stylesheets.append(CSS(filename=str(css_path)))
+        pdf_bytes = HTML(string=html, base_url=str(template_dir)).write_pdf(
+            stylesheets=stylesheets if stylesheets else None
+        )
+    except Exception as e:
+        logger.error(f"PDF generation failed: {e}")
+        raise PdfRenderError(f"PDF generation failed: {e}") from e
+
+    if not pdf_bytes or not pdf_bytes.startswith(b"%PDF"):
+        raise BlankPdfError("Generated PDF did not start with %PDF header.")
+    if len(pdf_bytes) < MIN_PDF_SIZE_BYTES:
+        raise BlankPdfError(f"Generated PDF too small ({len(pdf_bytes)} bytes).")
+
+    return pdf_bytes

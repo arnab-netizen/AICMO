@@ -1,0 +1,37 @@
+{
+  "pack_key": "full_funnel_growth_suite",
+  "brand_name": "CloudSync",
+  "industry": "B2B SaaS",
+  "domain": "generic",
+  "brief": {
+    "brand_name": "CloudSync",
+    "industry": "B2B SaaS",
+    "product_service": "Cloud-based team collaboration and file sync platform",
+    "primary_goal": "Generate 500 qualified leads and achieve 50 paid conversions in Q1",
+    "geography": "North America",
+    "target_audience": "IT directors and operations managers at mid-market companies (50-500 employees)",
+    "voice": "professional, reliable, innovation-focused",
+    "positioning_summary": "Enterprise-grade collaboration platform built for growing teams who need security and simplicity."
+  },
+  "required_terms": [
+    "CloudSync",
+    "collaboration",
+    "B2B",
+    "lead generation",
+    "conversion"
+  ],
+  "forbidden_terms": [
+    "luxury car",
+    "showroom",
+    "dealership",
+    "test drive",
+    "ideal customers"
+  ],
+  "min_brand_mentions": 8,
+  "quality_checks": {
+    "min_sections": 20,
+    "must_have_funnel": true,
+    "must_have_landing_page": true,
+    "must_have_email_flows": true
+  }
+}

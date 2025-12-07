@@ -1,0 +1,209 @@
+name: Nightly LLM Regression Tests
+
+on:
+  # Run every night at 01:00 IST (19:30 UTC previous day)
+  schedule:
+    - cron: '30 19 * * *'
+  
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+jobs:
+  llm-regression:
+    name: LLM Regression with Real Keys
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+      
+      - name: Configure environment for production LLM testing
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+        run: |
+          echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> $GITHUB_ENV
+          echo "PERPLEXITY_API_KEY=$PERPLEXITY_API_KEY" >> $GITHUB_ENV
+          echo "AICMO_ALLOW_STUBS=false" >> $GITHUB_ENV
+          echo "AICMO_CACHE_ENABLED=false" >> $GITHUB_ENV
+          
+          # Verify keys are set (without printing values)
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "❌ OPENAI_API_KEY not configured in repo secrets"
+            exit 1
+          fi
+          if [ -z "$PERPLEXITY_API_KEY" ]; then
+            echo "❌ PERPLEXITY_API_KEY not configured in repo secrets"
+            exit 1
+          fi
+          echo "✅ LLM keys configured successfully"
+      
+      - name: Run pack benchmark simulation tests
+        id: pack_tests
+        continue-on-error: true
+        run: |
+          echo "🧪 Running pack benchmark simulation tests..."
+          pytest -q backend/tests/test_all_packs_simulation.py::test_pack_meets_benchmark -v \
+            --tb=short \
+            --junitxml=reports/pytest-results.xml \
+            | tee reports/pytest-output.txt
+          
+          # Capture exit code
+          PYTEST_EXIT_CODE=${PIPESTATUS[0]}
+          echo "pytest_exit_code=$PYTEST_EXIT_CODE" >> $GITHUB_OUTPUT
+          
+          if [ $PYTEST_EXIT_CODE -eq 0 ]; then
+            echo "✅ All pack benchmark tests passed"
+          else
+            echo "❌ Pack benchmark tests failed with exit code: $PYTEST_EXIT_CODE"
+          fi
+      
+      - name: Run live LLM verification
+        id: live_check
+        continue-on-error: true
+        run: |
+          echo "🔬 Running live LLM verification..."
+          python scripts/check_llm_live.py | tee reports/llm-live-check.txt
+          
+          # Capture exit code
+          LIVE_CHECK_EXIT_CODE=${PIPESTATUS[0]}
+          echo "live_check_exit_code=$LIVE_CHECK_EXIT_CODE" >> $GITHUB_OUTPUT
+          
+          if [ $LIVE_CHECK_EXIT_CODE -eq 0 ]; then
+            echo "✅ Live LLM verification passed"
+          else
+            echo "❌ Live LLM verification failed with exit code: $LIVE_CHECK_EXIT_CODE"
+          fi
+      
+      - name: Upload test artifacts on failure
+        if: steps.pack_tests.outputs.pytest_exit_code != '0' || steps.live_check.outputs.live_check_exit_code != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-regression-failure-${{ github.run_number }}
+          path: |
+            reports/pytest-output.txt
+            reports/pytest-results.xml
+            reports/llm-live-check.txt
+            reports/ALL_PACKS_GOLDEN_SIMULATION_LATEST.md
+          retention-days: 30
+      
+      - name: Upload success artifacts
+        if: steps.pack_tests.outputs.pytest_exit_code == '0' && steps.live_check.outputs.live_check_exit_code == '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-regression-success-${{ github.run_number }}
+          path: |
+            reports/pytest-output.txt
+            reports/llm-live-check.txt
+          retention-days: 7
+      
+      - name: Check final status and fail if needed
+        run: |
+          PYTEST_EXIT=${{ steps.pack_tests.outputs.pytest_exit_code }}
+          LIVE_CHECK_EXIT=${{ steps.live_check.outputs.live_check_exit_code }}
+          
+          echo "📊 Test Results Summary:"
+          echo "  - Pytest exit code: $PYTEST_EXIT"
+          echo "  - Live check exit code: $LIVE_CHECK_EXIT"
+          
+          if [ "$PYTEST_EXIT" != "0" ] || [ "$LIVE_CHECK_EXIT" != "0" ]; then
+            echo ""
+            echo "❌ Nightly LLM regression tests FAILED"
+            echo "   Check uploaded artifacts for details"
+            exit 1
+          fi
+          
+          echo ""
+          echo "✅ All nightly LLM regression tests PASSED"
+      
+      - name: Create issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🚨 Nightly LLM Regression Failed - ${new Date().toISOString().split('T')[0]}`;
+            const body = `## Nightly LLM Regression Test Failure
+            
+            **Workflow Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            **Date:** ${new Date().toISOString()}
+            
+            ### Test Results
+            - **Pack Benchmark Tests:** Exit code ${{ steps.pack_tests.outputs.pytest_exit_code }}
+            - **Live LLM Verification:** Exit code ${{ steps.live_check.outputs.live_check_exit_code }}
+            
+            ### Possible Causes
+            - LLM provider API outage (OpenAI/Perplexity)
+            - Quality benchmark regression
+            - Stub content detected in production mode
+            - API rate limiting
+            
+            ### Action Required
+            1. Review workflow artifacts: [Download here](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            2. Check \`reports/pytest-output.txt\` for detailed error messages
+            3. Review \`reports/ALL_PACKS_GOLDEN_SIMULATION_LATEST.md\` if present
+            4. Verify LLM provider status:
+               - OpenAI: https://status.openai.com/
+               - Perplexity: https://status.perplexity.ai/
+            5. Run locally: \`python scripts/check_llm_live.py\`
+            
+            ### Labels
+            - \`regression\`
+            - \`llm\`
+            - \`ci\`
+            
+            cc: @arnab-netizen`;
+            
+            // Check if issue already exists for today
+            const today = new Date().toISOString().split('T')[0];
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'regression,llm',
+              per_page: 10
+            });
+            
+            const existingIssue = issues.data.find(issue => 
+              issue.title.includes(today)
+            );
+            
+            if (existingIssue) {
+              console.log(`Issue already exists: #${existingIssue.number}`);
+              // Add comment instead
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `Another failure detected in run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`
+              });
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['regression', 'llm', 'ci']
+              });
+              console.log('Created new regression issue');
+            }
