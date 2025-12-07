@@ -374,6 +374,7 @@ class GenerateRequest(BaseModel):
     stage: str = "draft"  # 🔥 FIX #2: Stage for section selection ("draft", "final")
     research: Optional[Any] = None  # STEP 1: ComprehensiveResearchData from ResearchService
     brand_strategy_block: Optional[Dict[str, Any]] = None  # Runtime brand strategy data
+    draft_mode: bool = False  # 🔥 FIX #4: Allow relaxed benchmark validation for development iteration
 
 
 app = FastAPI(title="AICMO API")
@@ -6993,6 +6994,7 @@ def generate_sections(
                         regenerate_failed_sections=regenerate_failed_sections,
                         max_attempts=2,
                         fallback_to_original=fallback_templates if fallback_templates else None,
+                        draft_mode=req.draft_mode,  # 🔥 Pass draft_mode from request
                     )
 
                     logger.info(
