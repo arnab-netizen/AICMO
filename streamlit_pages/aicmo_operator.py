@@ -721,17 +721,50 @@ def call_backend_generate(
             )
             return None
 
-        # Validate response structure
-        if isinstance(data, dict) and "report_markdown" in data:
-            st.session_state["generation_mode"] = "http-backend"
-            st.success("✅ Report generated using backend with Phase-L learning.")
-            return data["report_markdown"]
-        else:
+        # Validate response structure with flexible fallback
+        if not isinstance(data, dict):
             st.error(
-                f"❌ Backend returned unexpected structure. Expected 'report_markdown' key.\n\n"
-                f"**Got keys:** {list(data.keys()) if isinstance(data, dict) else type(data)}"
+                f"❌ Backend returned non-dict structure: {type(data)}\n\n"
+                f"**Expected:** dict with 'report_markdown' key\n"
+                f"**Got:** {str(data)[:200]}"
             )
             return None
+
+        # Try multiple key names for report content (fallback support)
+        report_text = None
+        if "report_markdown" in data:
+            report_text = data["report_markdown"]
+            key_found = "report_markdown"
+        elif "markdown" in data:
+            report_text = data["markdown"]
+            key_found = "markdown"
+        elif "report" in data and isinstance(data.get("report"), dict):
+            report_text = data["report"].get("markdown") or data["report"].get("text")
+            key_found = "report.markdown/text"
+        else:
+            # No valid report key found - show what we got
+            st.error(
+                f"❌ Backend returned unexpected structure. No report content found.\n\n"
+                f"**Expected keys:** report_markdown, markdown, or report.markdown\n"
+                f"**Got keys:** {list(data.keys())}\n"
+                f"**Full response:** {json.dumps(data, indent=2)[:500]}"
+            )
+            return None
+
+        # Validate that report_text is not empty
+        if not report_text or not isinstance(report_text, str) or not report_text.strip():
+            st.error(
+                f"❌ Report content is empty or invalid.\n\n"
+                f"**Key:** {key_found}\n"
+                f"**Type:** {type(report_text)}\n"
+                f"**Length:** {len(report_text) if isinstance(report_text, str) else 'N/A'}"
+            )
+            return None
+
+        # Success - report content is valid
+        st.session_state["generation_mode"] = "http-backend"
+        st.success(f"✅ Report generated using backend with Phase-L learning. (key: {key_found})")
+        return report_text
 
     else:
         st.error("⚠️  AICMO_BACKEND_URL is not configured. Backend pipeline cannot be used.")
