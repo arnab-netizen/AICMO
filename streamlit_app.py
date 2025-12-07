@@ -11,6 +11,7 @@ client marketing reports. Integrates with backend endpoints:
 
 import json
 import os
+import re
 import subprocess
 from typing import Any, Dict, Optional
 
@@ -20,6 +21,59 @@ import streamlit as st
 # Import AICMO API client
 from backend.client.aicmo_api_client import call_generate_report
 from backend.utils.config import is_production_llm_ready, allow_stubs_in_current_env
+
+
+def parse_markdown_to_sections(markdown: str) -> dict:
+    """
+    Parse markdown content into structured sections dict.
+
+    Splits by ## headers (H2) and creates a dict like:
+    {"section_name": "content", ...}
+
+    If no headers found, returns single section with full content.
+    """
+    if not markdown or not markdown.strip():
+        return {}
+
+    # Split by ## headers (H2 level)
+    # Pattern: ## Header Name
+    sections = {}
+
+    # Find all H2 headers and their positions
+    pattern = r"^## (.+?)$"
+    matches = list(re.finditer(pattern, markdown, re.MULTILINE))
+
+    if not matches:
+        # No sections found, return entire content as single section
+        return {"full_report": markdown}
+
+    # Extract sections between headers
+    for i, match in enumerate(matches):
+        section_title = match.group(1).strip()
+        start_pos = match.end()
+
+        # Find end position (start of next section or end of document)
+        if i + 1 < len(matches):
+            end_pos = matches[i + 1].start()
+        else:
+            end_pos = len(markdown)
+
+        # Extract content between this header and next
+        content = markdown[start_pos:end_pos].strip()
+
+        # Use section title as key (sanitize for dict key)
+        section_key = section_title.lower().replace(" ", "_").replace("-", "_")
+        section_key = re.sub(r"[^a-z0-9_]", "", section_key)
+
+        if content:  # Only add non-empty sections
+            sections[section_key] = content
+
+    # If we have sections but none had content, fallback to full report
+    if not sections:
+        sections = {"full_report": markdown}
+
+    return sections
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # SECRETS BRIDGE → os.environ
@@ -654,6 +708,13 @@ elif nav == "Brief & Generate":
                         # Call the hardened API
                         result = call_generate_report(payload)
 
+                        # Parse markdown into sections for Workshop tab
+                        if result.get("success"):
+                            markdown = result.get("markdown", "")
+                            if markdown:
+                                sections = parse_markdown_to_sections(markdown)
+                                result["sections"] = sections
+
                         # Store results
                         st.session_state.current_brief = brief
                         st.session_state.generated_report = result
@@ -755,6 +816,9 @@ elif nav == "Workshop":
     else:
         report = st.session_state.generated_report
 
+        # DEBUG: Show what keys are in the report
+        st.write("🔍 DEBUG - Report keys:", list(report.keys()))
+
         st.caption("Review sections below. You can send revision instructions for each section.")
         sections = report.get("sections") or report.get("content") or {}
         if isinstance(sections, dict):
@@ -766,6 +830,20 @@ elif nav == "Workshop":
             ]
         else:
             items = []
+
+        if not items:
+            st.warning("⚠️ No structured sections found in the report.")
+            st.info(
+                "The report was generated but couldn't be parsed into sections. You can still view it in the **Brief & Generate** tab or export it."
+            )
+
+            # Show raw markdown as fallback
+            markdown = report.get("markdown", "")
+            if markdown:
+                with st.expander("📄 View full report (raw)", expanded=False):
+                    st.markdown(markdown)
+        else:
+            st.success(f"✅ Found {len(items)} sections in report")
 
         for section_id, section_content in items:
             with st.expander(f"Section: {section_id}", expanded=False):
