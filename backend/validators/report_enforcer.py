@@ -67,6 +67,7 @@ def enforce_benchmarks_with_regen(
     ] = None,
     max_attempts: int = 2,
     fallback_to_original: Optional[Dict[str, str]] = None,
+    draft_mode: bool = False,
 ) -> EnforcementOutcome:
     """
     Enforce benchmarks on a set of sections for a given pack.
@@ -95,16 +96,39 @@ def enforce_benchmarks_with_regen(
         fallback_to_original: Optional dict mapping section_id -> original template content.
           If provided, failing sections after max_attempts will transparently fall back
           to these safe template versions instead of raising errors.
+        draft_mode: If True, skip strict benchmark validation and return sections as-is
+          with warnings in the validation result. Useful for internal/debug iteration
+          where spec compliance is not yet required. Default is False (strict mode).
 
     Returns:
         EnforcementOutcome with the final validated sections and validation result.
 
     Raises:
         BenchmarkEnforcementError: If content still fails after regeneration attempts
-          AND no fallback is available.
+          AND no fallback is available AND draft_mode is False.
     """
     if max_attempts < 1:
         raise ValueError("max_attempts must be >= 1")
+
+    # Draft mode: skip strict validation and return sections as-is
+    if draft_mode:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.info(f"[DRAFT MODE] Skipping strict benchmark validation for pack '{pack_key}'")
+
+        # Still run validation to collect metrics/warnings but don't fail
+        validation = validate_report_sections(
+            pack_key=pack_key,
+            sections=sections,
+        )
+
+        # Return with draft status (not strictly enforced)
+        return EnforcementOutcome(
+            status="PASS_WITH_WARNINGS",  # Report draft status
+            sections=list(sections),
+            validation=validation,
+        )
 
     attempt = 1
     current_sections: List[Dict[str, str]] = list(sections)
