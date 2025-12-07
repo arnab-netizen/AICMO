@@ -1,0 +1,39 @@
+{
+  "pack_key": "strategy_campaign_standard",
+  "brand_name": "FitFlow",
+  "industry": "Health & Wellness",
+  "domain": "fitness_app",
+  "brief": {
+    "brand_name": "FitFlow",
+    "industry": "Health & Wellness",
+    "product_service": "AI-powered fitness and nutrition tracking mobile app for busy professionals",
+    "primary_goal": "Acquire 10,000 new app downloads and achieve 2,000 active paying subscribers in 90 days",
+    "geography": "United States & Canada",
+    "target_audience": "Health-conscious professionals aged 25-45 who want personalized fitness guidance",
+    "voice": "motivational, science-backed, lifestyle-focused",
+    "positioning_summary": "The intelligent personal trainer in your pocket - customized workouts and nutrition plans powered by AI."
+  },
+  "required_terms": [
+    "FitFlow",
+    "fitness",
+    "personalized",
+    "app",
+    "AI",
+    "wellness",
+    "health"
+  ],
+  "forbidden_terms": [
+    "boring",
+    "complicated",
+    "generic workout",
+    "fad diet",
+    "quick fix"
+  ],
+  "min_brand_mentions": 12,
+  "quality_checks": {
+    "min_sections": 16,
+    "must_have_campaign_idea": true,
+    "must_have_creative_direction": true,
+    "must_have_channel_plan": true
+  }
+}

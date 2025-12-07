@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="doc-content">
+
+<!-- STRATEGY + CAMPAIGN PACK (STANDARD) - Agency-Grade Deck -->
+
+<!-- 1. COVER -->
+<div class="section-block">
+  <h1>{{ brand_name }}</h1>
+  <p class="subtitle">Strategy + Campaign Plan</p>
+  <p><strong>Campaign Focus:</strong> Multi-channel integrated marketing</p>
+</div>
+
+<div class="page-break"></div>
+
+<!-- 2. OVERVIEW -->
+{% if overview_html %}
+<div class="section-block">
+  <h2>Campaign Overview</h2>
+  <div class="section-body">
+    {{ overview_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 3. CAMPAIGN OBJECTIVE -->
+{% if campaign_objective_html %}
+<div class="section-block">
+  <h2>Campaign Objective</h2>
+  <div class="section-body">
+    {{ campaign_objective_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 4. CORE CAMPAIGN IDEA -->
+{% if core_campaign_idea_html %}
+<div class="section-block">
+  <h2>Core Campaign Idea</h2>
+  <div class="section-body">
+    {{ core_campaign_idea_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 5. MESSAGING FRAMEWORK -->
+{% if messaging_framework_html %}
+<div class="section-block">
+  <h2>Messaging Framework</h2>
+  <div class="section-body">
+    {{ messaging_framework_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 6. CHANNEL PLAN -->
+{% if channel_plan_html %}
+<div class="section-block">
+  <h2>Channel Strategy</h2>
+  <div class="section-body">
+    {{ channel_plan_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 7. AUDIENCE SEGMENTS -->
+{% if audience_segments_html %}
+<div class="section-block">
+  <h2>Target Audience Segments</h2>
+  <div class="section-body">
+    {{ audience_segments_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 8. PERSONA CARDS -->
+{% if persona_cards_html %}
+<div class="section-block">
+  <h2>Buyer Personas</h2>
+  <div class="section-body">
+    {{ persona_cards_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 9. CREATIVE DIRECTION -->
+{% if creative_direction_html %}
+<div class="section-block">
+  <h2>Creative Direction & Visual Style</h2>
+  <div class="section-body">
+    {{ creative_direction_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 10. INFLUENCER STRATEGY -->
+{% if influencer_strategy_html %}
+<div class="section-block">
+  <h2>Influencer & Partnership Strategy</h2>
+  <div class="section-body">
+    {{ influencer_strategy_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 11. PROMOTIONS AND OFFERS -->
+{% if promotions_and_offers_html %}
+<div class="section-block">
+  <h2>Promotions & Special Offers</h2>
+  <div class="section-body">
+    {{ promotions_and_offers_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 12. 30-DAY CALENDAR -->
+{% if detailed_30_day_calendar_html %}
+<div class="section-block">
+  <h2>30-Day Content Calendar</h2>
+  <div class="table-wrapper">
+    {{ detailed_30_day_calendar_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 13. EMAIL & CRM FLOWS -->
+{% if email_and_crm_flows_html %}
+<div class="section-block">
+  <h2>Email & CRM Automation Flows</h2>
+  <div class="section-body">
+    {{ email_and_crm_flows_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 14. AD CONCEPTS -->
+{% if ad_concepts_html %}
+<div class="section-block">
+  <h2>Paid Ad Concepts</h2>
+  <div class="section-body">
+    {{ ad_concepts_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 15. KPI & BUDGET PLAN -->
+{% if kpi_and_budget_plan_html %}
+<div class="section-block">
+  <h2>KPI & Budget Allocation</h2>
+  <div class="section-body">
+    {{ kpi_and_budget_plan_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 16. EXECUTION ROADMAP -->
+{% if execution_roadmap_html %}
+<div class="section-block">
+  <h2>Execution Roadmap</h2>
+  <div class="section-body">
+    {{ execution_roadmap_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 17. POST-CAMPAIGN ANALYSIS -->
+{% if post_campaign_analysis_html %}
+<div class="section-block">
+  <h2>Post-Campaign Analysis Plan</h2>
+  <div class="section-body">
+    {{ post_campaign_analysis_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 18. FINAL SUMMARY -->
+{% if final_summary_html %}
+<div class="section-block">
+  <h2>Summary & Next Steps</h2>
+  <div class="section-body">
+    {{ final_summary_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+</div>
+
+{% endblock %}

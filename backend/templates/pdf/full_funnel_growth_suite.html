@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="doc-content">
+
+<!-- FULL-FUNNEL GROWTH SUITE (PREMIUM) - Agency-Grade Deck -->
+
+<!-- 1. COVER -->
+<div class="section-block">
+  <h1>{{ brand_name }}</h1>
+  <p class="subtitle">Full-Funnel Growth Strategy</p>
+  <p><strong>Scope:</strong> Awareness → Consideration → Conversion → Retention</p>
+</div>
+
+<div class="page-break"></div>
+
+<!-- 2. OVERVIEW -->
+{% if overview_html %}
+<div class="section-block">
+  <h2>Strategic Overview</h2>
+  <div class="section-body">
+    {{ overview_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 3. MARKET LANDSCAPE -->
+{% if market_landscape_html %}
+<div class="section-block">
+  <h2>Market Landscape & Opportunity</h2>
+  <div class="section-body">
+    {{ market_landscape_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 4. COMPETITOR ANALYSIS -->
+{% if competitor_analysis_html %}
+<div class="section-block">
+  <h2>Competitive Analysis</h2>
+  <div class="section-body">
+    {{ competitor_analysis_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 5. FUNNEL BREAKDOWN -->
+{% if funnel_breakdown_html %}
+<div class="section-block">
+  <h2>Customer Funnel Architecture</h2>
+  <div class="section-body">
+    {{ funnel_breakdown_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 6. AUDIENCE SEGMENTS -->
+{% if audience_segments_html %}
+<div class="section-block">
+  <h2>Target Audience Segments</h2>
+  <div class="section-body">
+    {{ audience_segments_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 7. PERSONA CARDS -->
+{% if persona_cards_html %}
+<div class="section-block">
+  <h2>Detailed Buyer Personas</h2>
+  <div class="section-body">
+    {{ persona_cards_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 8. VALUE PROPOSITION MAP -->
+{% if value_proposition_map_html %}
+<div class="section-block">
+  <h2>Value Proposition Map</h2>
+  <div class="section-body">
+    {{ value_proposition_map_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 9. MESSAGING FRAMEWORK -->
+{% if messaging_framework_html %}
+<div class="section-block">
+  <h2>Messaging & Positioning Framework</h2>
+  <div class="section-body">
+    {{ messaging_framework_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 10. AWARENESS STRATEGY -->
+{% if awareness_strategy_html %}
+<div class="section-block">
+  <h2>Awareness Stage Strategy</h2>
+  <div class="section-body">
+    {{ awareness_strategy_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 11. CONSIDERATION STRATEGY -->
+{% if consideration_strategy_html %}
+<div class="section-block">
+  <h2>Consideration Stage Strategy</h2>
+  <div class="section-body">
+    {{ consideration_strategy_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 12. CONVERSION STRATEGY -->
+{% if conversion_strategy_html %}
+<div class="section-block">
+  <h2>Conversion Stage Strategy</h2>
+  <div class="section-body">
+    {{ conversion_strategy_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 13. RETENTION STRATEGY -->
+{% if retention_strategy_html %}
+<div class="section-block">
+  <h2>Retention & Loyalty Strategy</h2>
+  <div class="section-body">
+    {{ retention_strategy_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 14. LANDING PAGE BLUEPRINT -->
+{% if landing_page_blueprint_html %}
+<div class="section-block">
+  <h2>Landing Page Blueprints</h2>
+  <div class="section-body">
+    {{ landing_page_blueprint_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 15. EMAIL AUTOMATION FLOWS -->
+{% if email_automation_flows_html %}
+<div class="section-block">
+  <h2>Email Automation Workflows</h2>
+  <div class="section-body">
+    {{ email_automation_flows_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 16. REMARKETING STRATEGY -->
+{% if remarketing_strategy_html %}
+<div class="section-block">
+  <h2>Remarketing & Retargeting Strategy</h2>
+  <div class="section-body">
+    {{ remarketing_strategy_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 17. AD CONCEPTS MULTI-PLATFORM -->
+{% if ad_concepts_multi_platform_html %}
+<div class="section-block">
+  <h2>Multi-Platform Ad Concepts</h2>
+  <div class="section-body">
+    {{ ad_concepts_multi_platform_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 18. CREATIVE DIRECTION -->
+{% if creative_direction_html %}
+<div class="section-block">
+  <h2>Creative Direction & Design System</h2>
+  <div class="section-body">
+    {{ creative_direction_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 19. FULL 30-DAY CALENDAR -->
+{% if full_30_day_calendar_html %}
+<div class="section-block">
+  <h2>Comprehensive 30-Day Calendar</h2>
+  <div class="table-wrapper">
+    {{ full_30_day_calendar_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 20. KPI & BUDGET PLAN -->
+{% if kpi_and_budget_plan_html %}
+<div class="section-block">
+  <h2>KPI & Budget Allocation Plan</h2>
+  <div class="section-body">
+    {{ kpi_and_budget_plan_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 21. MEASUREMENT FRAMEWORK -->
+{% if measurement_framework_html %}
+<div class="section-block">
+  <h2>Measurement & Analytics Framework</h2>
+  <div class="section-body">
+    {{ measurement_framework_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 22. EXECUTION ROADMAP -->
+{% if execution_roadmap_html %}
+<div class="section-block">
+  <h2>Full Execution Roadmap</h2>
+  <div class="section-body">
+    {{ execution_roadmap_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 23. OPTIMIZATION OPPORTUNITIES -->
+{% if optimization_opportunities_html %}
+<div class="section-block">
+  <h2>Optimization Opportunities</h2>
+  <div class="section-body">
+    {{ optimization_opportunities_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 24. FINAL SUMMARY -->
+{% if final_summary_html %}
+<div class="section-block">
+  <h2>Summary & Growth Milestones</h2>
+  <div class="section-body">
+    {{ final_summary_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+</div>
+
+{% endblock %}

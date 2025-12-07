@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="doc-content">
+
+<!-- LAUNCH & GTM PACK - Agency-Grade Deck -->
+
+<!-- 1. COVER -->
+<div class="section-block">
+  <h1>{{ brand_name }}</h1>
+  <p class="subtitle">Launch & Go-to-Market Strategy</p>
+  <p><strong>Launch Type:</strong> Product / Service Launch Campaign</p>
+</div>
+
+<div class="page-break"></div>
+
+<!-- 2. OVERVIEW -->
+{% if overview_html %}
+<div class="section-block">
+  <h2>Launch Overview</h2>
+  <div class="section-body">
+    {{ overview_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 3. MARKET LANDSCAPE -->
+{% if market_landscape_html %}
+<div class="section-block">
+  <h2>Market Landscape & Opportunity</h2>
+  <div class="section-body">
+    {{ market_landscape_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 4. PRODUCT POSITIONING -->
+{% if product_positioning_html %}
+<div class="section-block">
+  <h2>Product Positioning</h2>
+  <div class="section-body">
+    {{ product_positioning_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 5. MESSAGING FRAMEWORK -->
+{% if messaging_framework_html %}
+<div class="section-block">
+  <h2>Messaging Framework</h2>
+  <div class="section-body">
+    {{ messaging_framework_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 6. LAUNCH PHASES -->
+{% if launch_phases_html %}
+<div class="section-block">
+  <h2>Launch Phases & Timeline</h2>
+  <div class="section-body">
+    {{ launch_phases_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 7. CHANNEL PLAN -->
+{% if channel_plan_html %}
+<div class="section-block">
+  <h2>Go-to-Market Channel Strategy</h2>
+  <div class="section-body">
+    {{ channel_plan_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 8. AUDIENCE SEGMENTS -->
+{% if audience_segments_html %}
+<div class="section-block">
+  <h2>Target Audience Segments</h2>
+  <div class="section-body">
+    {{ audience_segments_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 9. CREATIVE DIRECTION -->
+{% if creative_direction_html %}
+<div class="section-block">
+  <h2>Creative Direction & Brand Assets</h2>
+  <div class="section-body">
+    {{ creative_direction_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 10. LAUNCH CAMPAIGN IDEAS -->
+{% if launch_campaign_ideas_html %}
+<div class="section-block">
+  <h2>Launch Campaign Ideas</h2>
+  <div class="section-body">
+    {{ launch_campaign_ideas_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 11. CONTENT CALENDAR LAUNCH -->
+{% if content_calendar_launch_html %}
+<div class="section-block">
+  <h2>Launch Content Calendar</h2>
+  <div class="table-wrapper">
+    {{ content_calendar_launch_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 12. AD CONCEPTS -->
+{% if ad_concepts_html %}
+<div class="section-block">
+  <h2>Paid Campaign Concepts</h2>
+  <div class="section-body">
+    {{ ad_concepts_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 13. EXECUTION ROADMAP -->
+{% if execution_roadmap_html %}
+<div class="section-block">
+  <h2>Launch Execution Roadmap</h2>
+  <div class="section-body">
+    {{ execution_roadmap_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 14. FINAL SUMMARY -->
+{% if final_summary_html %}
+<div class="section-block">
+  <h2>Summary & Launch Checklist</h2>
+  <div class="section-body">
+    {{ final_summary_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+</div>
+
+{% endblock %}

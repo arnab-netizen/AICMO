@@ -1,0 +1,39 @@
+{
+  "pack_key": "brand_turnaround_lab",
+  "brand_name": "HomeSmart",
+  "industry": "Smart Home Technology",
+  "domain": "consumer_electronics",
+  "brief": {
+    "brand_name": "HomeSmart",
+    "industry": "Smart Home Technology",
+    "product_service": "DIY smart home automation devices and apps for renters and homeowners",
+    "primary_goal": "Rebrand and reposition to regain market share (currently seen as outdated), increase brand sentiment, and boost Q2 sales by 40%",
+    "geography": "United States",
+    "target_audience": "Tech-savvy renters and homeowners aged 25-55 who want affordable, easy-to-install smart home solutions",
+    "voice": "modern, accessible, innovative, empowering",
+    "positioning_summary": "Smart home automation made simple, affordable, and renter-friendly - no installation costs, no contracts."
+  },
+  "required_terms": [
+    "HomeSmart",
+    "smart home",
+    "simple",
+    "affordable",
+    "renter-friendly",
+    "innovation",
+    "modern"
+  ],
+  "forbidden_terms": [
+    "old technology",
+    "complicated setup",
+    "expensive",
+    "difficult",
+    "outdated brand"
+  ],
+  "min_brand_mentions": 14,
+  "quality_checks": {
+    "min_sections": 13,
+    "must_have_brand_audit": true,
+    "must_have_repositioning": true,
+    "must_have_recovery_plan": true
+  }
+}

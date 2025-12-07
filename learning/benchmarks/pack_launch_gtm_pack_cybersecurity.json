@@ -1,0 +1,38 @@
+{
+  "pack_key": "launch_gtm_pack",
+  "brand_name": "DataVault Pro",
+  "industry": "Data Security",
+  "domain": "cybersecurity_startup",
+  "brief": {
+    "brand_name": "DataVault Pro",
+    "industry": "Data Security",
+    "product_service": "Enterprise data encryption and secure collaboration platform for regulated industries",
+    "primary_goal": "Launch to market with 500 qualified leads, establish thought leadership, and secure 10 enterprise pilots in Q1",
+    "geography": "North America, EMEA",
+    "target_audience": "CISO, VP of Security, and Compliance Officers at financial services and healthcare organizations",
+    "voice": "authoritative, trustworthy, innovative",
+    "positioning_summary": "Enterprise-grade security meets user-friendly simplicity - the data encryption platform trusted by regulated industries."
+  },
+  "required_terms": [
+    "DataVault Pro",
+    "security",
+    "encryption",
+    "enterprise",
+    "compliance",
+    "trust",
+    "data protection"
+  ],
+  "forbidden_terms": [
+    "technical jargon overload",
+    "scary security language",
+    "generic security talk",
+    "too complicated"
+  ],
+  "min_brand_mentions": 10,
+  "quality_checks": {
+    "min_sections": 12,
+    "must_have_positioning": true,
+    "must_have_launch_timeline": true,
+    "must_have_channel_strategy": true
+  }
+}

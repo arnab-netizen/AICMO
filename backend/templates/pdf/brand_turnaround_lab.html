@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="doc-content">
+
+<!-- BRAND TURNAROUND LAB - Agency-Grade Deck -->
+
+<!-- 1. COVER -->
+<div class="section-block">
+  <h1>{{ brand_name }}</h1>
+  <p class="subtitle">Brand Turnaround Strategy</p>
+  <p><strong>Focus:</strong> Repositioning & Recovery Plan</p>
+</div>
+
+<div class="page-break"></div>
+
+<!-- 2. OVERVIEW -->
+{% if overview_html %}
+<div class="section-block">
+  <h2>Turnaround Overview</h2>
+  <div class="section-body">
+    {{ overview_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 3. BRAND AUDIT -->
+{% if brand_audit_html %}
+<div class="section-block">
+  <h2>Brand Audit & Current State</h2>
+  <div class="section-body">
+    {{ brand_audit_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 4. CUSTOMER INSIGHTS -->
+{% if customer_insights_html %}
+<div class="section-block">
+  <h2>Customer Insights & Perception</h2>
+  <div class="section-body">
+    {{ customer_insights_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 5. COMPETITOR ANALYSIS -->
+{% if competitor_analysis_html %}
+<div class="section-block">
+  <h2>Competitive Landscape</h2>
+  <div class="section-body">
+    {{ competitor_analysis_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 6. PROBLEM DIAGNOSIS -->
+{% if problem_diagnosis_html %}
+<div class="section-block">
+  <h2>Problem Diagnosis & Root Causes</h2>
+  <div class="section-body">
+    {{ problem_diagnosis_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 7. NEW POSITIONING -->
+{% if new_positioning_html %}
+<div class="section-block">
+  <h2>New Brand Positioning</h2>
+  <div class="section-body">
+    {{ new_positioning_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 8. MESSAGING FRAMEWORK -->
+{% if messaging_framework_html %}
+<div class="section-block">
+  <h2>Messaging & Storytelling</h2>
+  <div class="section-body">
+    {{ messaging_framework_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 9. CREATIVE DIRECTION -->
+{% if creative_direction_html %}
+<div class="section-block">
+  <h2>Creative Direction & Visual Identity</h2>
+  <div class="section-body">
+    {{ creative_direction_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 10. CHANNEL RESET STRATEGY -->
+{% if channel_reset_strategy_html %}
+<div class="section-block">
+  <h2>Channel Reset Strategy</h2>
+  <div class="section-body">
+    {{ channel_reset_strategy_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 11. REPUTATION RECOVERY PLAN -->
+{% if reputation_recovery_plan_html %}
+<div class="section-block">
+  <h2>Reputation Recovery Plan</h2>
+  <div class="section-body">
+    {{ reputation_recovery_plan_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 12. PROMOTIONS & OFFERS -->
+{% if promotions_and_offers_html %}
+<div class="section-block">
+  <h2>Promotions & Win-Back Offers</h2>
+  <div class="section-body">
+    {{ promotions_and_offers_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 13. 30-DAY RECOVERY CALENDAR -->
+{% if 30_day_recovery_calendar_html %}
+<div class="section-block">
+  <h2>30-Day Recovery Calendar</h2>
+  <div class="table-wrapper">
+    {{ 30_day_recovery_calendar_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-break"></div>
+
+<!-- 14. EXECUTION ROADMAP -->
+{% if execution_roadmap_html %}
+<div class="section-block">
+  <h2>Turnaround Execution Roadmap</h2>
+  <div class="section-body">
+    {{ execution_roadmap_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+<!-- 15. FINAL SUMMARY -->
+{% if final_summary_html %}
+<div class="section-block">
+  <h2>Summary & Recovery Milestones</h2>
+  <div class="section-body">
+    {{ final_summary_html | safe }}
+  </div>
+</div>
+{% endif %}
+
+</div>
+
+{% endblock %}

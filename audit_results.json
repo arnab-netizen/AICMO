@@ -153,20 +153,22 @@
     "pack_key": "strategy_campaign_standard",
     "sections": {
       "A": {
-        "status": "FAIL",
+        "status": "PASS",
         "files_found": [
           "backend/main.py (PACK_SECTION_WHITELIST)",
           "backend/validators/pack_schemas.py",
+          "learning/benchmarks/ (1 files)",
+          "backend/templates/pdf/strategy_campaign_standard.html",
           "backend/tests/ (1 test files)"
         ],
         "symbols_found": [
           "PACK_SECTION_WHITELIST['strategy_campaign_standard'] = {17 sections}",
           "PackSchema for strategy_campaign_standard",
+          "Benchmark: pack_strategy_campaign_standard_wellness.json",
+          "PDF HTML Template",
           "Test: test_strategy_campaign_standard_full_report.py"
         ],
-        "gaps": [
-          "Missing PDF template: strategy_campaign_standard.html"
-        ]
+        "gaps": []
       },
       "B": {
         "status": "PASS",
@@ -180,16 +182,16 @@
         "issues": []
       },
       "C": {
-        "status": "FAIL",
+        "status": "PASS",
         "config_items": [
           "Pack registered in PACK_SECTION_WHITELIST with 17 sections",
           "Schema defined with 17 required sections"
         ],
-        "template_items": [],
+        "template_items": [
+          "PDF template: strategy_campaign_standard.html"
+        ],
         "registration": "PASS",
-        "issues": [
-          "Missing PDF template: strategy_campaign_standard.html"
-        ]
+        "issues": []
       },
       "D": {
         "status": "PASS",
@@ -203,7 +205,9 @@
           "test_strategy_campaign_standard_full_report.py",
           "test_hashtag_strategy_perplexity.py"
         ],
-        "benchmark_files": [],
+        "benchmark_files": [
+          "pack_strategy_campaign_standard_wellness.json"
+        ],
         "coverage_gaps": [
           "\u2713 Benchmark config loads successfully",
           "Missing comprehensive pack-level test for strategy_campaign_standard"
@@ -258,15 +262,14 @@
         "gaps": []
       },
       "G": {
-        "status": "FAIL",
-        "export_template": null,
+        "status": "PASS",
+        "export_template": "strategy_campaign_standard.html",
         "wiring_checks": [
+          "\u2713 PDF template exists",
           "\u2713 Pack referenced in export_utils.py",
           "\u2713 Pack referenced in pdf_renderer.py"
         ],
-        "issues": [
-          "\u274c Missing PDF template"
-        ]
+        "issues": []
       },
       "H": {
         "status": "PASS",
@@ -282,51 +285,47 @@
     },
     "final_summary": {
       "pack_key": "strategy_campaign_standard",
-      "completeness": "FAIL",
+      "completeness": "PASS",
       "wiring_correctness": "PASS",
       "output_correctness": "PASS",
       "section_scores": {
-        "A": "FAIL",
+        "A": "PASS",
         "B": "PASS",
-        "C": "FAIL",
+        "C": "PASS",
         "D": "PASS",
         "E": "PASS",
         "F": "PASS",
-        "G": "FAIL",
+        "G": "PASS",
         "H": "PASS"
       },
-      "pass_count": 5,
-      "fail_count": 3,
+      "pass_count": 8,
+      "fail_count": 0,
       "todos": [
-        "[A1] strategy_campaign_standard: Missing PDF template: strategy_campaign_standard.html",
-        "[C] strategy_campaign_standard: Missing PDF template: strategy_campaign_standard.html",
-        "[D] Missing comprehensive pack-level test for strategy_campaign_standard",
-        "[G] strategy_campaign_standard: \u274c Missing PDF template"
+        "[D] Missing comprehensive pack-level test for strategy_campaign_standard"
       ]
     },
     "all_todos": [
-      "[A1] strategy_campaign_standard: Missing PDF template: strategy_campaign_standard.html",
-      "[C] strategy_campaign_standard: Missing PDF template: strategy_campaign_standard.html",
-      "[D] Missing comprehensive pack-level test for strategy_campaign_standard",
-      "[G] strategy_campaign_standard: \u274c Missing PDF template"
+      "[D] Missing comprehensive pack-level test for strategy_campaign_standard"
     ]
   },
   {
     "pack_key": "launch_gtm_pack",
     "sections": {
       "A": {
-        "status": "FAIL",
+        "status": "PASS",
         "files_found": [
           "backend/main.py (PACK_SECTION_WHITELIST)",
-          "backend/validators/pack_schemas.py"
+          "backend/validators/pack_schemas.py",
+          "learning/benchmarks/ (1 files)",
+          "backend/templates/pdf/launch_gtm_pack.html"
         ],
         "symbols_found": [
           "PACK_SECTION_WHITELIST['launch_gtm_pack'] = {13 sections}",
-          "PackSchema for launch_gtm_pack"
+          "PackSchema for launch_gtm_pack",
+          "Benchmark: pack_launch_gtm_pack_cybersecurity.json",
+          "PDF HTML Template"
         ],
-        "gaps": [
-          "Missing PDF template: launch_gtm_pack.html"
-        ]
+        "gaps": []
       },
       "B": {
         "status": "PASS",
@@ -340,16 +339,16 @@
         "issues": []
       },
       "C": {
-        "status": "FAIL",
+        "status": "PASS",
         "config_items": [
           "Pack registered in PACK_SECTION_WHITELIST with 13 sections",
           "Schema defined with 13 required sections"
         ],
-        "template_items": [],
+        "template_items": [
+          "PDF template: launch_gtm_pack.html"
+        ],
         "registration": "PASS",
-        "issues": [
-          "Missing PDF template: launch_gtm_pack.html"
-        ]
+        "issues": []
       },
       "D": {
         "status": "PASS",
@@ -361,7 +360,9 @@
           "test_benchmarks_wiring.py",
           "test_benchmark_enforcement_smoke.py"
         ],
-        "benchmark_files": [],
+        "benchmark_files": [
+          "pack_launch_gtm_pack_cybersecurity.json"
+        ],
         "coverage_gaps": [
           "\u2713 Benchmark config loads successfully",
           "Missing comprehensive pack-level test for launch_gtm_pack"
@@ -412,15 +413,14 @@
         "gaps": []
       },
       "G": {
-        "status": "FAIL",
-        "export_template": null,
+        "status": "PASS",
+        "export_template": "launch_gtm_pack.html",
         "wiring_checks": [
+          "\u2713 PDF template exists",
           "\u2713 Pack referenced in export_utils.py",
           "\u2713 Pack referenced in pdf_renderer.py"
         ],
-        "issues": [
-          "\u274c Missing PDF template"
-        ]
+        "issues": []
       },
       "H": {
         "status": "PASS",
@@ -436,51 +436,47 @@
     },
     "final_summary": {
       "pack_key": "launch_gtm_pack",
-      "completeness": "FAIL",
+      "completeness": "PASS",
       "wiring_correctness": "PASS",
       "output_correctness": "PASS",
       "section_scores": {
-        "A": "FAIL",
+        "A": "PASS",
         "B": "PASS",
-        "C": "FAIL",
+        "C": "PASS",
         "D": "PASS",
         "E": "PASS",
         "F": "PASS",
-        "G": "FAIL",
+        "G": "PASS",
         "H": "PASS"
       },
-      "pass_count": 5,
-      "fail_count": 3,
+      "pass_count": 8,
+      "fail_count": 0,
       "todos": [
-        "[A1] launch_gtm_pack: Missing PDF template: launch_gtm_pack.html",
-        "[C] launch_gtm_pack: Missing PDF template: launch_gtm_pack.html",
-        "[D] Missing comprehensive pack-level test for launch_gtm_pack",
-        "[G] launch_gtm_pack: \u274c Missing PDF template"
+        "[D] Missing comprehensive pack-level test for launch_gtm_pack"
       ]
     },
     "all_todos": [
-      "[A1] launch_gtm_pack: Missing PDF template: launch_gtm_pack.html",
-      "[C] launch_gtm_pack: Missing PDF template: launch_gtm_pack.html",
-      "[D] Missing comprehensive pack-level test for launch_gtm_pack",
-      "[G] launch_gtm_pack: \u274c Missing PDF template"
+      "[D] Missing comprehensive pack-level test for launch_gtm_pack"
     ]
   },
   {
     "pack_key": "brand_turnaround_lab",
     "sections": {
       "A": {
-        "status": "FAIL",
+        "status": "PASS",
         "files_found": [
           "backend/main.py (PACK_SECTION_WHITELIST)",
-          "backend/validators/pack_schemas.py"
+          "backend/validators/pack_schemas.py",
+          "learning/benchmarks/ (1 files)",
+          "backend/templates/pdf/brand_turnaround_lab.html"
         ],
         "symbols_found": [
           "PACK_SECTION_WHITELIST['brand_turnaround_lab'] = {14 sections}",
-          "PackSchema for brand_turnaround_lab"
+          "PackSchema for brand_turnaround_lab",
+          "Benchmark: pack_brand_turnaround_lab_smarthome.json",
+          "PDF HTML Template"
         ],
-        "gaps": [
-          "Missing PDF template: brand_turnaround_lab.html"
-        ]
+        "gaps": []
       },
       "B": {
         "status": "PASS",
@@ -494,16 +490,16 @@
         "issues": []
       },
       "C": {
-        "status": "FAIL",
+        "status": "PASS",
         "config_items": [
           "Pack registered in PACK_SECTION_WHITELIST with 14 sections",
           "Schema defined with 14 required sections"
         ],
-        "template_items": [],
+        "template_items": [
+          "PDF template: brand_turnaround_lab.html"
+        ],
         "registration": "PASS",
-        "issues": [
-          "Missing PDF template: brand_turnaround_lab.html"
-        ]
+        "issues": []
       },
       "D": {
         "status": "PASS",
@@ -516,7 +512,9 @@
           "test_benchmark_enforcement_smoke.py",
           "test_brand_research_integration.py"
         ],
-        "benchmark_files": [],
+        "benchmark_files": [
+          "pack_brand_turnaround_lab_smarthome.json"
+        ],
         "coverage_gaps": [
           "\u2713 Benchmark config loads successfully",
           "Missing comprehensive pack-level test for brand_turnaround_lab"
@@ -568,15 +566,14 @@
         "gaps": []
       },
       "G": {
-        "status": "FAIL",
-        "export_template": null,
+        "status": "PASS",
+        "export_template": "brand_turnaround_lab.html",
         "wiring_checks": [
+          "\u2713 PDF template exists",
           "\u2713 Pack referenced in export_utils.py",
           "\u2713 Pack referenced in pdf_renderer.py"
         ],
-        "issues": [
-          "\u274c Missing PDF template"
-        ]
+        "issues": []
       },
       "H": {
         "status": "PASS",
@@ -592,53 +589,47 @@
     },
     "final_summary": {
       "pack_key": "brand_turnaround_lab",
-      "completeness": "FAIL",
+      "completeness": "PASS",
       "wiring_correctness": "PASS",
       "output_correctness": "PASS",
       "section_scores": {
-        "A": "FAIL",
+        "A": "PASS",
         "B": "PASS",
-        "C": "FAIL",
+        "C": "PASS",
         "D": "PASS",
         "E": "PASS",
         "F": "PASS",
-        "G": "FAIL",
+        "G": "PASS",
         "H": "PASS"
       },
-      "pass_count": 5,
-      "fail_count": 3,
+      "pass_count": 8,
+      "fail_count": 0,
       "todos": [
-        "[A1] brand_turnaround_lab: Missing PDF template: brand_turnaround_lab.html",
-        "[C] brand_turnaround_lab: Missing PDF template: brand_turnaround_lab.html",
-        "[D] Missing comprehensive pack-level test for brand_turnaround_lab",
-        "[G] brand_turnaround_lab: \u274c Missing PDF template"
+        "[D] Missing comprehensive pack-level test for brand_turnaround_lab"
       ]
     },
     "all_todos": [
-      "[A1] brand_turnaround_lab: Missing PDF template: brand_turnaround_lab.html",
-      "[C] brand_turnaround_lab: Missing PDF template: brand_turnaround_lab.html",
-      "[D] Missing comprehensive pack-level test for brand_turnaround_lab",
-      "[G] brand_turnaround_lab: \u274c Missing PDF template"
+      "[D] Missing comprehensive pack-level test for brand_turnaround_lab"
     ]
   },
   {
     "pack_key": "full_funnel_growth_suite",
     "sections": {
       "A": {
-        "status": "FAIL",
+        "status": "PASS",
         "files_found": [
           "backend/main.py (PACK_SECTION_WHITELIST)",
           "backend/validators/pack_schemas.py",
-          "learning/benchmarks/ (1 files)"
+          "learning/benchmarks/ (1 files)",
+          "backend/templates/pdf/full_funnel_growth_suite.html"
         ],
         "symbols_found": [
           "PACK_SECTION_WHITELIST['full_funnel_growth_suite'] = {23 sections}",
           "PackSchema for full_funnel_growth_suite",
-          "Benchmark: pack_full_funnel_growth_suite_saas.json"
+          "Benchmark: pack_full_funnel_growth_suite_saas.json",
+          "PDF HTML Template"
         ],
-        "gaps": [
-          "Missing PDF template: full_funnel_growth_suite.html"
-        ]
+        "gaps": []
       },
       "B": {
         "status": "PASS",
@@ -652,16 +643,16 @@
         "issues": []
       },
       "C": {
-        "status": "FAIL",
+        "status": "PASS",
         "config_items": [
           "Pack registered in PACK_SECTION_WHITELIST with 23 sections",
           "Schema defined with 23 required sections"
         ],
-        "template_items": [],
+        "template_items": [
+          "PDF template: full_funnel_growth_suite.html"
+        ],
         "registration": "PASS",
-        "issues": [
-          "Missing PDF template: full_funnel_growth_suite.html"
-        ]
+        "issues": []
       },
       "D": {
         "status": "PASS",
@@ -738,15 +729,14 @@
         "gaps": []
       },
       "G": {
-        "status": "FAIL",
-        "export_template": null,
+        "status": "PASS",
+        "export_template": "full_funnel_growth_suite.html",
         "wiring_checks": [
+          "\u2713 PDF template exists",
           "\u2713 Pack referenced in export_utils.py",
           "\u2713 Pack referenced in pdf_renderer.py"
         ],
-        "issues": [
-          "\u274c Missing PDF template"
-        ]
+        "issues": []
       },
       "H": {
         "status": "PASS",
@@ -762,33 +752,27 @@
     },
     "final_summary": {
       "pack_key": "full_funnel_growth_suite",
-      "completeness": "FAIL",
+      "completeness": "PASS",
       "wiring_correctness": "PASS",
       "output_correctness": "PASS",
       "section_scores": {
-        "A": "FAIL",
+        "A": "PASS",
         "B": "PASS",
-        "C": "FAIL",
+        "C": "PASS",
         "D": "PASS",
         "E": "PASS",
         "F": "PASS",
-        "G": "FAIL",
+        "G": "PASS",
         "H": "PASS"
       },
-      "pass_count": 5,
-      "fail_count": 3,
+      "pass_count": 8,
+      "fail_count": 0,
       "todos": [
-        "[A1] full_funnel_growth_suite: Missing PDF template: full_funnel_growth_suite.html",
-        "[C] full_funnel_growth_suite: Missing PDF template: full_funnel_growth_suite.html",
-        "[D] Missing comprehensive pack-level test for full_funnel_growth_suite",
-        "[G] full_funnel_growth_suite: \u274c Missing PDF template"
+        "[D] Missing comprehensive pack-level test for full_funnel_growth_suite"
       ]
     },
     "all_todos": [
-      "[A1] full_funnel_growth_suite: Missing PDF template: full_funnel_growth_suite.html",
-      "[C] full_funnel_growth_suite: Missing PDF template: full_funnel_growth_suite.html",
-      "[D] Missing comprehensive pack-level test for full_funnel_growth_suite",
-      "[G] full_funnel_growth_suite: \u274c Missing PDF template"
+      "[D] Missing comprehensive pack-level test for full_funnel_growth_suite"
     ]
   }
 ]
