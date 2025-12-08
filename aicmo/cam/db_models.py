@@ -30,6 +30,7 @@ class CampaignDB(Base):
     Outreach campaign database model.
     
     Groups leads together for coordinated messaging and tracking.
+    Phase 9.1: Added strategy document storage and status tracking.
     """
     
     __tablename__ = "cam_campaigns"
@@ -39,6 +40,17 @@ class CampaignDB(Base):
     description = Column(Text, nullable=True)
     target_niche = Column(String, nullable=True)
     active = Column(Boolean, nullable=False, default=True)
+    
+    # Strategy document storage (Phase 9.1)
+    strategy_text = Column(Text, nullable=True)
+    strategy_status = Column(String, nullable=True, default="DRAFT")  # DRAFT, APPROVED, REJECTED
+    strategy_rejection_reason = Column(Text, nullable=True)
+    
+    # Intake context (Phase 9.1)
+    intake_goal = Column(Text, nullable=True)
+    intake_constraints = Column(Text, nullable=True)
+    intake_audience = Column(Text, nullable=True)
+    intake_budget = Column(String, nullable=True)
 
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(
@@ -204,10 +216,13 @@ class SafetySettingsDB(Base):
     Safety and compliance settings (singleton table).
     
     Phase 9: Stores rate limits, send windows, and DNC lists.
+    Phase 9.1: Added system pause flag for Command Center.
     """
     
     __tablename__ = "cam_safety_settings"
 
     id = Column(Integer, primary_key=True)
     data = Column(JSON, nullable=False)  # Serialized SafetySettings
+    system_paused = Column(Boolean, nullable=False, default=False)  # Phase 9.1: Global pause control
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+

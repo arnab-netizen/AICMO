@@ -25,6 +25,16 @@ import streamlit as st  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402
 from sqlalchemy.engine import Engine  # noqa: E402
 
+# Import operator services for Command Center
+try:
+    from aicmo import operator_services
+    from aicmo.core.db import get_session
+    OPERATOR_SERVICES_AVAILABLE = True
+except ImportError:
+    operator_services = None  # type: ignore
+    get_session = None  # type: ignore
+    OPERATOR_SERVICES_AVAILABLE = False
+
 # Import benchmark error UI helper
 try:
     from aicmo.ui.benchmark_errors import render_benchmark_error_ui
@@ -835,23 +845,29 @@ def build_client_brief_payload() -> Dict[str, Any]:
 
 
 def _get_attention_metrics() -> Dict[str, int]:
-    """Compute the top-row 'blocking money' metrics (mock for now)."""
-    leads = 12
-    high_intent = 3
-    approvals_pending = 4
-    drafts_strategy = 1
-    drafts_creative = 3
-    execution_success = 98
-    failed_last_24h = 2
-    return {
-        "leads": leads,
-        "high_intent": high_intent,
-        "approvals_pending": approvals_pending,
-        "drafts_strategy": drafts_strategy,
-        "drafts_creative": drafts_creative,
-        "execution_success": execution_success,
-        "failed_last_24h": failed_last_24h,
-    }
+    """Compute the top-row 'blocking money' metrics."""
+    if not OPERATOR_SERVICES_AVAILABLE or get_session is None:
+        # Fallback to mock data if services unavailable
+        return {
+            "leads": 12,
+            "high_intent": 3,
+            "approvals_pending": 4,
+            "execution_success": 98,
+            "failed_last_24h": 2,
+        }
+    
+    try:
+        with get_session() as db:
+            return operator_services.get_attention_metrics(db)
+    except Exception as e:
+        st.error(f"Failed to load metrics: {e}")
+        return {
+            "leads": 0,
+            "high_intent": 0,
+            "approvals_pending": 0,
+            "execution_success": 0,
+            "failed_last_24h": 0,
+        }
 
 
 def _group_projects_by_stage(projects: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
@@ -890,8 +906,20 @@ def _render_gateway_ticker(status_map: Dict[str, str]) -> None:
 
 def _render_activity_feed() -> None:
     """Render the scrolling activity feed."""
+    # Fetch real activity data
+    if OPERATOR_SERVICES_AVAILABLE and get_session is not None:
+        try:
+            with get_session() as db:
+                events = operator_services.get_activity_feed(db, limit=25)
+        except Exception as e:
+            st.error(f"Failed to load activity feed: {e}")
+            events = []
+    else:
+        # Fallback to mock data if services unavailable
+        events = st.session_state.get("activity_log", [])
+    
     st.markdown('<div class="cc-card cc-feed">', unsafe_allow_html=True)
-    for item in st.session_state.activity_log:
+    for item in events:
         time_str = item.get("time", "--:--")
         event = item.get("event", "")
         detail = item.get("detail", "")
@@ -1153,7 +1181,16 @@ def render_command_center_tab() -> None:
         )
     with top_right:
         st.caption("Gateway Status")
-        _render_gateway_ticker(st.session_state.gateway_status)
+        # Fetch real gateway status
+        if OPERATOR_SERVICES_AVAILABLE and get_session is not None:
+            try:
+                with get_session() as db:
+                    gateway_status = operator_services.get_gateway_status(db)
+            except Exception:
+                gateway_status = st.session_state.get("gateway_status", {})
+        else:
+            gateway_status = st.session_state.get("gateway_status", {})
+        _render_gateway_ticker(gateway_status)
 
     # Nested views inside Command Center
     cmd_tab, projects_tab, warroom_tab, gallery_tab, control_tab = st.tabs(
@@ -1187,7 +1224,7 @@ def render_command_center_tab() -> None:
                 unsafe_allow_html=True,
             )
             st.markdown(
-                f'<div class="cc-subtext">{metrics["drafts_strategy"]} strategy · {metrics["drafts_creative"]} creative sets.</div>',
+                '<div class="cc-subtext">Strategy & creative drafts awaiting review.</div>',
                 unsafe_allow_html=True,
             )
             st.button("Enter War Room", key="cmd_enter_war_room", use_container_width=True)
@@ -1223,7 +1260,19 @@ def render_command_center_tab() -> None:
     # 2) PROJECTS VIEW – Kanban state machine
     with projects_tab:
         st.markdown("#### Projects Pipeline")
-        grouped = _group_projects_by_stage(st.session_state.mock_projects)
+        
+        # Fetch real projects
+        if OPERATOR_SERVICES_AVAILABLE and get_session is not None:
+            try:
+                with get_session() as db:
+                    projects = operator_services.get_projects_pipeline(db)
+            except Exception as e:
+                st.error(f"Failed to load projects: {e}")
+                projects = st.session_state.get("mock_projects", [])
+        else:
+            projects = st.session_state.get("mock_projects", [])
+        
+        grouped = _group_projects_by_stage(projects)
 
         col_intake, col_strategy, col_creative, col_exec, col_done = st.columns(5)
 
@@ -1245,6 +1294,7 @@ def render_command_center_tab() -> None:
                     "Enter Clarifier",
                     key=f"proj_intake_{p['id']}",
                     use_container_width=True,
+                    on_click=lambda pid=p['id']: st.session_state.update({"current_project_id": pid}),
                 )
                 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1257,11 +1307,12 @@ def render_command_center_tab() -> None:
                     unsafe_allow_html=True,
                 )
                 st.markdown('<div class="cc-pill-warn">Waiting for approval</div>', unsafe_allow_html=True)
-                st.button(
+                if st.button(
                     "Review Strategy",
                     key=f"proj_strategy_{p['id']}",
                     use_container_width=True,
-                )
+                ):
+                    st.session_state.current_project_id = p['id']
                 st.markdown("</div>", unsafe_allow_html=True)
 
         with col_creative:
@@ -1273,11 +1324,12 @@ def render_command_center_tab() -> None:
                     unsafe_allow_html=True,
                 )
                 st.markdown('<div class="cc-pill-ok">Assets generating</div>', unsafe_allow_html=True)
-                st.button(
+                if st.button(
                     "Review Assets",
                     key=f"proj_creative_{p['id']}",
                     use_container_width=True,
-                )
+                ):
+                    st.session_state.current_project_id = p['id']
                 st.markdown("</div>", unsafe_allow_html=True)
 
         with col_exec:
@@ -1289,11 +1341,12 @@ def render_command_center_tab() -> None:
                     unsafe_allow_html=True,
                 )
                 st.markdown('<div class="cc-pill-ok">Next post in 2h</div>', unsafe_allow_html=True)
-                st.button(
+                if st.button(
                     "View Schedule",
                     key=f"proj_exec_{p['id']}",
                     use_container_width=True,
-                )
+                ):
+                    st.session_state.current_project_id = p['id']
                 st.markdown("</div>", unsafe_allow_html=True)
 
         with col_done:
@@ -1314,93 +1367,198 @@ def render_command_center_tab() -> None:
 
     # 3) WAR ROOM – Strategy review interface
     with warroom_tab:
-        left, right = st.columns([1.1, 2])
-        with left:
-            st.markdown("##### Intake Snapshot")
-            st.markdown("**Client:** TechCorp")
-            st.markdown("**Objective:** Defend ARR and unlock new ICP segment.")
-            st.markdown("**Audience:** Mid-market CTOs · US/UK.")
-            st.markdown("**Constraints:** Limited paid budget, strong organic baseline.")
-            st.markdown("---")
-            st.markdown("When wired, load this from the active brief.")
-        with right:
-            st.markdown("##### Strategy Draft")
-            _ = st.text_area(
-                "AI-Generated Strategy",
-                value="## Core Narrative\n\nDraft goes here...\n\n## Channels\n\n...\n\n## KPIs\n\n...",
-                height=360,
-            )
+        current_project_id = st.session_state.get("current_project_id")
+        
+        if not current_project_id:
+            st.info("👈 Select a project from the Projects tab to review its strategy.")
+        elif not OPERATOR_SERVICES_AVAILABLE or get_session is None:
+            st.warning("Operator services unavailable. Cannot load project data.")
+        else:
+            try:
+                with get_session() as db:
+                    context = operator_services.get_project_context(db, current_project_id)
+                    strategy_doc = operator_services.get_project_strategy_doc(db, current_project_id)
+                
+                left, right = st.columns([1.1, 2])
+                with left:
+                    st.markdown("##### Intake Snapshot")
+                    if "error" in context:
+                        st.error(context["error"])
+                    else:
+                        st.markdown(f"**Project:** {context.get('project_name', 'Unknown')}")
+                        st.markdown(f"**Goal:** {context.get('goal', 'N/A')}")
+                        st.markdown(f"**Audience:** {context.get('audience', 'N/A')}")
+                        st.markdown(f"**Constraints:** {context.get('constraints', 'N/A')}")
+                        st.markdown("---")
+                        st.caption("Loaded from project context")
+                
+                with right:
+                    st.markdown("##### Strategy Draft")
+                    edited_strategy = st.text_area(
+                        "AI-Generated Strategy",
+                        value=strategy_doc,
+                        height=360,
+                    )
 
-        st.markdown("---")
-        reject_col, approve_col = st.columns([1, 1.2])
-        with reject_col:
-            _ = st.text_input(
-                "Reason (if sending back to draft)",
-                value="",
-                placeholder="What must change before we can go to creatives?",
-            )
-            st.button(
-                "Reject – Send Back to Draft",
-                key="warroom_reject",
-                use_container_width=True,
-            )
-        with approve_col:
-            st.button(
-                "APPROVE & START CREATIVES",
-                key="warroom_approve",
-                use_container_width=True,
-            )
+                st.markdown("---")
+                reject_col, approve_col = st.columns([1, 1.2])
+                with reject_col:
+                    reject_reason = st.text_input(
+                        "Reason (if sending back to draft)",
+                        value="",
+                        placeholder="What must change before we can go to creatives?",
+                    )
+                    if st.button(
+                        "Reject – Send Back to Draft",
+                        key="warroom_reject",
+                        use_container_width=True,
+                    ):
+                        if reject_reason:
+                            with get_session() as db:
+                                operator_services.reject_strategy(db, current_project_id, reject_reason)
+                            st.success(f"Strategy rejected for project #{current_project_id}")
+                        else:
+                            st.error("Please provide a reason for rejection")
+                
+                with approve_col:
+                    if st.button(
+                        "APPROVE & START CREATIVES",
+                        key="warroom_approve",
+                        use_container_width=True,
+                    ):
+                        with get_session() as db:
+                            operator_services.approve_strategy(db, current_project_id)
+                        st.success(f"Strategy approved for project #{current_project_id}! Moving to creative phase.")
+                        
+            except Exception as e:
+                st.error(f"Failed to load War Room data: {e}")
 
     # 4) GALLERY – Creative review
     with gallery_tab:
-        st.markdown("#### Creative Gallery (Mock Layout)")
-        st.caption("Each card below should mimic the final platform (e.g. LinkedIn post preview).")
-
-        gcol1, gcol2, gcol3 = st.columns(3)
-        for idx, col in enumerate([gcol1, gcol2, gcol3], start=1):
-            with col:
-                st.markdown('<div class="cc-card">', unsafe_allow_html=True)
-                st.markdown(f"**Concept {idx} – LinkedIn Mock**")
-                st.markdown(
-                    "> This is where the post copy / thumbnail preview will go once you wire the real output.",
-                )
-                b1, b2, b3 = st.columns(3)
-                with b1:
-                    st.button("Edit", key=f"gal_edit_{idx}")
-                with b2:
-                    st.button("Regenerate", key=f"gal_regen_{idx}")
-                with b3:
-                    st.button("Trash", key=f"gal_trash_{idx}")
-                st.markdown("</div>", unsafe_allow_html=True)
-
-        st.markdown("---")
-        bulk1, bulk2 = st.columns([1, 1])
-        with bulk1:
-            st.button("Approve Selected", key="gal_approve_all", use_container_width=True)
-        with bulk2:
-            st.button("Schedule All", key="gal_schedule_all", use_container_width=True)
+        current_project_id = st.session_state.get("current_project_id")
+        
+        if not current_project_id:
+            st.info("👈 Select a project from the Projects tab to view its creative assets.")
+        elif not OPERATOR_SERVICES_AVAILABLE or get_session is None:
+            st.warning("Operator services unavailable. Cannot load creative assets.")
+        else:
+            st.markdown("#### Creative Gallery")
+            st.caption("Review and manage creative assets for this project.")
+            
+            try:
+                with get_session() as db:
+                    creatives = operator_services.get_creatives_for_project(db, current_project_id)
+                
+                if not creatives:
+                    st.info("No creative assets yet. They will appear here once generated.")
+                else:
+                    # Display creatives in grid
+                    cols = st.columns(min(3, len(creatives)))
+                    for idx, creative in enumerate(creatives):
+                        col_idx = idx % 3
+                        with cols[col_idx]:
+                            st.markdown('<div class="cc-card">', unsafe_allow_html=True)
+                            st.markdown(f"**{creative.get('platform', 'Unknown')} - {creative.get('asset_type', 'post')}**")
+                            st.markdown(f"*Status: {creative.get('status', 'DRAFT')}*")
+                            st.text_area(
+                                "Caption",
+                                value=creative.get('caption', ''),
+                                key=f"creative_caption_{creative['id']}",
+                                height=100,
+                            )
+                            
+                            b1, b2, b3 = st.columns(3)
+                            with b1:
+                                if st.button("Edit", key=f"gal_edit_{creative['id']}"):
+                                    st.info("Edit modal would appear here")
+                            with b2:
+                                if st.button("Regen", key=f"gal_regen_{creative['id']}"):
+                                    try:
+                                        with get_session() as db:
+                                            operator_services.regenerate_creative(db, current_project_id, creative['id'])
+                                        st.success("Regeneration queued")
+                                    except NotImplementedError:
+                                        st.warning("Regeneration not yet implemented")
+                            with b3:
+                                if st.button("Trash", key=f"gal_trash_{creative['id']}"):
+                                    try:
+                                        with get_session() as db:
+                                            operator_services.delete_creative(db, current_project_id, creative['id'])
+                                        st.success("Creative deleted")
+                                        st.rerun()
+                                    except NotImplementedError:
+                                        st.warning("Delete not yet implemented")
+                            st.markdown("</div>", unsafe_allow_html=True)
+                
+                st.markdown("---")
+                bulk1, bulk2 = st.columns([1, 1])
+                with bulk1:
+                    if st.button("Approve Selected", key="gal_approve_all", use_container_width=True):
+                        try:
+                            creative_ids = [c['id'] for c in creatives]
+                            with get_session() as db:
+                                operator_services.bulk_approve_creatives(db, current_project_id, creative_ids)
+                            st.success(f"Approved {len(creative_ids)} creatives")
+                        except NotImplementedError:
+                            st.warning("Bulk approve not yet implemented")
+                with bulk2:
+                    if st.button("Schedule All", key="gal_schedule_all", use_container_width=True):
+                        try:
+                            creative_ids = [c['id'] for c in creatives]
+                            with get_session() as db:
+                                operator_services.bulk_schedule_creatives(db, current_project_id, creative_ids)
+                            st.success(f"Scheduled {len(creative_ids)} creatives")
+                        except NotImplementedError:
+                            st.warning("Bulk schedule not yet implemented")
+                
+            except Exception as e:
+                st.error(f"Failed to load gallery: {e}")
 
     # 5) CONTROL TOWER – Execution & gateways
     with control_tab:
         top_l, top_r = st.columns([2, 1])
 
         with top_l:
-            st.markdown("#### Calendar / Timeline (Mock)")
-            st.write(
-                "This is a placeholder timeline. Replace with a real scheduler once wired to backend."
-            )
-            st.table(
-                {
+            st.markdown("#### Execution Timeline")
+            current_project_id = st.session_state.get("current_project_id")
+            
+            if OPERATOR_SERVICES_AVAILABLE and get_session is not None:
+                try:
+                    with get_session() as db:
+                        timeline = operator_services.get_execution_timeline(db, project_id=current_project_id, limit=50)
+                    
+                    if not timeline:
+                        st.info("No execution events yet.")
+                    else:
+                        # Display timeline as table
+                        import pandas as pd
+                        df = pd.DataFrame(timeline)
+                        st.dataframe(df, use_container_width=True, hide_index=True)
+                except Exception as e:
+                    st.error(f"Failed to load timeline: {e}")
+            else:
+                st.write("Operator services unavailable. Mock timeline:")
+                st.table({
                     "Time": ["Today 10:00", "Today 14:00", "Tomorrow 09:00"],
                     "Project": ["TechCorp", "StartupX", "FinServe A"],
                     "Channel": ["LinkedIn", "Instagram", "Email"],
                     "Status": ["Scheduled", "Scheduled", "Draft"],
-                }
-            )
+                })
 
         with top_r:
             st.markdown("#### Gateways")
-            for label, status in st.session_state.gateway_status.items():
+            
+            # Fetch real gateway status
+            if OPERATOR_SERVICES_AVAILABLE and get_session is not None:
+                try:
+                    with get_session() as db:
+                        gateway_status = operator_services.get_gateway_status(db)
+                except Exception:
+                    gateway_status = st.session_state.get("gateway_status", {})
+            else:
+                gateway_status = st.session_state.get("gateway_status", {})
+            
+            for label, status in gateway_status.items():
                 if status == "ok":
                     dot_class = "cc-dot cc-dot-ok"
                     status_text = "Healthy"
@@ -1418,11 +1576,33 @@ def render_command_center_tab() -> None:
 
             st.markdown("---")
             st.markdown('<span class="cc-pause-label">System Pause</span>', unsafe_allow_html=True)
+            
+            # Load current pause status from service
+            if OPERATOR_SERVICES_AVAILABLE and get_session is not None:
+                try:
+                    with get_session() as db:
+                        current_pause = operator_services.get_system_pause(db)
+                except Exception:
+                    current_pause = st.session_state.get("system_paused", False)
+            else:
+                current_pause = st.session_state.get("system_paused", False)
+            
             paused = st.checkbox(
                 "Emergency stop – pause all outbound execution",
-                value=st.session_state.system_paused,
+                value=current_pause,
+                key="system_pause_checkbox",
             )
-            st.session_state.system_paused = paused
+            
+            # Persist pause status if changed
+            if paused != current_pause:
+                if OPERATOR_SERVICES_AVAILABLE and get_session is not None:
+                    try:
+                        with get_session() as db:
+                            operator_services.set_system_pause(db, paused)
+                        st.success(f"System {'paused' if paused else 'resumed'}")
+                    except Exception as e:
+                        st.error(f"Failed to update pause status: {e}")
+                st.session_state.system_paused = paused
 
 
 def render_client_input_tab() -> None:
