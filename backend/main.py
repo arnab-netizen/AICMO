@@ -6993,11 +6993,36 @@ def generate_sections(
                             results[section_id] = section.get("content", "")
 
                 except BenchmarkEnforcementError as exc:
-                    logger.error(f"[BENCHMARK ENFORCEMENT] Failed: {exc}")
-                    raise HTTPException(
-                        status_code=500,
-                        detail=str(exc),
+                    # STEP 1 PROOF: This log tracks when benchmark errors occur
+                    # and what draft_mode value is set at that moment
+                    logger.error(
+                        "LLM failure wrapper triggered",
+                        extra={
+                            "pack_key": pack_key,
+                            "draft_mode": req.draft_mode,
+                            "error_type": "benchmark_enforcement_error",
+                            "error_detail": str(exc),
+                        },
                     )
+                    
+                    # STEP 2 PROOF: In draft mode, don't fail - just log warning and continue
+                    # This prevents llm_failure errors when draft_mode=True
+                    if req.draft_mode:
+                        logger.warning(
+                            f"[DRAFT MODE] Benchmark enforcement failed but continuing: {exc}",
+                            extra={
+                                "pack_key": pack_key,
+                                "failing_sections": "extracted_from_exception",
+                            },
+                        )
+                        # Continue with current results - don't raise exception
+                        # The sections in results dict are the generated content before enforcement
+                    else:
+                        logger.error(f"[BENCHMARK ENFORCEMENT] Failed: {exc}")
+                        raise HTTPException(
+                            status_code=500,
+                            detail=str(exc),
+                        )
 
     return results
 
@@ -8227,6 +8252,7 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
     error_detail = None
     stub_used = False  # Track whether stub content was used
     quality_passed = True
+    draft_mode = False  # Extract early so it's available in exception handlers
 
     try:
         # Extract top-level payload fields
@@ -8797,7 +8823,44 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
     except BenchmarkEnforcementError as exc:
         status_flag = "benchmark_fail"
         error_detail = str(exc)
-        raise
+        
+        # STEP 2 PROOF: Defensive handler at HTTP endpoint level
+        # In draft mode, return success with warnings instead of failing
+        if draft_mode:
+            logger.warning(
+                "[DRAFT MODE] Benchmark enforcement failed but returning report with warnings",
+                extra={
+                    "pack_key": resolved_preset_key if "resolved_preset_key" in locals() else "unknown",
+                    "error_detail": str(exc),
+                },
+            )
+            
+            # Try to extract report_markdown if it exists, otherwise provide a message
+            if "report_markdown" in locals() and report_markdown:
+                markdown_content = report_markdown
+            elif "final_result" in locals() and isinstance(final_result, dict):
+                markdown_content = final_result.get("report_markdown") or final_result.get("markdown", "")
+            else:
+                markdown_content = "# Draft Report\n\n_Report generated but benchmark validation failed. Content may not meet all quality standards._"
+            
+            # STEP 5 PROOF: Include benchmark_warnings field for debugging
+            return {
+                "success": True,
+                "status": "warning",
+                "pack_key": resolved_preset_key if "resolved_preset_key" in locals() else "unknown",
+                "report_markdown": markdown_content,
+                "markdown": markdown_content,  # Legacy compatibility
+                "stub_used": stub_used,
+                "quality_passed": False,  # Indicate quality checks didn't pass
+                "benchmark_warnings": str(exc),  # STEP 5: Validation error details for debugging
+                "meta": {
+                    "draft_mode": True,
+                    "validation_status": "failed_but_allowed_in_draft",
+                },
+            }
+        else:
+            # Strict mode: fail hard
+            raise
     except ValueError as exc:
         # Catch LLM unavailable/failure errors from config enforcement
         exc_str = str(exc)
