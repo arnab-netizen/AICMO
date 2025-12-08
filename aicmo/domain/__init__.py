@@ -2,9 +2,9 @@
 
 from .base import AicmoBaseModel
 from .intake import ClientIntake, GoalMetric
-from .strategy import StrategyDoc, StrategyStatus
+from .strategy import StrategyDoc, StrategyStatus, StrategyPillar
 from .project import Project, ProjectState
-from .execution import ContentItem, PublishStatus
+from .execution import ContentItem, PublishStatus, CreativeVariant
 
 __all__ = [
     "AicmoBaseModel",
@@ -12,8 +12,10 @@ __all__ = [
     "GoalMetric",
     "StrategyDoc",
     "StrategyStatus",
+    "StrategyPillar",
     "Project",
     "ProjectState",
     "ContentItem",
     "PublishStatus",
+    "CreativeVariant",
 ]
