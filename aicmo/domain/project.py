@@ -41,3 +41,50 @@ class Project(AicmoBaseModel):
     id: Optional[int] = None
     name: str
     state: ProjectState = ProjectState.STRATEGY_DRAFT
+    
+    # Client information
+    client_name: Optional[str] = None
+    client_email: Optional[str] = None
+    
+    # Linked domain objects (IDs for now, can be expanded)
+    intake_id: Optional[int] = None
+    strategy_id: Optional[int] = None
+    
+    # Metadata
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    notes: Optional[str] = None
+    
+    def can_transition_to(self, target_state: ProjectState) -> bool:
+        """
+        Check if transition from current state to target state is valid.
+        
+        Args:
+            target_state: Desired target state
+            
+        Returns:
+            True if transition is allowed
+        """
+        # Import here to avoid circular dependency
+        from aicmo.core.workflow import is_valid_transition
+        return is_valid_transition(self.state, target_state)
+    
+    def transition_to(self, target_state: ProjectState) -> "Project":
+        """
+        Transition project to a new state if valid.
+        
+        Args:
+            target_state: Desired target state
+            
+        Returns:
+            Updated project with new state
+            
+        Raises:
+            ValueError: If transition is not valid
+        """
+        if not self.can_transition_to(target_state):
+            raise ValueError(
+                f"Invalid transition from {self.state.value} to {target_state.value}"
+            )
+        self.state = target_state
+        return self
