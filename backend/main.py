@@ -374,7 +374,9 @@ class GenerateRequest(BaseModel):
     stage: str = "draft"  # 🔥 FIX #2: Stage for section selection ("draft", "final")
     research: Optional[Any] = None  # STEP 1: ComprehensiveResearchData from ResearchService
     brand_strategy_block: Optional[Dict[str, Any]] = None  # Runtime brand strategy data
-    draft_mode: bool = False  # 🔥 FIX #4: Allow relaxed benchmark validation for development iteration
+    draft_mode: bool = (
+        False  # 🔥 FIX #4: Allow relaxed benchmark validation for development iteration
+    )
 
 
 app = FastAPI(title="AICMO API")
@@ -8258,6 +8260,7 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
         industry_key = payload.get("industry_key")
         refinement_mode = payload.get("refinement_mode", {})
         constraints = payload.get("constraints", {})
+        draft_mode = payload.get("draft_mode", False)  # 🔥 FIX #4: Extract draft mode from payload
 
         include_agency_grade = services.get("include_agency_grade", False)
 
@@ -8505,6 +8508,7 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
             industry_key=industry_key,
             stage=effective_stage,  # 🔥 FIX #2: Use effective_stage
             research=comprehensive_research,  # STEP 1: Attach ComprehensiveResearchData
+            draft_mode=draft_mode,  # 🔥 FIX #4: Pass draft mode to request
         )
 
         # Guarded AgencyReport pipeline for Strategy+Campaign tiers
