@@ -1,7 +1,8 @@
 """Execution domain models."""
 
 from enum import Enum
-from typing import Optional
+from typing import Optional, Dict, Any
+from datetime import datetime
 
 from .base import AicmoBaseModel
 
@@ -14,6 +15,32 @@ class PublishStatus(str, Enum):
     QUEUED = "QUEUED"
     PUBLISHED = "PUBLISHED"
     FAILED = "FAILED"
+
+
+class ExecutionStatus(str, Enum):
+    """Execution attempt status for gateway operations."""
+    
+    PENDING = "PENDING"
+    IN_PROGRESS = "IN_PROGRESS"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    RETRYING = "RETRYING"
+
+
+class ExecutionResult(AicmoBaseModel):
+    """
+    Result of a gateway execution attempt.
+    
+    Tracks the outcome of posting to social media, sending email,
+    or syncing to CRM.
+    """
+    
+    status: ExecutionStatus
+    platform: str  # "instagram", "linkedin", "email", "crm"
+    platform_post_id: Optional[str] = None  # External platform's ID
+    error_message: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    executed_at: Optional[datetime] = None
 
 
 class CreativeVariant(AicmoBaseModel):
