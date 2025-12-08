@@ -55,23 +55,27 @@ class TestPhase0Skeleton:
         intake = ClientIntake.from_existing_request(data)
         assert intake.brand_name == "Test Co"
         assert intake.industry == "Technology"
-        assert intake.primary_goal_description == "Increase awareness"
+        assert intake.primary_goal == "Increase awareness"
 
     def test_strategy_doc_from_dict(self):
         """StrategyDoc should adapt from dict correctly."""
         from aicmo.domain import StrategyDoc, StrategyStatus
 
         data = {
-            "title": "Q4 Strategy",
-            "summary": "Focus on digital channels",
-            "extra_field": "value",
+            "brand_name": "Test Co",
+            "executive_summary": "Focus on digital channels",
+            "situation_analysis": "Market opportunity",
+            "strategy": "Growth strategy",
+            "pillars": [
+                {"name": "P1", "description": "Desc1", "kpi_impact": "KPI1"},
+            ],
         }
 
         doc = StrategyDoc.from_existing_response(data)
-        assert doc.title == "Q4 Strategy"
-        assert doc.summary == "Focus on digital channels"
+        assert doc.brand_name == "Test Co"
+        assert doc.executive_summary == "Focus on digital channels"
         assert doc.status == StrategyStatus.DRAFT
-        assert doc.raw_payload["extra_field"] == "value"
+        assert len(doc.pillars) == 1
 
     def test_project_states_enum(self):
         """Project states should be valid enum values."""
@@ -95,15 +99,28 @@ class TestPhase0Skeleton:
         assert item.publish_status == PublishStatus.DRAFT
         assert item.external_id is None
 
-    def test_strategy_service_not_implemented(self):
-        """Strategy service should raise NotImplementedError in Phase 0."""
+    @pytest.mark.asyncio
+    async def test_strategy_service_now_implemented(self):
+        """Strategy service should now be implemented in Phase 1."""
         from aicmo.strategy import generate_strategy
         from aicmo.domain import ClientIntake
+        from unittest.mock import AsyncMock, patch
 
         intake = ClientIntake(brand_name="Test")
 
-        with pytest.raises(NotImplementedError, match="Implement in Phase 1"):
-            generate_strategy(intake)
+        # Mock the backend to verify it's being called
+        from aicmo.io.client_reports import MarketingPlanView, StrategyPillar as BackendPillar
+        
+        mock_plan = MarketingPlanView(
+            executive_summary="Test",
+            situation_analysis="Test",
+            strategy="Test",
+            pillars=[BackendPillar(name="P1", description="D1", kpi_impact="K1")]
+        )
+
+        with patch("backend.generators.marketing_plan.generate_marketing_plan", new=AsyncMock(return_value=mock_plan)):
+            result = await generate_strategy(intake)
+            assert result.brand_name == "Test"
 
     def test_no_backend_imports_aicmo_new_modules(self):
         """

@@ -1,6 +1,6 @@
 """Strategy document domain models."""
 
-from typing import Any, Dict, Optional
+from typing import List, Optional
 from enum import Enum
 
 from .base import AicmoBaseModel
@@ -14,18 +14,33 @@ class StrategyStatus(str, Enum):
     REJECTED = "REJECTED"
 
 
+class StrategyPillar(AicmoBaseModel):
+    """Individual strategic pillar."""
+    
+    name: str
+    description: str
+    kpi_impact: str
+
+
 class StrategyDoc(AicmoBaseModel):
     """
     Normalized strategy document.
     
-    Wraps the output from strategy generation with metadata
-    for tracking and approval workflows.
+    Contains the core strategic plan output from the strategy generation engine.
     """
 
-    project_id: Optional[int] = None
-    title: str
-    summary: str
-    raw_payload: Dict[str, Any]
+    brand_name: str
+    industry: Optional[str] = None
+    
+    executive_summary: str
+    situation_analysis: str
+    strategy_narrative: str
+    
+    pillars: List[StrategyPillar] = []
+    
+    primary_goal: Optional[str] = None
+    timeline: Optional[str] = None
+    
     status: StrategyStatus = StrategyStatus.DRAFT
 
     @classmethod
@@ -47,11 +62,19 @@ class StrategyDoc(AicmoBaseModel):
             as_dict = dict(data)
 
         return cls(
-            title=as_dict.get("title")
-            or as_dict.get("plan_title")
-            or "Strategy",
-            summary=as_dict.get("summary")
-            or as_dict.get("overview")
-            or "",
-            raw_payload=as_dict,
+            brand_name=as_dict.get("brand_name") or "Unknown",
+            industry=as_dict.get("industry"),
+            executive_summary=as_dict.get("executive_summary") or "",
+            situation_analysis=as_dict.get("situation_analysis") or "",
+            strategy_narrative=as_dict.get("strategy") or as_dict.get("strategy_narrative") or "",
+            pillars=[
+                StrategyPillar(
+                    name=p.get("name", ""),
+                    description=p.get("description", ""),
+                    kpi_impact=p.get("kpi_impact", "")
+                )
+                for p in as_dict.get("pillars", [])
+            ],
+            primary_goal=as_dict.get("primary_goal"),
+            timeline=as_dict.get("timeline"),
         )
