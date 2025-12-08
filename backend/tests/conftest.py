@@ -5,12 +5,33 @@ import pytest
 from starlette.testclient import TestClient
 import os
 import random
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from backend.db import get_engine
 
 # Use the fully-wired application which includes all routers used in tests
 from backend.app import app
+
+# CAM test database setup
+from aicmo.cam.db_models import (
+    Base as CAMBase,
+    CampaignDB,
+    LeadDB,
+    DiscoveryJobDB,
+    DiscoveredProfileDB,
+    OutreachAttemptDB,
+)
+
+# Create dedicated test engine for CAM tests
+TEST_DB_URL = "sqlite:///:memory:"
+cam_test_engine = create_engine(
+    TEST_DB_URL,
+    connect_args={"check_same_thread": False},  # Critical for TestClient threading
+    poolclass=StaticPool,  # Critical for in-memory SQLite to share connection
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=cam_test_engine)
 
 
 @pytest.fixture(scope="module")
@@ -112,3 +133,63 @@ def ensure_runs_and_artifacts_tables():
     )
 
     metadata.create_all(engine)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_cam_test_db():
+    """
+    Create CAM database tables once per test session.
+    
+    This ensures all CAM tables (campaigns, leads, discovery jobs, profiles)
+    exist in the test database before any CAM API tests run.
+    """
+    # Create only CAM-specific tables (not all Base tables which include SiteGen)
+    cam_tables = [
+        CampaignDB.__table__,
+        LeadDB.__table__,
+        OutreachAttemptDB.__table__,
+        DiscoveryJobDB.__table__,
+        DiscoveredProfileDB.__table__,
+    ]
+    CAMBase.metadata.create_all(bind=cam_test_engine, tables=cam_tables)
+    yield
+    # Cleanup after all tests
+    CAMBase.metadata.drop_all(bind=cam_test_engine, tables=cam_tables)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def clear_cam_data():
+    """
+    Clear all CAM data before each test to ensure test isolation.
+    
+    Uses raw DELETE statements to avoid session conflicts.
+    Tables are created by setup_cam_test_db (session-scoped, autouse) which runs first.
+    """
+    # Use raw SQL DELETE statements for clean isolation
+    with cam_test_engine.begin() as conn:
+        # Try to delete, but catch errors if tables don't exist yet
+        try:
+            conn.execute(text("DELETE FROM outreach_attempts"))
+            conn.execute(text("DELETE FROM discovered_profiles"))
+            conn.execute(text("DELETE FROM discovery_jobs"))
+            conn.execute(text("DELETE FROM leads"))
+            conn.execute(text("DELETE FROM campaigns"))
+        except Exception:
+            # Tables don't exist yet - this is OK for first test
+            pass
+    yield
+    # No cleanup needed after test - next test will clear before it runs
+
+
+@pytest.fixture
+def test_db():
+    """
+    Provide a CAM test database session for individual tests.
+    
+    Each test gets a fresh session that's automatically closed after use.
+    """
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

@@ -2,6 +2,7 @@
 CAM database models (SQLAlchemy).
 
 Phase CAM-1: Persistent storage for campaigns, leads, and outreach attempts.
+Phase CAM-7: Discovery jobs and discovered profiles for ethical lead finding.
 """
 
 from datetime import datetime
@@ -13,8 +14,10 @@ from sqlalchemy import (
     Text,
     Boolean,
     DateTime,
+    Float,
     Enum as SAEnum,
     ForeignKey,
+    JSON,
 )
 from sqlalchemy.sql import func
 
@@ -67,6 +70,9 @@ class LeadDB(Base):
 
     source = Column(SAEnum(LeadSource), nullable=False, default=LeadSource.OTHER)
     status = Column(SAEnum(LeadStatus), nullable=False, default=LeadStatus.NEW)
+    
+    # Phase 8: Pipeline stage
+    stage = Column(String, nullable=False, default="NEW")
 
     notes = Column(Text, nullable=True)
 
@@ -104,3 +110,104 @@ class OutreachAttemptDB(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+
+class DiscoveryJobDB(Base):
+    """
+    Discovery job database model (Phase 7).
+    
+    Tracks lead discovery operations across platforms.
+    """
+    
+    __tablename__ = "cam_discovery_jobs"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    criteria = Column(JSON, nullable=False)  # Serialized DiscoveryCriteria
+    campaign_id = Column(Integer, ForeignKey("cam_campaigns.id"), nullable=True)
+    
+    status = Column(String, nullable=False, default="PENDING")  # PENDING/RUNNING/DONE/FAILED
+    error_message = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class DiscoveredProfileDB(Base):
+    """
+    Discovered profile database model (Phase 7).
+    
+    Stores profiles found during discovery jobs before conversion to leads.
+    """
+    
+    __tablename__ = "cam_discovered_profiles"
+
+    id = Column(Integer, primary_key=True)
+    job_id = Column(Integer, ForeignKey("cam_discovery_jobs.id"), nullable=False)
+    
+    platform = Column(String, nullable=False)  # linkedin/twitter/instagram/web
+    handle = Column(String, nullable=False)
+    profile_url = Column(String, nullable=False)
+    display_name = Column(String, nullable=False)
+    
+    bio = Column(Text, nullable=True)
+    followers = Column(Integer, nullable=True)
+    location = Column(String, nullable=True)
+    match_score = Column(Float, nullable=False, default=0.5)
+    
+    discovered_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class ContactEventDB(Base):
+    """
+    Contact event database model (Phase 8).
+    
+    Tracks interactions with leads (replies, calls, meetings).
+    """
+    
+    __tablename__ = "cam_contact_events"
+
+    id = Column(Integer, primary_key=True)
+    lead_id = Column(Integer, ForeignKey("cam_leads.id"), nullable=False)
+    
+    channel = Column(String, nullable=False)  # linkedin/email/other
+    direction = Column(String, nullable=False)  # OUTBOUND/INBOUND
+    summary = Column(Text, nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class AppointmentDB(Base):
+    """
+    Appointment database model (Phase 8).
+    
+    Tracks scheduled meetings with leads.
+    """
+    
+    __tablename__ = "cam_appointments"
+
+    id = Column(Integer, primary_key=True)
+    lead_id = Column(Integer, ForeignKey("cam_leads.id"), nullable=False)
+    
+    scheduled_for = Column(DateTime(timezone=True), nullable=False)
+    duration_minutes = Column(Integer, nullable=False, default=30)
+    location = Column(String, nullable=True)
+    calendar_link = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default="SCHEDULED")  # SCHEDULED/COMPLETED/CANCELLED
+    
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class SafetySettingsDB(Base):
+    """
+    Safety and compliance settings (singleton table).
+    
+    Phase 9: Stores rate limits, send windows, and DNC lists.
+    """
+    
+    __tablename__ = "cam_safety_settings"
+
+    id = Column(Integer, primary_key=True)
+    data = Column(JSON, nullable=False)  # Serialized SafetySettings
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())

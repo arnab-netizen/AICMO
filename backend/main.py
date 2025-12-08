@@ -118,6 +118,7 @@ from backend.exceptions import QualityGateFailedError, BlankPdfError  # noqa: E4
 from backend.pdf_utils import text_to_pdf_bytes  # noqa: E402
 from backend.routers.health import router as health_router  # noqa: E402
 from backend.api.routes_learn import router as learn_router  # noqa: E402
+from backend.routers.cam import router as cam_router  # noqa: E402
 from aicmo.presets.package_presets import PACKAGE_PRESETS  # noqa: E402
 from backend.generators.social.video_script_generator import (  # noqa: E402
     generate_video_script_for_day,
@@ -382,6 +383,7 @@ class GenerateRequest(BaseModel):
 app = FastAPI(title="AICMO API")
 app.include_router(health_router, tags=["health"])
 app.include_router(learn_router, tags=["learn"])
+app.include_router(cam_router)  # CAM Phases 7-9: Discovery, Pipeline, Safety
 
 # Phase 3: Performance threshold for slow request flagging
 SLOW_THRESHOLD_MS = 8000.0  # 8 seconds

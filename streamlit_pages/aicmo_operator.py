@@ -70,6 +70,188 @@ st.set_page_config(
     layout="wide",
 )
 
+# Global cockpit styling for operator dashboard
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background: radial-gradient(circle at top left, #111827 0, #020617 45%, #000 100%);
+        color: #E5E7EB;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    }
+
+    .block-container {
+        padding-top: 1.25rem;
+        padding-bottom: 1.25rem;
+        max-width: 1400px;
+    }
+
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(to bottom, #020617, #020617 40%, #020617 70%, #020617);
+        border-right: 1px solid rgba(148,163,184,0.16);
+    }
+
+    .sidebar-title {
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        color: #9CA3AF;
+    }
+
+    .sidebar-logo {
+        font-weight: 800;
+        font-size: 1.1rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #F9FAFB;
+    }
+
+    .cc-card {
+        background: radial-gradient(circle at top left, #111827 0, #020617 65%);
+        border-radius: 12px;
+        padding: 0.9rem 1rem;
+        border: 1px solid rgba(148,163,184,0.3);
+        box-shadow: 0 0 0 1px rgba(15,23,42,0.8), 0 18px 45px rgba(15,23,42,0.85);
+    }
+
+    .cc-card h3 {
+        font-size: 0.8rem;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: #9CA3AF;
+        margin-bottom: 0.3rem;
+    }
+
+    .cc-metric {
+        font-size: 1.8rem;
+        font-weight: 650;
+        color: #F9FAFB;
+        margin-bottom: 0.15rem;
+    }
+
+    .cc-subtext {
+        font-size: 0.75rem;
+        color: #9CA3AF;
+    }
+
+    .cc-alert {
+        font-size: 0.75rem;
+        color: #FBBF24;
+        margin-top: 0.15rem;
+    }
+
+    .cc-feed {
+        max-height: 280px;
+        overflow-y: auto;
+        padding-right: 0.35rem;
+    }
+
+    .cc-feed-item {
+        font-size: 0.8rem;
+        border-bottom: 1px solid rgba(30,64,175,0.55);
+        padding: 0.35rem 0;
+    }
+
+    .cc-feed-item time {
+        color: #6B7280;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        margin-right: 0.4rem;
+    }
+
+    .cc-dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        margin-right: 0.25rem;
+        box-shadow: 0 0 10px currentColor;
+    }
+    .cc-dot-ok { color: #22C55E; background: #22C55E; }
+    .cc-dot-bad { color: #F97373; background: #F97373; }
+    .cc-dot-warn { color: #FACC15; background: #FACC15; }
+
+    .cc-gateway-label {
+        font-size: 0.78rem;
+        color: #D1D5DB;
+        margin-right: 0.75rem;
+        white-space: nowrap;
+    }
+
+    .cc-column-title {
+        font-size: 0.75rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #9CA3AF;
+        margin-bottom: 0.35rem;
+    }
+
+    .cc-project-card {
+        background: rgba(15,23,42,0.95);
+        border-radius: 10px;
+        padding: 0.45rem 0.65rem;
+        border: 1px solid rgba(30,64,175,0.6);
+        margin-bottom: 0.4rem;
+        font-size: 0.8rem;
+    }
+
+    .cc-project-name {
+        font-weight: 600;
+        color: #E5E7EB;
+    }
+
+    .cc-pill-danger {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.05rem 0.4rem;
+        border-radius: 999px;
+        background: rgba(248,113,113,0.15);
+        color: #FCA5A5;
+        font-size: 0.68rem;
+        margin-top: 0.15rem;
+    }
+
+    .cc-pill-warn {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.05rem 0.4rem;
+        border-radius: 999px;
+        background: rgba(250,204,21,0.08);
+        color: #FACC15;
+        font-size: 0.68rem;
+        margin-top: 0.15rem;
+    }
+
+    .cc-pill-ok {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.05rem 0.4rem;
+        border-radius: 999px;
+        background: rgba(34,197,94,0.12);
+        color: #4ADE80;
+        font-size: 0.68rem;
+        margin-top: 0.15rem;
+    }
+
+    button[role="tab"] {
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        font-size: 0.7rem !important;
+    }
+
+    .cc-pause-label {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: #F97373;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 # -------------------------------------------------
 # Helper functions
@@ -482,6 +664,45 @@ def init_session_state() -> None:
         if key not in st.session_state:
             st.session_state[key] = value
 
+    # Command Center / cockpit-specific state
+    if "activity_log" not in st.session_state:
+        st.session_state.activity_log = [
+            {
+                "time": "10:02",
+                "event": "System auto-rejected lead \"SpamBot LLC\"",
+                "detail": "Reason: No Budget",
+            },
+            {
+                "time": "09:45",
+                "event": "Strategy generated for \"FinTech Client A\"",
+                "detail": "Pack: Full Funnel Suite",
+            },
+            {
+                "time": "09:30",
+                "event": "LinkedIn token refreshed successfully",
+                "detail": "Next refresh in 23h",
+            },
+        ]
+
+    if "mock_projects" not in st.session_state:
+        st.session_state.mock_projects = [
+            {"id": 1, "name": "TechCorp", "stage": "STRATEGY", "clarity": 82},
+            {"id": 2, "name": "StartupX", "stage": "INTAKE", "clarity": 45},
+            {"id": 3, "name": "FinServe A", "stage": "CREATIVE", "clarity": 96},
+            {"id": 4, "name": "Luxotica Automobiles", "stage": "EXECUTION", "clarity": 91},
+            {"id": 5, "name": "Local Gym", "stage": "DONE", "clarity": 88},
+        ]
+
+    if "gateway_status" not in st.session_state:
+        st.session_state.gateway_status = {
+            "LinkedIn API": "ok",
+            "OpenAI": "ok",
+            "Apollo": "bad",  # e.g. rate-limited
+        }
+
+    if "system_paused" not in st.session_state:
+        st.session_state.system_paused = False
+
 
 def build_services_matrix() -> Dict[str, bool]:
     """
@@ -606,6 +827,89 @@ def build_client_brief_payload() -> Dict[str, Any]:
         "raw_brief_text": st.session_state["client_brief_text"],
         "uploaded_brief_meta": summarise_upload(st.session_state.get("upload_buffer")),
     }
+
+
+# -------------------------------------------------
+# Command Center helpers
+# -------------------------------------------------
+
+
+def _get_attention_metrics() -> Dict[str, int]:
+    """Compute the top-row 'blocking money' metrics (mock for now)."""
+    leads = 12
+    high_intent = 3
+    approvals_pending = 4
+    drafts_strategy = 1
+    drafts_creative = 3
+    execution_success = 98
+    failed_last_24h = 2
+    return {
+        "leads": leads,
+        "high_intent": high_intent,
+        "approvals_pending": approvals_pending,
+        "drafts_strategy": drafts_strategy,
+        "drafts_creative": drafts_creative,
+        "execution_success": execution_success,
+        "failed_last_24h": failed_last_24h,
+    }
+
+
+def _group_projects_by_stage(projects: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    """Group projects into the 5 state-machine columns."""
+    columns: Dict[str, List[Dict[str, Any]]] = {
+        "INTAKE": [],
+        "STRATEGY": [],
+        "CREATIVE": [],
+        "EXECUTION": [],
+        "DONE": [],
+    }
+    for p in projects:
+        stage = str(p.get("stage", "DONE")).upper()
+        if stage not in columns:
+            stage = "DONE"
+        columns[stage].append(p)
+    return columns
+
+
+def _render_gateway_ticker(status_map: Dict[str, str]) -> None:
+    """Render compact gateway health ticker."""
+    parts: List[str] = []
+    for label, status in status_map.items():
+        if status == "ok":
+            dot_class = "cc-dot cc-dot-ok"
+        elif status == "bad":
+            dot_class = "cc-dot cc-dot-bad"
+        else:
+            dot_class = "cc-dot cc-dot-warn"
+        parts.append(
+            f'<span class="cc-gateway-label"><span class="{dot_class}"></span>{label}</span>'
+        )
+    html = " ".join(parts)
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def _render_activity_feed() -> None:
+    """Render the scrolling activity feed."""
+    st.markdown('<div class="cc-card cc-feed">', unsafe_allow_html=True)
+    for item in st.session_state.activity_log:
+        time_str = item.get("time", "--:--")
+        event = item.get("event", "")
+        detail = item.get("detail", "")
+        st.markdown(
+            f'''
+            <div class="cc-feed-item">
+              <div><time>{time_str}</time> {event}</div>
+              <div style="font-size:0.72rem;color:#6B7280;">{detail}</div>
+            </div>
+            ''',
+            unsafe_allow_html=True,
+        )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# -------------------------------------------------
+# Backend integration
+# -------------------------------------------------
 
 
 def call_backend_generate(
@@ -836,6 +1140,289 @@ def render_header() -> None:
     st.caption(
         "Attach client briefs → choose a package → generate agency-grade reports → refine → export."
     )
+
+
+def render_command_center_tab() -> None:
+    st.subheader("Command Center")
+
+    # Top strip with gateway status on the right
+    top_left, top_right = st.columns([3, 2])
+    with top_left:
+        st.markdown(
+            "Operate AICMO like a cockpit: see what blocks money, project flow, and gateway health."
+        )
+    with top_right:
+        st.caption("Gateway Status")
+        _render_gateway_ticker(st.session_state.gateway_status)
+
+    # Nested views inside Command Center
+    cmd_tab, projects_tab, warroom_tab, gallery_tab, control_tab = st.tabs(
+        ["Command", "Projects", "War Room", "Gallery", "Control Tower"]
+    )
+
+    # 1) COMMAND VIEW – "What's blocking money right now?"
+    with cmd_tab:
+        metrics = _get_attention_metrics()
+        col1, col2, col3 = st.columns([1.1, 1.1, 1])
+
+        with col1:
+            st.markdown('<div class="cc-card">', unsafe_allow_html=True)
+            st.markdown("<h3>Triage Needed</h3>", unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="cc-metric">{metrics["leads"]}</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f'<div class="cc-subtext">{metrics["high_intent"]} high-intent (job changes detected).</div>',
+                unsafe_allow_html=True,
+            )
+            st.button("Review Queue", key="cmd_triage_review", use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col2:
+            st.markdown('<div class="cc-card">', unsafe_allow_html=True)
+            st.markdown("<h3>Approvals Pending</h3>", unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="cc-metric">{metrics["approvals_pending"]}</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f'<div class="cc-subtext">{metrics["drafts_strategy"]} strategy · {metrics["drafts_creative"]} creative sets.</div>',
+                unsafe_allow_html=True,
+            )
+            st.button("Enter War Room", key="cmd_enter_war_room", use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col3:
+            st.markdown('<div class="cc-card">', unsafe_allow_html=True)
+            st.markdown("<h3>Execution Health</h3>", unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="cc-metric">{metrics["execution_success"]}%</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div class="cc-subtext">Success rate last 24h.</div>',
+                unsafe_allow_html=True,
+            )
+            if metrics["failed_last_24h"] > 0:
+                st.markdown(
+                    f'<div class="cc-alert">{metrics["failed_last_24h"]} failed posts in last 24h.</div>',
+                    unsafe_allow_html=True,
+                )
+            st.button(
+                "Investigate Failures",
+                key="cmd_execution_failures",
+                use_container_width=True,
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("")
+        st.markdown("#### Activity Feed")
+        _render_activity_feed()
+
+    # 2) PROJECTS VIEW – Kanban state machine
+    with projects_tab:
+        st.markdown("#### Projects Pipeline")
+        grouped = _group_projects_by_stage(st.session_state.mock_projects)
+
+        col_intake, col_strategy, col_creative, col_exec, col_done = st.columns(5)
+
+        with col_intake:
+            st.markdown('<div class="cc-column-title">Intake</div>', unsafe_allow_html=True)
+            for p in grouped["INTAKE"]:
+                st.markdown('<div class="cc-project-card">', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="cc-project-name">{p["name"]}</div>',
+                    unsafe_allow_html=True,
+                )
+                clarity = p.get("clarity", 0)
+                pill_class = "cc-pill-danger" if clarity < 60 else "cc-pill-warn"
+                st.markdown(
+                    f'<div class="{pill_class}">Clarity: {clarity}%</div>',
+                    unsafe_allow_html=True,
+                )
+                st.button(
+                    "Enter Clarifier",
+                    key=f"proj_intake_{p['id']}",
+                    use_container_width=True,
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_strategy:
+            st.markdown('<div class="cc-column-title">Strategy</div>', unsafe_allow_html=True)
+            for p in grouped["STRATEGY"]:
+                st.markdown('<div class="cc-project-card">', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="cc-project-name">{p["name"]}</div>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown('<div class="cc-pill-warn">Waiting for approval</div>', unsafe_allow_html=True)
+                st.button(
+                    "Review Strategy",
+                    key=f"proj_strategy_{p['id']}",
+                    use_container_width=True,
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_creative:
+            st.markdown('<div class="cc-column-title">Creative</div>', unsafe_allow_html=True)
+            for p in grouped["CREATIVE"]:
+                st.markdown('<div class="cc-project-card">', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="cc-project-name">{p["name"]}</div>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown('<div class="cc-pill-ok">Assets generating</div>', unsafe_allow_html=True)
+                st.button(
+                    "Review Assets",
+                    key=f"proj_creative_{p['id']}",
+                    use_container_width=True,
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_exec:
+            st.markdown('<div class="cc-column-title">Execution</div>', unsafe_allow_html=True)
+            for p in grouped["EXECUTION"]:
+                st.markdown('<div class="cc-project-card">', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="cc-project-name">{p["name"]}</div>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown('<div class="cc-pill-ok">Next post in 2h</div>', unsafe_allow_html=True)
+                st.button(
+                    "View Schedule",
+                    key=f"proj_exec_{p['id']}",
+                    use_container_width=True,
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_done:
+            st.markdown('<div class="cc-column-title">Done / Retainer</div>', unsafe_allow_html=True)
+            for p in grouped["DONE"]:
+                st.markdown('<div class="cc-project-card">', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="cc-project-name">{p["name"]}</div>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown('<div class="cc-pill-ok">Monitoring</div>', unsafe_allow_html=True)
+                st.button(
+                    "Open Report",
+                    key=f"proj_done_{p['id']}",
+                    use_container_width=True,
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+
+    # 3) WAR ROOM – Strategy review interface
+    with warroom_tab:
+        left, right = st.columns([1.1, 2])
+        with left:
+            st.markdown("##### Intake Snapshot")
+            st.markdown("**Client:** TechCorp")
+            st.markdown("**Objective:** Defend ARR and unlock new ICP segment.")
+            st.markdown("**Audience:** Mid-market CTOs · US/UK.")
+            st.markdown("**Constraints:** Limited paid budget, strong organic baseline.")
+            st.markdown("---")
+            st.markdown("When wired, load this from the active brief.")
+        with right:
+            st.markdown("##### Strategy Draft")
+            _ = st.text_area(
+                "AI-Generated Strategy",
+                value="## Core Narrative\n\nDraft goes here...\n\n## Channels\n\n...\n\n## KPIs\n\n...",
+                height=360,
+            )
+
+        st.markdown("---")
+        reject_col, approve_col = st.columns([1, 1.2])
+        with reject_col:
+            _ = st.text_input(
+                "Reason (if sending back to draft)",
+                value="",
+                placeholder="What must change before we can go to creatives?",
+            )
+            st.button(
+                "Reject – Send Back to Draft",
+                key="warroom_reject",
+                use_container_width=True,
+            )
+        with approve_col:
+            st.button(
+                "APPROVE & START CREATIVES",
+                key="warroom_approve",
+                use_container_width=True,
+            )
+
+    # 4) GALLERY – Creative review
+    with gallery_tab:
+        st.markdown("#### Creative Gallery (Mock Layout)")
+        st.caption("Each card below should mimic the final platform (e.g. LinkedIn post preview).")
+
+        gcol1, gcol2, gcol3 = st.columns(3)
+        for idx, col in enumerate([gcol1, gcol2, gcol3], start=1):
+            with col:
+                st.markdown('<div class="cc-card">', unsafe_allow_html=True)
+                st.markdown(f"**Concept {idx} – LinkedIn Mock**")
+                st.markdown(
+                    "> This is where the post copy / thumbnail preview will go once you wire the real output.",
+                )
+                b1, b2, b3 = st.columns(3)
+                with b1:
+                    st.button("Edit", key=f"gal_edit_{idx}")
+                with b2:
+                    st.button("Regenerate", key=f"gal_regen_{idx}")
+                with b3:
+                    st.button("Trash", key=f"gal_trash_{idx}")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("---")
+        bulk1, bulk2 = st.columns([1, 1])
+        with bulk1:
+            st.button("Approve Selected", key="gal_approve_all", use_container_width=True)
+        with bulk2:
+            st.button("Schedule All", key="gal_schedule_all", use_container_width=True)
+
+    # 5) CONTROL TOWER – Execution & gateways
+    with control_tab:
+        top_l, top_r = st.columns([2, 1])
+
+        with top_l:
+            st.markdown("#### Calendar / Timeline (Mock)")
+            st.write(
+                "This is a placeholder timeline. Replace with a real scheduler once wired to backend."
+            )
+            st.table(
+                {
+                    "Time": ["Today 10:00", "Today 14:00", "Tomorrow 09:00"],
+                    "Project": ["TechCorp", "StartupX", "FinServe A"],
+                    "Channel": ["LinkedIn", "Instagram", "Email"],
+                    "Status": ["Scheduled", "Scheduled", "Draft"],
+                }
+            )
+
+        with top_r:
+            st.markdown("#### Gateways")
+            for label, status in st.session_state.gateway_status.items():
+                if status == "ok":
+                    dot_class = "cc-dot cc-dot-ok"
+                    status_text = "Healthy"
+                elif status == "bad":
+                    dot_class = "cc-dot cc-dot-bad"
+                    status_text = "Issue"
+                else:
+                    dot_class = "cc-dot cc-dot-warn"
+                    status_text = "Warning"
+
+                st.markdown(
+                    f'<span class="{dot_class}"></span> **{label}** – {status_text}',
+                    unsafe_allow_html=True,
+                )
+
+            st.markdown("---")
+            st.markdown('<span class="cc-pause-label">System Pause</span>', unsafe_allow_html=True)
+            paused = st.checkbox(
+                "Emergency stop – pause all outbound execution",
+                value=st.session_state.system_paused,
+            )
+            st.session_state.system_paused = paused
 
 
 def render_client_input_tab() -> None:
@@ -1597,8 +2184,9 @@ def main() -> None:
             """
             )
 
-    tab1, tab2, tab3, tab4 = st.tabs(
+    tab_cmd, tab1, tab2, tab3, tab4 = st.tabs(
         [
+            "Command Center",
             "Client Input",
             "Workshop",
             "Final Output",
@@ -1606,6 +2194,8 @@ def main() -> None:
         ]
     )
 
+    with tab_cmd:
+        render_command_center_tab()
     with tab1:
         render_client_input_tab()
     with tab2:

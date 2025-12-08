@@ -2,13 +2,16 @@
 CAM runner - CLI orchestration.
 
 Phase CAM-5: Command-line interface for Client Acquisition Mode.
+Phase CAM-6 (AUTO): Automated outreach with AICMO-powered personalization.
 
 Usage:
     python -m aicmo.cam.runner import-csv --path data/leads.csv
     python -m aicmo.cam.runner run-once --channel linkedin --batch-size 20
+    python -m aicmo.cam.runner run-auto --channel email --batch-size 10 --dry-run
 """
 
 import argparse
+import asyncio
 from typing import List
 
 from sqlalchemy.orm import Session
@@ -21,6 +24,9 @@ from aicmo.cam.sources import CSVSourceConfig, load_leads_from_csv, persist_lead
 from aicmo.cam.messaging import SequenceConfig, generate_messages_for_lead
 from aicmo.cam.scheduler import find_leads_to_contact
 from aicmo.cam.sender import send_messages_console
+from aicmo.cam.auto import run_auto_email_batch, run_auto_social_batch
+from aicmo.gateways.email import EmailAdapter
+from aicmo.gateways.social import InstagramPoster  # Placeholder for LinkedIn
 
 
 def _get_db() -> Session:
@@ -101,6 +107,71 @@ def cmd_run_once(args: argparse.Namespace) -> None:
     send_messages_console(db=db, messages=all_messages)
 
 
+def cmd_run_auto(args: argparse.Namespace) -> None:
+    """
+    Run automated outreach batch with AICMO-powered personalization.
+    
+    CAM-AUTO (Phase 6): For each lead, generates custom AICMO strategy,
+    creates personalized messages, and sends via gateway.
+    
+    Args:
+        args: Command-line arguments with campaign, channel, batch_size, dry_run
+    """
+    db = _get_db()
+    campaign = ensure_campaign(db, args.campaign_name)
+    
+    channel = Channel(args.channel)
+    
+    if channel == Channel.EMAIL:
+        # Initialize email gateway
+        email_sender = EmailAdapter(
+            api_key="mock-api-key",
+            default_from_email=args.from_email or "outreach@aicmo.ai",
+            default_from_name=args.from_name or "AICMO Outreach",
+        )
+        
+        # Run async email batch
+        stats = asyncio.run(
+            run_auto_email_batch(
+                db=db,
+                campaign_id=campaign.id,
+                email_sender=email_sender,
+                batch_size=args.batch_size,
+                from_email=args.from_email,
+                from_name=args.from_name,
+                dry_run=args.dry_run,
+            )
+        )
+    elif channel == Channel.LINKEDIN:
+        # Initialize social gateway (mock for now)
+        social_poster = InstagramPoster(
+            access_token="mock-token",
+            account_id="mock-account",
+        )
+        
+        # Run async social batch
+        stats = asyncio.run(
+            run_auto_social_batch(
+                db=db,
+                campaign_id=campaign.id,
+                social_poster=social_poster,
+                batch_size=args.batch_size,
+                dry_run=args.dry_run,
+            )
+        )
+    else:
+        print(f"Channel {channel} not supported for auto mode yet")
+        return
+    
+    # Print summary
+    print(f"\n✓ CAM-AUTO completed:")
+    print(f"  Processed: {stats['processed']}")
+    print(f"  Sent: {stats['sent']}")
+    print(f"  Failed: {stats['failed']}")
+    if stats['dry_run']:
+        print("  [DRY RUN - no messages actually sent]")
+
+
 def main() -> None:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(description="Client Acquisition Mode (CAM) for AICMO")
@@ -142,6 +213,40 @@ def main() -> None:
         help="Number of steps per lead in sequence",
     )
     p_run.set_defaults(func=cmd_run_once)
+
+    # Run auto command (CAM-AUTO Phase 6)
+    p_auto = sub.add_parser("run-auto", help="Run automated outreach with AICMO personalization")
+    p_auto.add_argument(
+        "--campaign-name",
+        default=settings.CAM_DEFAULT_CAMPAIGN_NAME,
+        help="Campaign name",
+    )
+    p_auto.add_argument(
+        "--channel",
+        default=settings.CAM_DEFAULT_CHANNEL,
+        choices=[c.value for c in Channel],
+        help="Channel for automated outreach",
+    )
+    p_auto.add_argument(
+        "--batch-size",
+        type=int,
+        default=10,
+        help="Max leads to process in this batch",
+    )
+    p_auto.add_argument(
+        "--from-email",
+        help="Sender email address (email channel only)",
+    )
+    p_auto.add_argument(
+        "--from-name",
+        help="Sender display name (email channel only)",
+    )
+    p_auto.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Generate messages but don't send",
+    )
+    p_auto.set_defaults(func=cmd_run_auto)
 
     args = parser.parse_args()
     args.func(args)

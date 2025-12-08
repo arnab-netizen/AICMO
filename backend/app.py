@@ -27,6 +27,7 @@ from backend.modules.copyhook.api.router import router as copyhook_router
 from backend.modules.visualgen.api.router import router as visualgen_router
 from backend.modules.taste.router import router as taste_router
 from backend.api.routes_learn import router as learn_router
+from backend.routers.cam import router as cam_router
 
 log = logging.getLogger("uvicorn.error")
 
@@ -81,6 +82,7 @@ app.include_router(copyhook_router, prefix="/api/copyhook", tags=["copyhook"])
 app.include_router(visualgen_router, prefix="/api/visualgen", tags=["visualgen"])
 app.include_router(taste_router)
 app.include_router(learn_router, tags=["learning"])
+app.include_router(cam_router)  # CAM router already has /api/cam prefix
 
 # Metrics endpoint
 metrics_app = make_asgi_app()
