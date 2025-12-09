@@ -38,12 +38,20 @@ def enhance_section_humanizer(
     """
     Enhance raw section with humanization pass (SYNCHRONOUS).
     
+    Behavior:
+    1. If ENABLE_HUMANIZER is False, return raw_text immediately
+    2. If raw_text is empty, return raw_text
+    3. If llm_provider is None, use get_llm_provider() to try to get one
+    4. If we can't get any LLM provider, return raw_text
+    5. Call LLM with humanization prompt
+    6. On ANY error, return raw_text (never raise)
+    
     Args:
         section_id: Section identifier (e.g., "overview", "campaign_objective")
         raw_text: Raw content from Layer 1
         context: Context dict with brand, campaign, market data
         req: GenerateRequest object
-        llm_provider: Optional LLM provider callable (sync or async)
+        llm_provider: Optional LLM provider callable (will use factory if None)
     
     Returns:
         Enhanced section text (str), or raw_text if enhancement fails/disabled
@@ -58,7 +66,7 @@ def enhance_section_humanizer(
     try:
         # Check if humanizer is enabled
         if not ENABLE_HUMANIZER:
-            logger.debug("Humanizer disabled, returning raw text")
+            logger.debug("Humanizer disabled (AICMO_ENABLE_HUMANIZER=false)")
             return raw_text
         
         # If raw_text is empty, nothing to enhance
@@ -66,7 +74,12 @@ def enhance_section_humanizer(
             logger.debug(f"Raw text empty for {section_id}, skipping humanizer")
             return raw_text
         
-        # If no LLM provider, can't enhance
+        # If no LLM provider injected, try to get one from factory
+        if llm_provider is None:
+            from backend.layers import get_llm_provider
+            llm_provider = get_llm_provider()
+        
+        # If still no LLM provider, can't enhance
         if llm_provider is None:
             logger.debug("No LLM provider available, returning raw text")
             return raw_text
@@ -74,55 +87,61 @@ def enhance_section_humanizer(
         # Build humanization prompt
         brand_name = context.get("brand_name", "")
         campaign_name = context.get("campaign_name", "")
+        target_audience = context.get("target_audience", "")
         
-        humanize_prompt = f"""You are a marketing copywriter. Make the following section more human-like, specific, and compelling.
+        word_count = len(raw_text.split())
+        
+        humanize_prompt = f"""You are a senior marketing copywriter. Make the following section more human-like, specific, and compelling.
 
-Section: {section_id}
-Brand: {brand_name}
-Campaign: {campaign_name}
+[SECTION]: {section_id}
+[BRAND]: {brand_name}
+[CAMPAIGN]: {campaign_name}
+[TARGET AUDIENCE]: {target_audience}
 
-Guidelines:
-1. Eliminate clichés like "boost your brand", "in today's digital world", "unlock your potential"
-2. Add specific details, numbers, and examples where appropriate
-3. Improve hooks and CTAs to be more compelling and action-oriented
-4. Preserve all structure, headings, and formatting
-5. Keep word count within ±20% of original (original: ~{len(raw_text.split())} words)
+[GUIDELINES]:
+1. Eliminate clichés: "boost your brand", "in today's digital world", "unlock your potential", "best-in-class", "game-changer"
+2. Add specific details, numbers, case studies, or examples where appropriate
+3. Improve hooks and CTAs: make them compelling and action-oriented
+4. PRESERVE all structure, headings, and formatting exactly
+5. Keep word count ±20% of original ({word_count} words) – target: {int(word_count * 0.9)}-{int(word_count * 1.1)} words
 
-Original section:
+[ORIGINAL SECTION]:
 {raw_text}
 
-Enhanced section (preserve structure, improve humanity and specificity):"""
+[TASK]: Rewrite above section to be more human, specific, and compelling while preserving ALL structure and formatting. Output ONLY the enhanced section, no explanations."""
 
         # Call LLM for enhancement
-        # Note: This might be sync or async, but we'll call it and log if it fails
         try:
-            # Try to call it directly (sync path)
             enhanced = llm_provider(
                 prompt=humanize_prompt,
-                max_tokens=min(2000, len(raw_text.split()) * 2 + 200),
+                max_tokens=min(2000, word_count * 2 + 300),
                 temperature=0.7,
             )
             
             # Handle case where result is a coroutine (async)
-            import inspect
-            if inspect.iscoroutine(enhanced):
+            import asyncio
+            if asyncio.iscoroutine(enhanced):
                 logger.debug("LLM provider returned coroutine, cannot await from sync context")
                 return raw_text
             
         except Exception as e:
-            logger.debug(f"LLM call exception: {e}")
+            logger.warning(f"LLM humanizer call failed for {section_id}: {type(e).__name__}: {e}")
             return raw_text
         
         if not enhanced or not isinstance(enhanced, str) or not enhanced.strip():
             logger.debug(f"Humanizer returned empty result for {section_id}")
             return raw_text
         
-        logger.debug(f"Humanized section {section_id}")
+        # Verify enhanced text isn't just whitespace
+        if len(enhanced.strip()) < len(raw_text.strip()) * 0.5:
+            logger.debug(f"Humanized text is too short for {section_id}, rejecting")
+            return raw_text
+        
+        logger.debug(f"Humanized section {section_id} ({len(raw_text)} → {len(enhanced)} chars)")
         return enhanced
         
     except Exception as e:
-        logger.debug(
-            f"Humanizer failed for {section_id}, returning raw text",
-            extra={"error": str(e)},
+        logger.warning(
+            f"Unexpected error in humanizer for {section_id}: {type(e).__name__}: {e}"
         )
         return raw_text

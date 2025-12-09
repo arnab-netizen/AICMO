@@ -465,15 +465,30 @@ def list_campaigns(db: Session = Depends(get_db)):
     
     Returns:
         List of campaigns with lead counts and status
+        
+    Note:
+        If metrics computation fails for a campaign (e.g., due to schema issues),
+        that campaign is still returned but with default/partial metrics.
     """
     from aicmo.cam.db_models import CampaignDB
-    from aicmo.cam.engine.targets_tracker import compute_campaign_metrics
+    from aicmo.cam.engine.targets_tracker import compute_campaign_metrics, CampaignMetrics
+    import logging
+    
+    logger = logging.getLogger(__name__)
     
     campaigns = db.query(CampaignDB).all()
     
     result = []
     for campaign in campaigns:
-        metrics = compute_campaign_metrics(db, campaign.id)
+        try:
+            metrics = compute_campaign_metrics(db, campaign.id)
+        except Exception as e:
+            # If metrics computation fails (e.g., missing DB columns), use defaults
+            logger.warning(
+                f"Failed to compute metrics for campaign {campaign.id}: {type(e).__name__}: {e}"
+            )
+            metrics = CampaignMetrics(campaign_id=campaign.id)
+        
         result.append({
             "id": campaign.id,
             "name": campaign.name,
@@ -504,17 +519,41 @@ def get_campaign_details(campaign_id: int, db: Session = Depends(get_db)):
         
     Raises:
         HTTPException: If campaign not found
+        
+    Note:
+        If metrics computation fails (e.g., due to schema issues), returns
+        default/empty metrics to avoid crashing the endpoint.
     """
     from aicmo.cam.db_models import CampaignDB
-    from aicmo.cam.engine.targets_tracker import compute_campaign_metrics
+    from aicmo.cam.engine.targets_tracker import compute_campaign_metrics, CampaignMetrics
     from aicmo.cam.engine.outreach_engine import get_outreach_stats
+    import logging
+    
+    logger = logging.getLogger(__name__)
     
     campaign = db.query(CampaignDB).filter(CampaignDB.id == campaign_id).first()
     if not campaign:
         raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found")
     
-    metrics = compute_campaign_metrics(db, campaign_id)
-    outreach_stats = get_outreach_stats(db, campaign_id, days=1)
+    # Compute metrics with graceful error handling
+    try:
+        metrics = compute_campaign_metrics(db, campaign_id)
+    except Exception as e:
+        logger.warning(
+            f"Failed to compute metrics for campaign {campaign_id}: {type(e).__name__}: {e}. "
+            "Returning default metrics."
+        )
+        metrics = CampaignMetrics(campaign_id=campaign_id)
+    
+    # Compute outreach stats with graceful error handling
+    try:
+        outreach_stats = get_outreach_stats(db, campaign_id, days=1)
+    except Exception as e:
+        logger.warning(
+            f"Failed to compute outreach stats for campaign {campaign_id}: {type(e).__name__}: {e}. "
+            "Returning default stats."
+        )
+        outreach_stats = {"total": 0, "sent": 0, "failed": 0, "skipped": 0}
     
     return {
         "id": campaign.id,

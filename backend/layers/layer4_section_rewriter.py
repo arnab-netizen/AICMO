@@ -39,14 +39,23 @@ def rewrite_low_quality_section(
     """
     Rewrite weak section for improved quality (SYNCHRONOUS).
     
+    Triggered when: quality_score < 60 (from Layer 3 soft validators)
+    
+    Behavior:
+    1. If no LLM provider, try to get one from factory
+    2. If still no provider, return original content
+    3. Build rewrite prompt addressing specific issues
+    4. Call LLM once (max 1 rewrite attempt per section)
+    5. On ANY error, return original content (never raise)
+    
     Args:
         pack_key: Pack identifier for logging
-        section_id: Section identifier
-        content: Current section text
+        section_id: Section identifier (e.g., "overview", "strategy")
+        content: Current section text from Layer 3
         warnings: List of warnings from Layer 3 soft validators
         context: Context dict with brand, campaign, market data
         req: GenerateRequest object
-        llm_provider: Optional LLM provider callable (sync or async)
+        llm_provider: Optional LLM provider callable (will use factory if None)
     
     Returns:
         Rewritten section text (str), or original content if rewrite fails/skipped
@@ -55,13 +64,18 @@ def rewrite_low_quality_section(
         - Never raises HTTPException
         - Never blocks user
         - Always returns string (original content on any error)
-        - Max 1 rewrite attempt
+        - Max 1 rewrite attempt per section
         - Preserves structure and headings
     """
     try:
-        # If no LLM provider, can't rewrite
+        # If no LLM provider injected, try to get one from factory
         if llm_provider is None:
-            logger.debug(f"No LLM provider, skipping rewrite for {section_id}")
+            from backend.layers import get_llm_provider
+            llm_provider = get_llm_provider()
+        
+        # If still no LLM provider, can't rewrite
+        if llm_provider is None:
+            logger.debug(f"No LLM provider available, skipping rewrite for {section_id}")
             return content
         
         # If content is empty, nothing to rewrite
@@ -76,67 +90,72 @@ def rewrite_low_quality_section(
         
         # Explain what's weak
         issue_summary = _summarize_issues(warnings)
+        word_count = len(content.split())
         
-        rewrite_prompt = f"""You are a senior marketing copywriter. Rewrite this section to improve quality.
+        rewrite_prompt = f"""You are a senior marketing copywriter. Rewrite this section to improve quality and address specific issues.
 
-Section: {section_id}
-Brand: {brand_name}
-Campaign: {campaign_name}
-Target Audience: {target_audience}
+[SECTION]: {section_id}
+[BRAND]: {brand_name}
+[CAMPAIGN]: {campaign_name}
+[TARGET AUDIENCE]: {target_audience}
 
-Issues to fix:
+[ISSUES TO FIX]:
 {issue_summary}
 
-Rewrite guidelines:
-1. Make the content more specific and less generic
-2. Eliminate clichés (avoid "boost your brand", "in today's world", "unlock potential", etc.)
-3. Add concrete details, examples, or numbers where appropriate
-4. Ensure proper structure and formatting is preserved
-5. Improve hooks and CTAs to be more compelling
-6. Keep word count within 20% of original (original: ~{len(content.split())} words)
+[REWRITE GUIDELINES]:
+1. Make content more specific and less generic/clichéd
+2. Eliminate: "boost your brand", "in today's world", "unlock potential", "best-in-class", "game-changer", "synergize"
+3. Add concrete details: examples, numbers, case studies, data points
+4. Improve CTAs and hooks to be compelling and action-oriented
+5. PRESERVE all structure, headings, and formatting exactly as in original
+6. Keep word count ±20% of original ({word_count} words) – target: {int(word_count * 0.9)}-{int(word_count * 1.1)} words
 
-Original section:
+[ORIGINAL SECTION]:
 {content}
 
-Rewritten section (improve quality while preserving structure):"""
+[TASK]: Rewrite section to fix issues while preserving ALL structure and formatting. Output ONLY the rewritten section, no explanations."""
 
-        # Call LLM for rewrite
+        # Call LLM for rewrite (max 1 attempt)
         try:
             rewritten = llm_provider(
                 prompt=rewrite_prompt,
-                max_tokens=min(2500, len(content.split()) * 2 + 300),
+                max_tokens=min(2500, word_count * 2 + 400),
                 temperature=0.8,
             )
             
             # Handle case where result is a coroutine (async)
-            import inspect
-            if inspect.iscoroutine(rewritten):
+            import asyncio
+            if asyncio.iscoroutine(rewritten):
                 logger.debug("LLM provider returned coroutine, cannot await from sync context")
                 return content
             
         except Exception as e:
-            logger.debug(f"LLM call exception: {e}")
+            logger.warning(f"LLM rewriter call failed for {section_id}: {type(e).__name__}: {e}")
             return content
         
         if not rewritten or not isinstance(rewritten, str) or not rewritten.strip():
             logger.debug(f"Rewriter returned empty result for {section_id}")
             return content
         
+        # Verify rewritten text is substantial (at least 50% of original)
+        if len(rewritten.strip()) < len(content.strip()) * 0.5:
+            logger.debug(f"Rewritten text is too short for {section_id}, rejecting")
+            return content
+        
         logger.warning(
-            f"Section rewritten",
+            f"Section rewritten (quality < 60)",
             extra={
                 "pack_key": pack_key,
                 "section_id": section_id,
-                "issues": warnings,
+                "issues_fixed": len(warnings),
+                "size_change": f"{len(content)} → {len(rewritten)} chars",
             },
         )
         return rewritten
         
     except Exception as e:
-        logger.error(
-            f"Rewriter failed for {section_id}, returning original content",
-            extra={"error": str(e)},
-            exc_info=True,
+        logger.warning(
+            f"Unexpected error in rewriter for {section_id}: {type(e).__name__}: {e}"
         )
         return content
 
