@@ -22,6 +22,8 @@ import logging
 import os
 from typing import Optional, Callable
 
+from backend.layers.utils_context import apply_all_cleanup_passes
+
 logger = logging.getLogger(__name__)
 
 # Configuration
@@ -72,6 +74,10 @@ def enhance_section_humanizer(
         # If raw_text is empty, nothing to enhance
         if not raw_text or not raw_text.strip():
             logger.debug(f"Raw text empty for {section_id}, skipping humanizer")
+            # Still apply cleanup passes even to empty raw_text
+            brand_name = context.get("brand_name") if context else None
+            founder_name = context.get("founder_name") if context else None
+            raw_text = apply_all_cleanup_passes(raw_text, brand_name, founder_name)
             return raw_text
         
         # If no LLM provider injected, try to get one from factory
@@ -82,6 +88,10 @@ def enhance_section_humanizer(
         # If still no LLM provider, can't enhance
         if llm_provider is None:
             logger.debug("No LLM provider available, returning raw text")
+            # Apply cleanup passes even when skipping LLM enhancement
+            brand_name = context.get("brand_name") if context else None
+            founder_name = context.get("founder_name") if context else None
+            raw_text = apply_all_cleanup_passes(raw_text, brand_name, founder_name)
             return raw_text
         
         # Build humanization prompt
@@ -130,18 +140,36 @@ def enhance_section_humanizer(
         
         if not enhanced or not isinstance(enhanced, str) or not enhanced.strip():
             logger.debug(f"Humanizer returned empty result for {section_id}")
+            # Apply cleanup to raw_text instead
+            brand_name = context.get("brand_name") if context else None
+            founder_name = context.get("founder_name") if context else None
+            raw_text = apply_all_cleanup_passes(raw_text, brand_name, founder_name)
             return raw_text
         
         # Verify enhanced text isn't just whitespace
         if len(enhanced.strip()) < len(raw_text.strip()) * 0.5:
             logger.debug(f"Humanized text is too short for {section_id}, rejecting")
+            # Apply cleanup to raw_text instead
+            brand_name = context.get("brand_name") if context else None
+            founder_name = context.get("founder_name") if context else None
+            raw_text = apply_all_cleanup_passes(raw_text, brand_name, founder_name)
             return raw_text
         
         logger.debug(f"Humanized section {section_id} ({len(raw_text)} → {len(enhanced)} chars)")
+        
+        # Apply cleanup passes (FIX #1-7)
+        brand_name = context.get("brand_name") if context else None
+        founder_name = context.get("founder_name") if context else None
+        enhanced = apply_all_cleanup_passes(enhanced, brand_name, founder_name)
+        
         return enhanced
         
     except Exception as e:
         logger.warning(
             f"Unexpected error in humanizer for {section_id}: {type(e).__name__}: {e}"
         )
+        # Apply cleanup to raw_text on error too
+        brand_name = context.get("brand_name") if context else None
+        founder_name = context.get("founder_name") if context else None
+        raw_text = apply_all_cleanup_passes(raw_text, brand_name, founder_name)
         return raw_text

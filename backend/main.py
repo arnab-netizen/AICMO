@@ -6858,6 +6858,11 @@ def generate_sections(
         "pack_key": pack_key,  # Pass pack_key to all generators via kwargs
     }
 
+    # FIX #1: Sanitize context to prevent placeholder leaks
+    from backend.layers.utils_context import sanitize_brief_context
+    if req.brief:
+        req.brief = sanitize_brief_context(req.brief)
+
     # PASS 1: Generate all sections
     for section_id in section_ids:
         # STUB MODE: Try stub content first before calling generators

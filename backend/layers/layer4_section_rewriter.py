@@ -21,6 +21,8 @@ Quality Thresholds:
 import logging
 from typing import Optional, List, Callable
 
+from backend.layers.utils_context import apply_all_cleanup_passes
+
 logger = logging.getLogger(__name__)
 
 # Threshold for triggering rewrites
@@ -151,12 +153,19 @@ def rewrite_low_quality_section(
                 "size_change": f"{len(content)} → {len(rewritten)} chars",
             },
         )
+        
+        # Apply cleanup passes (even to rewritten content)
+        brand_name = context.get("brand_name") if context else None
+        founder_name = context.get("founder_name") if context else None
+        rewritten = apply_all_cleanup_passes(rewritten, brand_name, founder_name)
+        
         return rewritten
         
     except Exception as e:
         logger.warning(
             f"Unexpected error in rewriter for {section_id}: {type(e).__name__}: {e}"
         )
+        content = apply_all_cleanup_passes(content, context.get("brand_name") if context else None, context.get("founder_name") if context else None)
         return content
 
 
