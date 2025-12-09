@@ -32,6 +32,7 @@ def sanitize_brief_context(ctx: Any) -> Any:
     'Not specified', or empty strings into the prompts.
 
     Replaces unspecified brief fields with neutral, human-sounding fallbacks.
+    Handles both top-level attributes and nested objects (brief.brand.industry, etc.)
 
     Args:
         ctx: Context object (e.g., ClientInputBrief, GenerateRequest, or dict-like)
@@ -39,6 +40,7 @@ def sanitize_brief_context(ctx: Any) -> Any:
     Returns:
         The same ctx object with sanitized fields
     """
+    # Top-level attribute sanitization
     fallback_map = {
         "primary_customer": "the intended customer segment",
         "secondary_customer": "additional audiences relevant to the brand",
@@ -67,6 +69,38 @@ def sanitize_brief_context(ctx: Any) -> Any:
                 setattr(ctx, attr, fallback)
             else:
                 setattr(ctx, attr, "")
+
+    # Nested object sanitization (for brief.brand.industry, brief.audience.primary_customer, etc.)
+    nested_fallback_map = {
+        ("brand", "industry"): "the relevant industry",
+        ("brand", "primary_goal"): "the brand's main objective",
+        ("brand", "product_service"): "your main product or service",
+        ("brand", "primary_customer"): "the intended customer segment",
+        ("audience", "primary_customer"): "the intended customer segment",
+        ("goal", "primary_goal"): "the brand's main objective",
+    }
+    
+    for (obj_name, attr_name), fallback in nested_fallback_map.items():
+        if not hasattr(ctx, obj_name):
+            continue
+        
+        try:
+            obj = getattr(ctx, obj_name)
+            if not hasattr(obj, attr_name):
+                continue
+            
+            value = getattr(obj, attr_name)
+            
+            # If value is unspecified, replace with fallback
+            if value is None and fallback:
+                setattr(obj, attr_name, fallback)
+            elif isinstance(value, str) and _is_unspecified(value):
+                if fallback:
+                    setattr(obj, attr_name, fallback)
+                else:
+                    setattr(obj, attr_name, "")
+        except Exception:
+            continue
 
     return ctx
 
@@ -239,6 +273,51 @@ def remove_founder_placeholder_if_missing(content: str, founder_name: Optional[s
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# FIX #1 (Content Level): Clean up placeholder text in content
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def _cleanup_content_placeholders(content: str) -> str:
+    """
+    Remove or replace placeholder text that may appear in generated content.
+    Handles phrases like "your target audience", "your main objective", etc.
+    
+    Args:
+        content: Text to process
+    
+    Returns:
+        Content with placeholder phrases replaced
+    """
+    if not content:
+        return content
+    
+    # Placeholder phrases to replace with neutral alternatives
+    replacements = {
+        r"your target audience": "the intended audience",
+        r"your main objective": "the primary objective",
+        r"your primary goal": "the main goal",
+        r"your industry": "the relevant industry",
+        r"your main product": "the primary product",
+        r"your main product/service": "the main offering",
+        r"your brand": "the brand",
+        r"your business": "the business",
+        r"your market": "the market",
+        r"your customers": "customers",
+        r"your audience": "the audience",
+        r"your goal": "the goal",
+        r"your objective": "the objective",
+        r"your offering": "the offering",
+    }
+    
+    text = content
+    for pattern, replacement in replacements.items():
+        # Case-insensitive replacement at word boundaries
+        text = re.sub(r'\b' + pattern + r'\b', replacement, text, flags=re.IGNORECASE)
+    
+    return text
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # COMPOSITE: Apply all non-LLM fixes at once
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -263,7 +342,8 @@ def apply_all_cleanup_passes(
     if not content:
         return content
 
-    # Order matters: number fixes first, then typos, then founder, then synonyms
+    # Order matters: content placeholders first, then numbers, then typos, then founder, then synonyms
+    content = _cleanup_content_placeholders(content)
     content = normalize_numbers(content)
     content = basic_typos_cleanup(content)
     content = remove_founder_placeholder_if_missing(content, founder_name)
