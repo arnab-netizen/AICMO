@@ -1,0 +1,31 @@
+{
+  "pack_key": "launch_gtm",
+  "brand_name": "[Generic Brand]",
+  "industry": "[Generic Industry]",
+  "domain": "generic",
+  "brief": {
+    "brand_name": "[Generic Brand]",
+    "industry": "[Generic Industry]",
+    "product_service": "[Generic product or service]",
+    "primary_goal": "Successfully launch product or service to market",
+    "geography": "Primary market",
+    "target_audience": "Target customers",
+    "voice": "Brand voice",
+    "positioning_summary": "Unique positioning"
+  },
+  "required_terms": [
+    "launch",
+    "strategy",
+    "customer"
+  ],
+  "forbidden_terms": [
+    "lorem ipsum",
+    "insert brand",
+    "to be provided",
+    "TODO"
+  ],
+  "min_brand_mentions": 1,
+  "quality_checks": {
+    "min_sections": 8
+  }
+}

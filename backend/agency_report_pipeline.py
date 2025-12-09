@@ -239,9 +239,11 @@ def backfill_agency_report_from_brief(
                 "enable rapid lead routing and high-touch sales workflows to increase test drives and closes."
             )
         else:
+            brand = brief_brand or report.brand_name or "Your brand"
             report.strategy = (
-                "Position the brand with credible, differentiated messaging, execute full-funnel content and campaigns, "
-                "and optimize conversion with clear proof, offers, and nurture."
+                f"Position {brand} with credible, differentiated messaging, execute full-funnel content and campaigns, "
+                f"and optimize conversion with clear proof, offers, and nurture. {brand}'s success depends on consistent execution "
+                "across all touchpoints."
             )
 
     # 7) messaging_pyramid

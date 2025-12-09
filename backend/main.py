@@ -653,6 +653,25 @@ def submit_performance_review(report: PerformanceReviewReport):
 # ============================================================
 
 # ============================================================
+# HELPER FUNCTIONS FOR CONTENT GENERATION
+# ============================================================
+
+def infer_is_saas(brief: Any) -> bool:
+    """
+    Detect if the brief describes a SaaS/software product.
+    Used to avoid SaaS-specific language for non-SaaS products.
+    """
+    text_bits = [
+        getattr(getattr(brief, "brand", None), "industry", "") or "",
+        getattr(getattr(brief, "goal", None), "primary_goal", "") or "",
+        getattr(getattr(brief, "brand", None), "product_service", "") or "",
+        getattr(getattr(brief, "brand", None), "description", "") or "",
+    ]
+    text = " ".join(text_bits).lower()
+    saas_keywords = ["saas", "software", "platform", "app", "subscription", "b2b saas", "cloud", "api"]
+    return any(k in text for k in saas_keywords)
+
+# ============================================================
 # SECTION GENERATORS REGISTRY (Layer 2: Dynamic Content Generation)
 # ============================================================
 # Maps section_id -> generator function
@@ -1997,41 +2016,73 @@ Transformational changes establishing {b.brand_name} as category leader:
 
 **Post-90-Day:** Double video content (16-24/month). Expand SEO to 50+ keywords driving 5,000+ monthly visitors. Scale partners to 30-40 influencers. Grow community to 500+ active members. Target: $22-$25 CPA, 5.0x ROAS, 1,000+ monthly conversions, 60%+ organic contribution."""
     else:
-        # Launch GTM pack version - concrete launch roadmap
-        raw = (
-            f"## Phase 1: Pre-Launch Foundation (T-21 to T-7 Days)\n\n"
-            f"Build infrastructure and generate pre-launch buzz for {b.brand_name}. Front-load content creation so launch week execution runs smoothly.\n\n"
-            f"| Timeline | Key Activities | Deliverables | Owner |\n"
-            f"|----------|----------------|--------------|-------|\n"
-            f"| T-21 to T-14 | Build 2,000+ waitlist via LinkedIn ads ($1,500), partner email swaps (3 partners), ProductHunt Ship page. Create 30-day content bank: 15 blog posts, 45 social posts, 10 video scripts | 2,000+ waitlist. Content calendar populated. Teaser creative ready | Growth Team |\n"
-            f"| T-14 to T-7 | Embargo brief to TechCrunch, VentureBeat, Product Hunt. Beta access for 5 influencers. Finalize ProductHunt launch page, press kit, demo video. Launch countdown campaign on Instagram Stories, LinkedIn | 3 press embargoes. 5 influencer commitments. ProductHunt page live. Countdown creative running | PR + Marketing |\n\n"
-            f"## Phase 2: Launch Week (T-Day to T+6)\n\n"
-            f"Maximum intensity execution driving awareness, trial signups, media coverage for {g.primary_goal or 'launch goals'}.\n\n"
-            f"| Timeline | Key Activities | Success Criteria | Adjustments |\n"
-            f"|----------|----------------|------------------|-------------|\n"
-            f"| T-Day (Launch) | ProductHunt launch 12:01am PT. Blast 2,000 waitlist emails at 8am. Press release to 50 outlets via PR Newswire. CEO LinkedIn post, Twitter thread. Activate Meta ads ($500/day), Google Search ($300/day) | ProductHunt top 5. 500+ email opens. 10+ press pickups. 1,000+ landing page visits. 100+ trial signups | Monitor ProductHunt rank hourly. Boost social spend if CTR >3% |\n"
-            f"| T+1 to T+3 | Daily Instagram Reels (3/day). Host live demo webinar (target 200 attendees). Retarget landing page visitors with testimonial ads. Respond to every ProductHunt comment within 1 hour | 10K+ Reel views. 150+ webinar attendees. 8% retargeting CVR. 4.5+ ProductHunt rating maintained | Double Reel budget if views >15K. Add webinar replay nurture email |\n"
-            f"| T+4 to T+6 | Launch customer case studies. Send thank-you email to early adopters. Scale Meta ads to $750/day if CPA <$50. Begin WhatsApp nurture for trial users | 3 case studies live. 200+ total customers. $45 CPA or lower. 60% trial activation rate | If CPA >$60, pause Meta and double Google Search |\n\n"
-            f"## Key Milestones\n\n"
-            f"Launch success gates and decision points:\n\n"
-            f"- **Waitlist Goal (T-7)**: Achieve 2,000+ qualified leads. Contingency: Extend pre-launch 1 week, add Reddit ads ($500 budget)\n"
-            f"- **ProductHunt Top 5 (T-Day)**: Secure #1-5 Product of Day ranking. Contingency: Rally community for upvotes, offer early bird incentives\n"
-            f"- **First 100 Customers (T+3)**: Hit 100 paid signups at $99/month tier. Contingency: Extend early bird pricing, add onboarding call offer\n"
-            f"- **10K Landing Page Visits (T+7)**: Drive 10,000+ unique visitors to launch landing page. Contingency: Increase Meta ads to $800/day, activate Twitter ads\n"
-            f"- **Month 1 Revenue (T+30)**: Generate $10K MRR minimum from new customers. Contingency: Review pricing tiers, increase ad spend on Google Search\n"
-            f"- **Product Rating (T+30)**: Maintain 4.5+ rating on ProductHunt and G2. Contingency: Prioritize customer success, gather detailed feedback\n"
-            f"- **Press Coverage (T+14)**: Secure 15+ earned media mentions from launch. Contingency: Pitch follow-up stories with customer success angles\n"
-            f"- **Trial Activation (T+14)**: Achieve 60% trial user activation within first 7 days. Contingency: Add onboarding emails, live chat support\n"
-            f"- **Referral Program (T+21)**: Launch referral incentives generating 50+ referrals. Contingency: Increase referral bonus from $50 to $100\n"
-            f"- **Community Building (T+30)**: Establish Slack community with 200+ active members. Contingency: Host weekly AMAs, add gamification\n\n"
-            f"**Post-Launch Sustainment (T+7 to T+90):**\n\n"
-            f"Momentum tactics maintaining growth trajectory:\n\n"
-            f"- Publish 2 blog posts weekly optimized for launch-related keywords\n"
-            f"- Host weekly customer office hours in Slack community\n"
-            f"- Implement give $50, get $50 referral program for both parties\n"
-            f"- Scale Meta ads to $1,500/day, Google Search to $800/day (if CPA <$60)\n"
-            f"- Target Month 3: 500+ customers, $50K MRR, 4.7+ G2 rating\n"
+        # Non-performance-audit packs: concise execution roadmap
+        is_saas = infer_is_saas(req.brief)
+        
+        if is_saas:
+            # SaaS-specific launch roadmap
+            raw = (
+                f"## Phase 1: Pre-Launch Foundation (Days 1-14)\n\n"
+                f"Build infrastructure and generate pre-launch buzz for {b.brand_name}.\n\n"
+                f"- Create waitlist via LinkedIn ads, partnerships, Product Hunt Ship page\n"
+                f"- Prepare content calendar: blog posts, social content, demo materials\n"
+                f"- Reach out to 5 tech influencers for early access and feedback\n"
+                f"- Finalize Product Hunt launch page with clear value prop and demo video\n\n"
+                f"## Phase 2: Launch Week\n\n"
+                f"Execute launch day activities for maximum visibility:\n\n"
+                f"- Deploy across Product Hunt, TechCrunch, major tech media\n"
+                f"- Email 2,000+ waitlist at launch\n"
+                f"- Activate paid campaigns (Meta $500/day, Google Search $300/day)\n"
+                f"- Target: 500+ early signups, 10+ media mentions, $50 CAC\n\n"
+                f"## Phase 3: Post-Launch (Weeks 2-4)\n\n"
+                f"Sustain momentum and convert interest into revenue:\n\n"
+                f"- Daily customer success stories and case studies\n"
+                f"- Scale winning ads, pause underperformers\n"
+                f"- Host live demos and webinars (target 200+ attendees)\n"
+                f"- Establish community and activate referral program\n\n"
+                f"**Success Metrics:** 100+ customers Month 1, 4.5+ G2 rating, $50K MRR by Month 3\n"
+            )
+        else:
+            # Non-SaaS generic launch roadmap (no ProductHunt, no tech bias)
+            raw = (
+                f"## Phase 1: Pre-Launch Foundation (Days 1-14)\n\n"
+                f"Build infrastructure and generate pre-launch awareness for {b.brand_name}.\n\n"
+                f"- Create email waitlist via LinkedIn, industry partnerships, industry directories\n"
+                f"- Prepare content calendar: articles, social posts, case studies\n"
+                f"- Reach out to 5 industry influencers for early access feedback\n"
+                f"- Finalize launch landing page with clear value proposition\n\n"
+                f"## Phase 2: Launch Week\n\n"
+                f"Execute launch day activities across core channels:\n\n"
+                f"- Email waitlist announcement at launch\n"
+                f"- Press release to industry publications and local media\n"
+                f"- Social media campaign across LinkedIn, Instagram, industry forums\n"
+                f"- Target: 300+ signups, 5+ media mentions, $60 CAC\n\n"
+                f"## Phase 3: Post-Launch (Weeks 2-4)\n\n"
+                f"Sustain momentum and convert interest:\n\n"
+                f"- Share customer success stories and results case studies\n"
+                f"- Optimize channels based on early engagement data\n"
+                f"- Host webinars and educational sessions (target 150+ attendees)\n"
+                f"- Build community and launch referral program\n\n"
+                f"**Success Metrics:** 50+ customers Month 1, strong word-of-mouth, sustainable growth trajectory\n"
+            )
+        
+        raw += (
+            f"\n## Key Milestones\n\n"
+            f"Critical gates and decision points:\n\n"
+            f"- **Awareness Build (Days 1-7):** Generate {1000 if is_saas else 500}+ quality leads. Contingency: Extend pre-launch, increase marketing spend\n"
+            f"- **First {100 if is_saas else 50} Customers (Days 1-21):** Close first batch of paying customers. Contingency: Review pricing, improve onboarding\n"
+            f"- **Media Coverage (Days 1-14):** Secure 5-10 earned media mentions. Contingency: Pitch customer success angles\n"
+            f"- **Customer Activation (Days 8-21):** 60%+ of new customers actively using offering. Contingency: Improve onboarding and support\n"
+            f"- **Referral Program (Day 14+):** Launch with measurable referral rate. Contingency: Increase incentive\n"
+            f"- **Month 1 Revenue Goal (Day 30):** Generate target monthly revenue. Contingency: Review pricing strategy\n\n"
+            f"**Post-Launch Sustainment (Weeks 5-12):**\n\n"
+            f"- Publish 2 valuable articles/posts per week\n"
+            f"- Host bi-weekly customer engagement events\n"
+            f"- Implement structured referral and affiliate programs\n"
+            f"- Scale paid channels that deliver $50-60 CAC or better\n"
+            f"- Target Month 3: 150+ customers, strong retention, sustainable growth\n"
         )
+        
     return sanitize_output(raw, req.brief)
 
 
@@ -2419,117 +2470,110 @@ This full-funnel approach for {b.brand_name} ensures systematic progression from
 
 
 def _gen_awareness_strategy(req: GenerateRequest, **kwargs) -> str:
-    """Generate 'awareness_strategy' section."""
+    """Generate 'awareness_strategy' section (condensed, non-repetitive version)."""
     b = req.brief.brand
     g = req.brief.goal
-    return f"""## Objective
+    
+    return f"""## Awareness Strategy – Focus on Reach & Credibility
 
-Build top-of-mind brand recognition and initial interest among target audiences in {b.industry}, establishing {b.brand_name} as a credible solution for organizations pursuing {g.primary_goal}. The awareness phase focuses on reaching decision-makers during their research and discovery phases when they're most open to new solutions.
+(For full funnel context, see Funnel Breakdown section above.)
 
-## Key Channels
+### Key Channels
 
-Multi-platform presence ensures consistent visibility where prospects naturally discover solutions:
+- Social media (LinkedIn, Instagram) for thought leadership and brand storytelling
+- Content marketing (blog, guides, whitepapers) for SEO and organic discovery
+- Paid amplification (LinkedIn, Facebook) to reach {b.industry} decision-makers
+- Display and search ads targeting high-intent research keywords
+- Partnerships and co-marketing with complementary brands
 
-- **Organic Social**: LinkedIn thought leadership posts, Twitter industry commentary, Instagram visual storytelling showcasing results and frameworks
-- **Paid Social**: Precisely targeted campaigns on LinkedIn and Facebook reaching decision-makers in {b.industry} based on job titles, company size, and interests
-- **Content Marketing**: SEO-optimized blog posts, educational resources, industry insights, downloadable guides, and comprehensive frameworks published consistently
-- **Display Advertising**: Strategic placements on industry publications and relevant digital properties frequented by target audiences during research phases
-- **Partnerships & Co-Marketing**: Collaborations with complementary brands, guest contributions to established platforms, and strategic alliances expanding reach
-- **Search Engine Marketing**: Google Ads campaigns targeting high-intent keywords indicating active solution research and consideration
+### Core Tactics
 
-## Core Tactics
+1. Publish 2-4 value-first content pieces monthly (articles, guides, case studies)
+2. Run monthly LinkedIn/Facebook campaigns targeting {b.industry} personas
+3. Establish media relations with 3-5 industry publications
+4. Participate in industry communities and forums with helpful insights
+5. Develop simple lead magnet (checklist, template, report) to capture emails
 
-Systematic content deployment that builds awareness while establishing expertise and credibility:
+### Success Metrics
 
-- Educational content highlighting common problems and industry challenges without immediately pitching solutions, building trust through value-first approach
-- Social proof elements including customer logos, testimonials, case study previews, and industry recognition establishing credibility and trust
-- Consistent brand presence maintaining regular visibility across all channels with cohesive messaging that reinforces key themes and differentiation
-- Strategic paid amplification of highest-performing organic content to extend reach beyond existing audiences and maximize content ROI
-- Thought leadership positioning through original research, industry commentary, and expert perspectives that establish authority in {b.industry}
-- Community engagement through active participation in relevant conversations, responding to questions, and providing helpful insights without aggressive promotion
-- Performance tracking with monthly optimization cycles adjusting tactics based on engagement data, reach metrics, and downstream conversion patterns
-- Retargeting infrastructure capturing engaged visitors for downstream nurture campaigns that progressively deepen relationships
+- Website traffic growth (target +50% monthly)
+- Email list growth (target +1,000 qualified leads monthly)
+- Content engagement (2-5% average engagement rate)
+- Brand mentions in industry conversations
+- Cost per qualified lead ($25-$50 range)
 
-Success metrics: Impressions, unique reach, engagement rate, click-through rate, brand awareness lift, website traffic growth, content downloads."""
+**Estimated effort:** 40 hours/month for ongoing execution
+**Duration:** Ongoing; expect 3-month ramp to full effectiveness"""
 
 
 def _gen_consideration_strategy(req: GenerateRequest, **kwargs) -> str:
-    """Generate 'consideration_strategy' section."""
+    """Generate 'consideration_strategy' section (condensed, non-repetitive)."""
     b = req.brief.brand
     g = req.brief.goal
     a = req.brief.audience
     pack_key = kwargs.get("pack_key", "") or req.wow_package_key or ""
 
-    # Full-funnel pack has different requirements
     if "full_funnel" in pack_key.lower():
-        return f"""## Acquisition Channels
+        # Full-funnel pack: short, actionable consideration strategy
+        return f"""## Consideration Strategy – Nurture & Education
 
-Strategic channel mix for acquiring customers efficiently:
+(For full funnel context, see Funnel Breakdown section above.)
 
-- **Paid Social**: Facebook/Instagram targeting {a.primary_customer or 'target audience'} with conversion-focused creative and audience segmentation
-- **Google Search**: Intent-based keyword targeting capturing active problem-seekers with high commercial intent
-- **Content Marketing**: SEO-optimized content attracting organic traffic through educational resources and thought leadership
-- **Partnership Marketing**: Strategic collaborations with complementary brands providing warm introductions and credibility transfer
-- **Email Marketing**: Nurture sequences for lead-to-customer conversion with behavioral triggering and personalization
+### Key Tactics
 
-## Offers & Hooks
+- Send 5-7 email nurture sequence with case studies, frameworks, educational content
+- Host 1-2 webinars monthly showcasing methodology and results in {b.industry}
+- Create comparison guides helping prospects evaluate options objectively
+- Offer demo or consultation calls with lightweight qualification form
+- Build social proof: testimonials, customer logos, industry reviews
 
-Compelling value propositions driving initial engagement and trial:
+### Channels
 
-- **Free Trial**: 14-day full-access trial removing risk and enabling product-led growth through direct experience
-- **Freemium Tier**: Entry-level free plan building user base and demonstrating value before asking for payment
-- **Lead Magnet**: High-value content asset (guide, template, tool) capturing contacts in exchange for expertise sharing
-- **Demo Offer**: Personalized demonstration with consultation showing specific value for prospect's situation
-- **Early Access**: Exclusive beta invitation creating scarcity and community feel for engaged prospects
-- **Money-Back Guarantee**: Risk reversal removing purchase anxiety and demonstrating confidence in product value
+- Email nurture sequences (most effective, 4-7 emails, 1 per week)
+- Educational webinars (2-3 per month, 45 minutes each)
+- Content resources (guides, templates, whitepapers)
+- Retargeting ads showing case studies and customer wins
+- Sales outreach to highly engaged prospects
 
-## Landing Flow
+### Success Metrics
 
-Optimized conversion path from click to customer:
+- Email engagement rate (20-40% open rate, 3-8% click rate)
+- Webinar attendance (10-20% of email list)
+- Content downloads (1-2 per person)
+- Demo/consultation request rate (5-15% of engaged leads)
+- Sales-qualified lead rate (10-25% of prospects)
 
-- **Landing Page Structure**: Problem agitation, solution presentation, social proof, clear CTA with minimal friction points
-- **Form Optimization**: Progressive disclosure collecting essential information first, avoiding overwhelming long forms
-- **Trust Signals**: Security badges, testimonials, case study snippets, and media logos building credibility instantly
-- **Mobile Experience**: Responsive design ensuring seamless experience across devices with thumb-friendly interactions
-- **Load Speed**: Sub-2-second page loads preventing abandonment and improving conversion rates significantly
-- **A/B Testing**: Systematic experimentation on headlines, CTAs, layouts optimizing conversion continuously
-
-Acquisition cost target: ${a.online_hangouts[0] if hasattr(a, 'online_hangouts') and a.online_hangouts else 'X'} per customer with improving efficiency through optimization.
-"""
+**Duration**: 7-21 days per prospect; optimize based on engagement signals"""
     else:
-        # Default/campaign pack version
-        return f"""## Nurture Strategy
+        # Default pack: nurture strategy
+        return f"""## Consideration Strategy – Educational Nurture
 
-Educate prospects and build confidence through progressively deeper engagement that addresses objections and demonstrates value. The consideration phase transforms awareness into qualified interest through systematic nurture sequences designed to build trust and credibility.
+(Builds on Awareness Strategy above; see Funnel Breakdown for overall context.)
 
-## Content Sequencing
+### Email Nurture Series (5-7 emails, 1 per week)
 
-Systematic progression from awareness to serious consideration through multi-touch educational campaigns:
+1. **Welcome + Industry Challenge** - Acknowledge problem, establish expert perspective
+2. **Case Study** - Show real result in {b.industry} with specific metrics
+3. **Methodology Framework** - Explain approach without selling, educational value-first
+4. **Implementation Playbook** - Template or checklist prospects can use immediately
+5. **Objection Handling** - Address common concerns and decision barriers honestly
+6. **Social Proof** - Customer testimonials, peer validation, third-party reviews
+7. **Demo Offer** - Low-pressure invitation to see in action or quick consultation call
 
-- **Email Nurture Series**: 5-7 email sequence delivering strategic insights, {b.industry} expertise, and framework introductions with clear value at each touchpoint
-- **Case Study Showcase**: Detailed success stories from {b.industry} organizations achieving outcomes similar to {g.primary_goal} with specific metrics, timelines, and implementation details
-- **Educational Content**: Webinars, workshops, and deep-dive articles explaining methodology and approach in practical, implementation-focused terms that prospects can apply immediately
-- **Product Education**: Feature demonstrations, use case scenarios, and implementation roadmaps showing exactly how solutions work in practice with real examples
-- **Comparison Resources**: Honest assessment of different approaches, alternatives, and decision frameworks helping prospects evaluate options objectively without heavy-handed sales pressure
-- **Expert Engagement**: Q&A sessions, consultation offers, and direct dialogue opportunities providing personalized guidance and building authentic relationships
-- **Resource Libraries**: Comprehensive collections of templates, frameworks, and tools prospects can use immediately to sample the value proposition before committing
+### Webinars & Live Events (2-3 monthly)
 
-## Engagement Tactics
+- 45-minute deep-dive on methodology or results in {b.industry}
+- 30-minute quick demo or mini-training (lower barrier)
+- Monthly Q&A or office hours with product/domain experts
 
-Multi-touch approach maintaining connection without overwhelming prospects with excessive outreach or aggressive sales tactics:
+### Success Metrics
 
-- Retargeting campaigns showing relevant educational content to engaged audiences from awareness phase based on specific behaviors and demonstrated interests
-- Progressive profiling gathering additional prospect information through value-exchange content offers that deepen understanding of needs and priorities over time
-- Behavioral triggering with automated responses to specific actions indicating growing interest such as pricing page visits, case study downloads, or demo requests
-- Social proof reinforcement through customer testimonials, peer reviews, and industry validation establishing credibility and reducing perceived risk of engagement
-- Risk reversal positioning with guarantees, trials, and low-commitment entry points removing barriers to initial engagement and reducing decision anxiety
-- Personalized outreach from sales team based on engagement signals and profile fit, ensuring human connection at the right moments in the buying journey
+- Email: 20-40% open rate, 3-8% click-through rate
+- Webinars: 10-20% attendance rate, 60%+ completion
+- Downloads: 1-2 content pieces per prospect
+- Engagement: 30-40% move to sales conversations
 
-## Performance Indicators
-
-Tracking metrics: Email engagement rates, content download velocity, time-on-site for educational resources, video completion rates, webinar attendance, demo request volume, MQL conversion rate.
-
-Typical duration: 7-21 days per prospect moving through consideration stage, with systematic follow-up maintaining engagement and building relationships over time."""
+**Duration**: 7-21 days per prospect; shorten for high-engagement signals"""
 
 
 def _gen_conversion_strategy(req: GenerateRequest, **kwargs) -> str:
@@ -2577,40 +2621,35 @@ Activation rate target: 60%+ of signups complete onboarding and achieve first va
 """
     else:
         # Default/campaign pack version
-        return f"""## Conversion Tactics
+        return f"""## Conversion Strategy – Drive Action
 
-Drive direct action and commitment from qualified prospects ready to engage with {b.brand_name}, transforming consideration into customer relationships through strategic conversion mechanisms.
+(For full funnel context, see Funnel Breakdown section above.)
 
-## Offer Architecture
+### Offer Architecture
 
-Strategic conversion mechanisms addressing different prospect segments and commitment levels:
+Create clear value propositions addressing different prospect segments:
 
-- **Primary CTA**: Clear, benefit-focused call-to-action with specific value proposition and outcome promise that eliminates ambiguity about next steps
-- **Risk Reversal**: Guarantees, money-back offers, trial periods, and satisfaction commitments reducing perceived risk of purchase decision
-- **Time-Limited Offers**: Strategic scarcity through expiring bonuses, limited availability, or deadline-driven promotions creating urgency without artificial pressure
-- **Tiered Options**: Multiple entry points accommodating different budget levels and commitment readiness, from starter packages to comprehensive solutions
-- **Social Proof at Decision Point**: Testimonials, case studies, and peer validation prominently displayed exactly when prospects evaluate options
-- **Urgency Mechanisms**: Legitimate time-sensitivity through bonuses expiring, limited cohort sizes, or seasonal relevance tied to business planning cycles
-- **Bundle Strategies**: Complementary offerings packaged together creating higher perceived value while increasing average transaction size
+- **Primary CTA**: Benefit-focused call-to-action with specific outcome promise, eliminates ambiguity
+- **Risk Reversal**: Guarantees, trials, or satisfaction commitments reducing perceived risk
+- **Tiered Options**: Starter to comprehensive packages accommodating different budget levels
+- **Social Proof**: Testimonials and case studies prominently displayed at decision point
+- **Urgency**: Legitimate time-sensitivity through expiring bonuses or limited availability (seasonal, cohort size)
 
-## Conversion Optimization
+### Conversion Optimization
 
-Systematic improvement of conversion infrastructure maximizing success rates across all touchpoints:
+Systematic improvement of conversion infrastructure:
 
-- **Landing Page Excellence**: Benefit-focused copy, clear visual hierarchy, minimal friction, strong contrast on CTAs, and mobile-optimized experiences
-- **Sales Conversation Protocol**: Structured discovery process identifying fit, addressing objections, presenting tailored solutions based on specific needs
-- **Personalization at Scale**: Dynamic content showing relevant case studies, testimonials, and value propositions by segment, industry, and use case
-- **Abandonment Recovery**: Automated sequences re-engaging prospects who showed intent but didn't complete action, with progressive value adds
-- **Objection Handling**: Preemptive FAQ content, comparison guides, and direct response mechanisms addressing common concerns before they become blockers
-- **Conversion Tracking**: Comprehensive analytics identifying drop-off points and optimization opportunities throughout the conversion funnel
-- **Live Support**: Real-time chat and phone support available during critical decision moments to answer questions and remove friction
-- **Trust Signals**: Security badges, privacy policies, customer logos, certifications, and third-party validation building confidence at point of purchase
+- **Landing Pages**: Benefit-focused copy, clear visual hierarchy, strong CTAs, mobile-optimized
+- **Sales Conversations**: Structured discovery process, addressing objections, tailored solutions
+- **Abandonment Recovery**: Automated sequences for prospects who showed interest but didn't convert
+- **Analytics Tracking**: Identify drop-off points and optimization opportunities
 
-## Performance Metrics
+### Success Metrics
 
-Tracking: Conversion rate by source, cost per acquisition, lead quality scores, sales cycle length, close rate by segment, revenue per visitor, customer acquisition cost.
-
-Typical duration: Concentrated conversion push over 5-10 days, with systematic follow-up for non-converters maintaining relationship for future opportunities and building long-term pipeline."""
+- Conversion rate (target: 2-5% of engaged prospects)
+- Cost per acquisition by source
+- Sales cycle length (typical: 5-10 days for rapid conversion phase)
+- Post-conversion follow-up quality ensuring customer success"""
 
 
 def _gen_retention_strategy(req: GenerateRequest, **kwargs) -> str:
@@ -2656,41 +2695,39 @@ Strategic touchpoints maintaining active relationship throughout customer lifecy
 Retention target: 85%+ annual retention rate with improving cohort performance over time through systematic engagement optimization."""
     else:
         # Default/campaign pack version with different headings
-        return f"""Comprehensive retention strategy maximizing customer lifetime value and reducing churn for {b.brand_name}.
+        return f"""## Retention Strategy – Build Lasting Customer Relationships
 
-## Retention Drivers
+(For full funnel context, see Funnel Breakdown section above.)
+
+### Retention Drivers
 
 Core initiatives keeping customers engaged and preventing churn:
 
-- **Exceptional Onboarding Experience**: Structured 30-day onboarding program ensuring customers achieve first wins quickly, reducing early-stage churn risk
-- **Consistent Value Delivery**: Regular product updates, feature releases, and capability enhancements demonstrating ongoing innovation and investment
-- **Proactive Customer Success**: Dedicated success managers conducting quarterly business reviews, sharing best practices, and identifying growth opportunities
-- **Educational Content Program**: Ongoing training through webinars, documentation, tutorials, and certification programs improving customer proficiency and stickiness
-- **Community Building**: User forums, peer networks, and customer advisory boards creating belonging and investment in platform ecosystem
-- **Performance Benchmarking**: Regular reports showing customer performance versus industry benchmarks and improvement trajectories building confidence
+- **Exceptional Onboarding**: Structured program ensuring customers achieve first wins quickly within 30 days
+- **Consistent Value Delivery**: Regular product updates and feature releases demonstrating ongoing innovation
+- **Proactive Customer Success**: Quarterly business reviews, best practice sharing, expansion opportunity identification
+- **Educational Content**: Webinars, tutorials, and certification programs improving customer proficiency
+- **Community Building**: Forums, peer networks, and customer advisory boards increasing stickiness
+- **Performance Benchmarking**: Regular reports showing customer performance versus industry benchmarks
 
-## Engagement Moments
+### Engagement Moments
 
-Strategic touchpoints maintaining relationship momentum throughout customer lifecycle:
+Strategic touchpoints maintaining momentum throughout customer lifecycle:
 
-- **Milestone Celebrations**: Recognizing customer anniversaries, usage milestones, and achievement moments with personalized communications
-- **Feature Adoption Campaigns**: Targeted outreach introducing underutilized features relevant to customer needs increasing perceived value
-- **Executive Check-Ins**: Quarterly touchpoints between customer and {b.brand_name} leadership demonstrating commitment and gathering strategic feedback
-- **Renewal Conversations**: Proactive outreach 90 days before renewal discussing results achieved, future goals, and expansion opportunities
-- **Win-Back Sequences**: Automated campaigns targeting lapsed or churning customers with special offers, success stories, and direct outreach
-- **Referral Program Activations**: Incentivized advocacy encouraging satisfied customers to introduce peers creating network effects
+- **Day 7**: Early success checkpoint confirming onboarding progress
+- **Day 30**: First month value demonstration with ROI summary
+- **Quarterly**: Business review with leadership discussing goals and expansion
+- **Pre-renewal**: Proactive outreach 90 days before renewal discussing results and upgrades
+- **Win-back Campaigns**: Special offers and success stories for lapsed/churning customers
+- **Referral Program**: Incentivized advocacy from satisfied customers
 
-## Retention Metrics & Goals
+### Success Metrics
 
-Key performance indicators tracking retention effectiveness:
-
-- **Net Revenue Retention (NRR)**: Target 110%+ through expansion revenue exceeding churn impact
-- **Gross Churn Rate**: Maintain below 5% monthly through proactive intervention and value delivery
-- **Customer Satisfaction (CSAT/NPS)**: Achieve 8.5+ satisfaction score through regular surveys and feedback loops
-- **Feature Adoption Rates**: Track usage of key features correlating with lower churn and higher satisfaction
-- **Time to Value**: Reduce onboarding time from signup to first win driving early engagement and reducing abandonment
-
-Goal: Transform customers into advocates generating organic growth through referrals and testimonials while building predictable recurring revenue base supporting long-term business sustainability."""
+- **Net Revenue Retention**: Target 110%+ through expansion revenue exceeding churn
+- **Gross Churn**: Maintain below 5% monthly
+- **Customer Satisfaction**: Target 8.5+ NPS score through regular feedback
+- **Feature Adoption**: Track key feature usage correlating with lower churn
+- **Time to Value**: Reduce onboarding to first win reducing abandonment"""
 
 
 def _gen_sms_and_whatsapp_strategy(req: GenerateRequest, **kwargs) -> str:
@@ -7555,6 +7592,7 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
     # Build extra_sections for package-specific presets
     # This allows WOW templates to reference all sections from the preset
     extra_sections: Dict[str, str] = {}
+    brand_strategy_block = getattr(req, "brand_strategy_block", None)
 
     if req.package_preset:
         # 🔥 Convert display name to preset key if needed
@@ -7591,8 +7629,6 @@ def _generate_stub_output(req: GenerateRequest) -> AICMOOutputReport:
                 creatives=creatives,
                 action_plan=action_plan,
             )
-
-            brand_strategy_block = getattr(req, "brand_strategy_block", None)
 
     # 🔥 FIX #8: Normalize persona_cards before instantiation to handle partial LLM-generated personas
     if persona_cards:
@@ -8179,7 +8215,7 @@ def validate_client_brief(brief: "ClientInputBrief") -> None:
 
 
 @app.post("/api/aicmo/generate_report")
-async def api_aicmo_generate_report(payload: dict) -> dict:
+async def api_aicmo_generate_report(payload: dict, include_pdf: bool = True) -> dict:
     """
     Streamlit-compatible wrapper endpoint for /aicmo/generate.
 
@@ -8212,9 +8248,15 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
         "industry_key": str or None,
     }
 
+    Args:
+        payload: Request dictionary (see format above)
+        include_pdf: If True (default), render PDF. If False, skip PDF rendering.
+                     Used by tests to avoid system dependencies.
+
     Returns:
     {
         "report_markdown": "...markdown content...",
+        "report_pdf": bytes or None,
         "status": "success"
     }
     """
@@ -8225,6 +8267,8 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
     stub_used = False  # Track whether stub content was used
     quality_passed = True
     draft_mode = False  # Extract early so it's available in exception handlers
+    pdf_bytes = None  # Initialize PDF bytes early (may be skipped if include_pdf=False)
+    report = None  # Initialize report early (may not be created for all paths)
 
     try:
         # Extract top-level payload fields
@@ -8299,16 +8343,34 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
 
         # Build ClientInputBrief from payload — be explicit about which payload keys map to which fields.
         # IMPORTANT: Never use the primary_goal text as a fallback for persona/audience fields.
+        # Helper function to safely extract and strip string values (defined early for use below)
+        def safe_str(val: Any, default: str = "") -> str:
+            """Safely extract string value, handling dicts and None."""
+            if isinstance(val, dict):
+                # If dict, try to extract from nested structure
+                if "name" in val:
+                    return str(val["name"]).strip()
+                elif "items" in val:
+                    items = val.get("items", [])
+                    if items and isinstance(items, list):
+                        item = items[0]
+                        if isinstance(item, dict) and "name" in item:
+                            return str(item["name"]).strip()
+                return default
+            elif val:
+                return str(val).strip()
+            return default
+
         primary_goal_val = (
-            client_brief_dict.get("primary_goal", "").strip()
-            or client_brief_dict.get("objectives", "").strip()
+            safe_str(client_brief_dict.get("primary_goal"), default="")
+            or safe_str(client_brief_dict.get("objectives"), default="")
             or "Achieve your business goal"
         )
 
         primary_customer_val = (
-            client_brief_dict.get("primary_customer", "").strip()
-            or client_brief_dict.get("primary_audience", "").strip()
-            or client_brief_dict.get("target_audience", "").strip()
+            safe_str(client_brief_dict.get("primary_customer"), default="")
+            or safe_str(client_brief_dict.get("primary_audience"), default="")
+            or safe_str(client_brief_dict.get("target_audience"), default="")
             or "your target audience"
         )
 
@@ -8319,16 +8381,16 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
         # Build initial brief structure (without research) for ResearchService
         temp_brief = ClientInputBrief(
             brand=BrandBrief(
-                brand_name=client_brief_dict.get("brand_name", "").strip() or "Your Brand",
-                industry=client_brief_dict.get("industry", "").strip() or "your industry",
-                product_service=client_brief_dict.get("product_service", "").strip()
+                brand_name=safe_str(client_brief_dict.get("brand_name"), "Your Brand") or "Your Brand",
+                industry=safe_str(client_brief_dict.get("industry"), "your industry") or "your industry",
+                product_service=safe_str(client_brief_dict.get("product_service"), "your main product/service")
                 or "your main product/service",
                 primary_goal=primary_goal_val,
                 primary_customer=primary_customer_val,
-                location=client_brief_dict.get("geography", "").strip() or None,
-                timeline=client_brief_dict.get("timeline", "").strip() or None,
-                business_type=client_brief_dict.get("business_type", "").strip() or None,
-                description=client_brief_dict.get("product_service", "").strip() or None,
+                location=safe_str(client_brief_dict.get("geography")) or None,
+                timeline=safe_str(client_brief_dict.get("timeline")) or None,
+                business_type=safe_str(client_brief_dict.get("business_type")) or None,
+                description=safe_str(client_brief_dict.get("product_service")) or None,
             ),
             audience=AudienceBrief(
                 primary_customer=primary_customer_val,
@@ -8336,7 +8398,7 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
             ),
             goal=GoalBrief(
                 primary_goal=primary_goal_val,
-                timeline=client_brief_dict.get("timeline", "").strip() or None,
+                timeline=safe_str(client_brief_dict.get("timeline")) or None,
                 kpis=client_brief_dict.get("kpis", []) or [],
             ),
             voice=VoiceBrief(tone_of_voice=[]),
@@ -8344,7 +8406,7 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
                 items=(
                     [
                         ProductServiceItem(
-                            name=client_brief_dict.get("product_service", "").strip()
+                            name=safe_str(client_brief_dict.get("product_service"))
                             or "Your Product/Service",
                             usp=None,
                         )
@@ -8357,8 +8419,8 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
                 focus_platforms=[],
             ),
             operations=OperationsBrief(
-                budget=client_brief_dict.get("budget", "").strip() or None,
-                timeline=client_brief_dict.get("timeline", "").strip() or None,
+                budget=safe_str(client_brief_dict.get("budget")) or None,
+                timeline=safe_str(client_brief_dict.get("timeline")) or None,
             ),
             strategy_extras=StrategyExtrasBrief(other_info=None),
         )
@@ -8526,34 +8588,35 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
                 agency_report.validate()
                 assert_agency_grade(agency_report, domain)
 
-                # Render PDF for Strategy+Campaign packs
-                try:
-                    from backend.pdf_renderer import (
-                        render_agency_report_pdf,
-                        resolve_pdf_template_for_pack,
-                    )
+                # Render PDF for Strategy+Campaign packs (conditional on include_pdf flag)
+                if include_pdf:
+                    try:
+                        from backend.pdf_renderer import (
+                            render_agency_report_pdf,
+                            resolve_pdf_template_for_pack,
+                        )
 
-                    template_name = resolve_pdf_template_for_pack(resolved_preset_key)
-                    pdf_bytes = render_agency_report_pdf(agency_report, template_name)
-                except BlankPdfError as e:
-                    logger.error(f"AgencyReport PDF blank: {e}")
-                    return error_response(
-                        pack_key=resolved_preset_key,
-                        error_type="blank_pdf",
-                        error_message=str(e),
-                        stub_used=False,
-                        debug_hint="PDF rendering produced empty output",
-                    )
-                except Exception as e:
-                    # Catch any PDF rendering errors (PdfRenderError, ImportError, etc.)
-                    logger.error(f"AgencyReport PDF rendering failed: {e}")
-                    return error_response(
-                        pack_key=resolved_preset_key,
-                        error_type="pdf_render_error",
-                        error_message=f"PDF rendering failed: {type(e).__name__}",
-                        stub_used=False,
-                        debug_hint=str(e)[:200],
-                    )
+                        template_name = resolve_pdf_template_for_pack(resolved_preset_key)
+                        pdf_bytes = render_agency_report_pdf(agency_report, template_name)
+                    except BlankPdfError as e:
+                        logger.error(f"AgencyReport PDF blank: {e}")
+                        return error_response(
+                            pack_key=resolved_preset_key,
+                            error_type="blank_pdf",
+                            error_message=str(e),
+                            stub_used=False,
+                            debug_hint="PDF rendering produced empty output",
+                        )
+                    except Exception as e:
+                        # Catch any PDF rendering errors (PdfRenderError, ImportError, etc.)
+                        logger.error(f"AgencyReport PDF rendering failed: {e}")
+                        return error_response(
+                            pack_key=resolved_preset_key,
+                            error_type="pdf_render_error",
+                            error_message=f"PDF rendering failed: {type(e).__name__}",
+                            stub_used=False,
+                            debug_hint=str(e)[:200],
+                        )
 
                 # Success: return comprehensive markdown with all sections for benchmarking
                 sections = [
@@ -8751,17 +8814,24 @@ async def api_aicmo_generate_report(payload: dict) -> dict:
                 f"(brand mentions: {quality_result.brand_mentions}, length: {quality_result.markdown_length})"
             )
 
+        # Encode PDF bytes to base64 if present
+        pdf_bytes_b64 = None
+        if pdf_bytes:
+            import base64
+            pdf_bytes_b64 = base64.b64encode(pdf_bytes).decode("utf-8")
+
         # Phase 3: Build final result
         final_result = success_response(
             pack_key=resolved_preset_key,
             markdown=report_markdown,
             stub_used=stub_used,
             quality_passed=quality_passed,
+            pdf_bytes_b64=pdf_bytes_b64,
             meta={
                 "stage": effective_stage,
                 "wow_enabled": wow_enabled,
             },
-            brand_strategy=report.brand_strategy_block,
+            brand_strategy=getattr(report, "brand_strategy_block", None) if report else None,
         )
 
         # PHASE 2: Final guard - prevent stub content in production environments

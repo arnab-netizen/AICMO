@@ -1,0 +1,39 @@
+{
+  "pack_key": "full_funnel_premium",
+  "brand_name": "[Generic Brand]",
+  "industry": "[Generic Industry]",
+  "domain": "generic",
+  "brief": {
+    "brand_name": "[Generic Brand]",
+    "industry": "[Generic Industry]",
+    "product_service": "[Generic product or service]",
+    "primary_goal": "Drive revenue growth through comprehensive funnel optimization",
+    "geography": "Primary market",
+    "target_audience": "Target customers",
+    "voice": "Brand voice",
+    "positioning_summary": "Unique positioning"
+  },
+  "required_terms": [
+    "funnel",
+    "strategy",
+    "customer",
+    "engagement",
+    "conversion"
+  ],
+  "forbidden_terms": [
+    "ProductHunt",
+    "G2",
+    "lorem ipsum",
+    "insert brand",
+    "to be provided",
+    "[Brand]",
+    "{{",
+    "}}"
+  ],
+  "min_brand_mentions": 1,
+  "quality_checks": {
+    "min_sections": 10,
+    "must_have_funnel": true,
+    "must_have_strategy": true
+  }
+}

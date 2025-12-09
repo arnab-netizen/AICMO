@@ -44,9 +44,35 @@ def load_benchmark_for_pack(pack_key: str) -> Optional[Dict[str, Any]]:
     # Try direct pack filename
     benchmark_file = BENCHMARKS_DIR / f"pack_{pack_key}.json"
 
-    # Special case: strategy_campaign_standard uses different naming
-    if pack_key == "strategy_campaign_standard" and not benchmark_file.exists():
-        benchmark_file = BENCHMARKS_DIR / "agency_report_automotive_luxotica.json"
+    # Special case: strategy_campaign_standard always uses generic neutral benchmark
+    if pack_key == "strategy_campaign_standard":
+        benchmark_file = BENCHMARKS_DIR / "pack_strategy_campaign_standard_generic.json"
+
+    # Special case: quick_social_basic always uses generic neutral benchmark
+    if pack_key == "quick_social_basic":
+        benchmark_file = BENCHMARKS_DIR / "pack_quick_social_basic_generic.json"
+
+    # Special case: launch_gtm always uses generic neutral benchmark
+    if pack_key == "launch_gtm":
+        benchmark_file = BENCHMARKS_DIR / "pack_launch_gtm_generic.json"
+
+    # Special case: brand_turnaround always uses generic neutral benchmark
+    if pack_key == "brand_turnaround":
+        benchmark_file = BENCHMARKS_DIR / "pack_brand_turnaround_generic.json"
+
+    # Special case: retention_crm always uses generic neutral benchmark
+    if pack_key == "retention_crm":
+        benchmark_file = BENCHMARKS_DIR / "pack_retention_crm_generic.json"
+
+    # Special case: performance_audit always uses generic neutral benchmark
+    if pack_key == "performance_audit":
+        benchmark_file = BENCHMARKS_DIR / "pack_performance_audit_generic.json"
+
+    # Special case: full_funnel_premium always uses generic neutral benchmark (if it exists)
+    if pack_key == "full_funnel_premium":
+        generic_file = BENCHMARKS_DIR / "pack_full_funnel_premium_generic.json"
+        if generic_file.exists():
+            benchmark_file = generic_file
 
     if not benchmark_file.exists():
         return None
@@ -115,9 +141,10 @@ def check_runtime_quality(
         failure_reasons.append(f"Forbidden terms found: {found_forbidden}")
 
     # Check 3: Brand mentions
-    benchmark_brand = benchmark.get("brand_name", brand_name or "")
+    # Prefer passed brand_name, fall back to benchmark brand_name
+    brand_to_check = brand_name or benchmark.get("brand_name", "")
     min_brand_mentions = benchmark.get("min_brand_mentions", 3)
-    brand_mentions = markdown_lower.count(benchmark_brand.lower()) if benchmark_brand else 0
+    brand_mentions = markdown_lower.count(brand_to_check.lower()) if brand_to_check else 0
 
     if brand_mentions < min_brand_mentions:
         failure_reasons.append(

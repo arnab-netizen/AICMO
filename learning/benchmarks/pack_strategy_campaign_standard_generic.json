@@ -1,0 +1,34 @@
+{
+  "pack_key": "strategy_campaign_standard",
+  "brand_name": "[Generic Brand]",
+  "industry": "[Generic Industry]",
+  "domain": "strategy_campaign_generic",
+  "brief": {
+    "brand_name": "[Generic Brand]",
+    "industry": "[Generic Industry]",
+    "product_service": "[Generic product or service]",
+    "primary_goal": "Acquire customers and grow revenue",
+    "geography": "Primary market",
+    "target_audience": "Target customers",
+    "voice": "Brand voice",
+    "positioning_summary": "Unique positioning"
+  },
+  "required_terms": [
+    "campaign",
+    "strategy",
+    "customer"
+  ],
+  "forbidden_terms": [
+    "lorem ipsum",
+    "insert brand",
+    "to be provided",
+    "TODO"
+  ],
+  "min_brand_mentions": 1,
+  "quality_checks": {
+    "min_sections": 14,
+    "must_have_campaign_idea": true,
+    "must_have_creative_direction": false,
+    "must_have_channel_plan": true
+  }
+}
