@@ -118,3 +118,48 @@ def get_valid_transitions(from_state: ProjectState) -> Set[ProjectState]:
         Set of valid target states
     """
     return VALID_TRANSITIONS.get(from_state, set())
+
+
+def transition(project, to_state: ProjectState):
+    """
+    Transition a project to a new state if valid.
+    
+    Stage 1: Operates on Project domain model, which can be persisted
+    via apply_to_campaign().
+    
+    Stage 4: Logs state transitions as learning events.
+    
+    Args:
+        project: Project domain model
+        to_state: Target state
+        
+    Returns:
+        Updated project with new state
+        
+    Raises:
+        ValueError: If transition is not valid
+    """
+    from aicmo.domain.project import Project
+    
+    if not is_valid_transition(project.state, to_state):
+        raise ValueError(
+            f"Invalid transition from {project.state.value} to {to_state.value}"
+        )
+    
+    from_state = project.state
+    project.state = to_state
+    
+    # Stage 4: Log state transition
+    from aicmo.memory.engine import log_event
+    log_event(
+        "PROJECT_STATE_CHANGED",
+        project_id=f"campaign_{project.campaign_id}" if project.campaign_id else None,
+        details={
+            "from_state": from_state.value,
+            "to_state": to_state.value,
+            "campaign_id": project.campaign_id
+        },
+        tags=["workflow", "state_transition", from_state.value, to_state.value]
+    )
+    
+    return project

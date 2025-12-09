@@ -25,6 +25,12 @@ from aicmo.cam.db_models import (
     SafetySettingsDB,
 )
 
+# W2.1: Import unified orchestrator and services
+from aicmo.domain.intake import ClientIntake
+from aicmo.delivery.kaizen_orchestrator import KaizenOrchestrator
+from aicmo.pm.service import generate_project_dashboard
+from aicmo.analytics.service import generate_performance_dashboard
+
 
 # ============================================================================
 # ATTENTION METRICS
@@ -163,10 +169,7 @@ def get_projects_pipeline(db: Session) -> List[Dict[str, Any]]:
     """
     Fetch all projects for the Kanban board.
     
-    Returns project data with stage information for grouping into columns.
-    
-    TODO: Wire to Project table when available in DB schema.
-    For now, derives projects from CAM campaigns + leads.
+    W2.1: Now uses real campaign data + strategy status to determine stage.
     
     Args:
         db: Database session
@@ -174,26 +177,25 @@ def get_projects_pipeline(db: Session) -> List[Dict[str, Any]]:
     Returns:
         List of project dicts with keys: id, name, stage, clarity
     """
-    # TODO: Replace with actual Project table query when available
-    # For now, derive from campaigns as proxy
     campaigns = db.query(CampaignDB).filter(CampaignDB.active == True).all()
     
     projects = []
     for campaign in campaigns:
-        # Count leads to derive "clarity" metric
+        # Count leads and outreach for clarity metric
         lead_count = db.query(LeadDB).filter(LeadDB.campaign_id == campaign.id).count()
-        clarity = min(100, lead_count * 10)  # Simple heuristic
-        
-        # Derive stage from campaign activity
-        recent_attempts = db.query(OutreachAttemptDB).filter(
+        outreach_count = db.query(OutreachAttemptDB).filter(
             OutreachAttemptDB.campaign_id == campaign.id
-        ).order_by(desc(OutreachAttemptDB.attempted_at)).first()
+        ).count()
         
-        if recent_attempts:
+        # Clarity based on data completeness
+        clarity = min(100, (lead_count * 5) + (outreach_count * 2))
+        
+        # Stage from strategy_status and activity
+        if outreach_count > 0:
             stage = "EXECUTION"
-        elif lead_count > 5:
+        elif campaign.strategy_status == "APPROVED":
             stage = "CREATIVE"
-        elif lead_count > 0:
+        elif campaign.strategy_status in ["DRAFT", "REJECTED"]:
             stage = "STRATEGY"
         else:
             stage = "INTAKE"
@@ -202,7 +204,10 @@ def get_projects_pipeline(db: Session) -> List[Dict[str, Any]]:
             "id": campaign.id,
             "name": campaign.name,
             "stage": stage,
-            "clarity": clarity
+            "clarity": clarity,
+            "strategy_status": campaign.strategy_status or "DRAFT",
+            "lead_count": lead_count,
+            "outreach_count": outreach_count,
         })
     
     return projects
@@ -355,8 +360,7 @@ def get_creatives_for_project(db: Session, project_id: int) -> List[Dict[str, An
     """
     Load creative assets for a project.
     
-    Phase 9.1: Returns synthetic creatives based on campaign context.
-    TODO: Wire to actual ContentItem persistence when available.
+    W2.1: Returns creatives from unified flow if available, otherwise synthetic placeholders.
     
     Args:
         db: Database session
@@ -370,24 +374,62 @@ def get_creatives_for_project(db: Session, project_id: int) -> List[Dict[str, An
     if not campaign:
         return []
     
-    # Generate synthetic creatives based on campaign strategy status
-    platform_templates = [
-        ("LinkedIn", "Professional post about {niche}"),
-        ("Twitter", "Thread on {niche} best practices"),
-        ("Email", "Weekly newsletter for {niche} audience"),
-    ]
-    
     creatives = []
-    for idx, (platform, template) in enumerate(platform_templates, start=1):
-        niche = campaign.target_niche or "target audience"
-        creatives.append({
-            "id": f"{project_id}_{idx}",
-            "platform": platform,
-            "caption": template.format(niche=niche),
-            "status": "APPROVED" if campaign.strategy_status == "APPROVED" else "DRAFT",
-            "asset_type": "post",
-            "project_id": project_id,
-        })
+    
+    # If strategy is approved, try to generate real creatives from unified flow
+    if campaign.strategy_status == "APPROVED" and campaign.intake_goal:
+        try:
+            # Build minimal intake from campaign data
+            intake = ClientIntake(
+                brand_name=campaign.name,
+                industry=campaign.target_niche or "General",
+                primary_goal=campaign.intake_goal,
+                target_audiences=[campaign.intake_audience or "Target audience"],
+            )
+            
+            # Call unified orchestrator (skip Kaizen for operator view)
+            orchestrator = KaizenOrchestrator()
+            result = orchestrator.run_full_campaign_flow(
+                intake=intake,
+                total_budget=float(campaign.intake_budget) if campaign.intake_budget and campaign.intake_budget.replace('.','',1).isdigit() else 10000.0,
+                skip_kaizen=True  # Fast path for operator view
+            )
+            
+            # Extract creative variants from result
+            if "creatives" in result and hasattr(result["creatives"], "variants"):
+                for idx, variant in enumerate(result["creatives"].variants, start=1):
+                    creatives.append({
+                        "id": f"{project_id}_real_{idx}",
+                        "platform": variant.platform,
+                        "caption": variant.caption or variant.hook,
+                        "status": "APPROVED",
+                        "asset_type": variant.format,
+                        "project_id": project_id,
+                        "hook": variant.hook,
+                        "cta": variant.cta,
+                    })
+        except Exception:
+            # Fall through to synthetic if flow fails
+            pass
+    
+    # Fallback: Generate synthetic creatives
+    if not creatives:
+        platform_templates = [
+            ("LinkedIn", "Professional post about {niche}"),
+            ("Twitter", "Thread on {niche} best practices"),
+            ("Email", "Weekly newsletter for {niche} audience"),
+        ]
+        
+        for idx, (platform, template) in enumerate(platform_templates, start=1):
+            niche = campaign.target_niche or "target audience"
+            creatives.append({
+                "id": f"{project_id}_{idx}",
+                "platform": platform,
+                "caption": template.format(niche=niche),
+                "status": "DRAFT",
+                "asset_type": "post",
+                "project_id": project_id,
+            })
     
     return creatives
 
@@ -602,4 +644,137 @@ def get_system_pause(db: Session) -> bool:
     """
     settings = db.query(SafetySettingsDB).first()
     return settings.system_paused if settings else False
+
+
+# ============================================================================
+# W2.1: UNIFIED FLOW & SUBSYSTEM VIEWS
+# ============================================================================
+
+def get_project_unified_view(db: Session, project_id: int) -> Dict[str, Any]:
+    """
+    W2.1: Get unified view of project with all subsystem outputs.
+    
+    Calls the unified Kaizen orchestrator to get:
+    - Brand strategy
+    - Media plan
+    - Social trends
+    - Analytics dashboard
+    - PM tasks
+    - Client approvals
+    - Creatives
+    
+    Args:
+        db: Database session
+        project_id: Project/Campaign ID
+        
+    Returns:
+        Dict with all subsystem outputs or error message
+    """
+    try:
+        # Get campaign to build intake
+        campaign = db.query(CampaignDB).filter(CampaignDB.id == project_id).first()
+        if not campaign:
+            return {"error": "Project not found"}
+        
+        # Build intake from campaign data
+        intake = ClientIntake(
+            brand_name=campaign.name,
+            industry=campaign.target_niche or "General",
+            primary_goal=campaign.intake_goal or "Campaign execution",
+            target_audiences=[campaign.intake_audience or "Target audience"],
+        )
+        
+        # Call unified orchestrator
+        orchestrator = KaizenOrchestrator()
+        result = orchestrator.run_full_kaizen_flow_for_project(
+            intake=intake,
+            project_id=str(project_id),
+            total_budget=float(campaign.intake_budget) if campaign.intake_budget and campaign.intake_budget.replace('.','',1).isdigit() else 10000.0,
+            skip_kaizen=True  # Use baseline for operator view
+        )
+        
+        # Add campaign metadata
+        result["campaign_id"] = campaign.id
+        result["campaign_name"] = campaign.name
+        result["strategy_status"] = campaign.strategy_status or "DRAFT"
+        
+        return result
+        
+    except Exception as e:
+        return {"error": f"Failed to generate unified view: {str(e)}"}
+
+
+def get_project_pm_dashboard(db: Session, project_id: int) -> Dict[str, Any]:
+    """
+    W2.1: Get PM dashboard for project with tasks, timeline, and capacity.
+    
+    Args:
+        db: Database session
+        project_id: Project/Campaign ID
+        
+    Returns:
+        PM dashboard data or error
+    """
+    try:
+        campaign = db.query(CampaignDB).filter(CampaignDB.id == project_id).first()
+        if not campaign:
+            return {"error": "Project not found"}
+        
+        # Build intake
+        intake = ClientIntake(
+            brand_name=campaign.name,
+            primary_goal=campaign.intake_goal or "Campaign",
+        )
+        
+        # Generate PM dashboard
+        dashboard = generate_project_dashboard(
+            intake=intake,
+            project_id=str(project_id)
+        )
+        
+        return {
+            "project_id": project_id,
+            "dashboard": dashboard,
+        }
+        
+    except Exception as e:
+        return {"error": f"Failed to generate PM dashboard: {str(e)}"}
+
+
+def get_project_analytics_dashboard(db: Session, project_id: int) -> Dict[str, Any]:
+    """
+    W2.1: Get analytics dashboard for project.
+    
+    Args:
+        db: Database session
+        project_id: Project/Campaign ID
+        
+    Returns:
+        Analytics dashboard data or error
+    """
+    try:
+        campaign = db.query(CampaignDB).filter(CampaignDB.id == project_id).first()
+        if not campaign:
+            return {"error": "Project not found"}
+        
+        # Build intake
+        intake = ClientIntake(
+            brand_name=campaign.name,
+            primary_goal=campaign.intake_goal or "Campaign",
+        )
+        
+        # Generate analytics dashboard
+        dashboard = generate_performance_dashboard(
+            intake=intake,
+            period_days=7
+        )
+        
+        return {
+            "project_id": project_id,
+            "dashboard": dashboard,
+        }
+        
+    except Exception as e:
+        return {"error": f"Failed to generate analytics dashboard: {str(e)}"}
+
 

@@ -346,3 +346,247 @@ async def test_execute_content_item_convenience_function():
     
     assert result.status == ExecutionStatus.SUCCESS
     assert result.platform == "instagram"
+
+
+class TestPhase4ExecutionPersistence:
+    """Stage 3: ExecutionJobDB persistence tests."""
+
+    def test_execution_job_from_content_item(self):
+        """ExecutionJob can be created from ContentItem."""
+        from aicmo.domain.execution_job import ExecutionJob
+        
+        content = ContentItem(
+            project_id=1,
+            platform="linkedin",
+            body_text="Test post content",
+            hook="Professional hook",
+            cta="Learn more"
+        )
+        
+        job = ExecutionJob.from_content_item(content, campaign_id=42, creative_id=10)
+        
+        assert job.campaign_id == 42
+        assert job.creative_id == 10
+        assert job.job_type == "social_post"
+        assert job.platform == "linkedin"
+        assert job.status == "QUEUED"
+        assert job.retries == 0
+        assert job.payload["body_text"] == "Test post content"
+        assert job.id is None  # Not persisted yet
+
+    def test_execution_job_db_roundtrip(self):
+        """ExecutionJob can be persisted and loaded from database."""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from aicmo.cam.db_models import CampaignDB, ExecutionJobDB
+        from aicmo.domain.execution_job import ExecutionJob
+        
+        # Create in-memory database
+        engine = create_engine("sqlite:///:memory:")
+        CampaignDB.__table__.create(engine, checkfirst=True)
+        ExecutionJobDB.__table__.create(engine, checkfirst=True)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        # Create campaign
+        campaign = CampaignDB(name="Test Campaign", description="Test")
+        session.add(campaign)
+        session.commit()
+        
+        # Create and persist execution job
+        content = ContentItem(
+            project_id=1,
+            platform="twitter",
+            body_text="Tweet content here",
+            hook="Engaging hook"
+        )
+        
+        job = ExecutionJob.from_content_item(content, campaign_id=campaign.id)
+        db_job = ExecutionJobDB()
+        job.apply_to_db(db_job)
+        session.add(db_job)
+        session.commit()
+        
+        # Load from database
+        loaded_db_job = session.query(ExecutionJobDB).filter_by(campaign_id=campaign.id).first()
+        assert loaded_db_job is not None
+        
+        loaded_job = ExecutionJob.from_db(loaded_db_job)
+        
+        # Verify all fields match
+        assert loaded_job.id == loaded_db_job.id
+        assert loaded_job.campaign_id == campaign.id
+        assert loaded_job.job_type == "social_post"
+        assert loaded_job.platform == "twitter"
+        assert loaded_job.status == "QUEUED"
+        assert loaded_job.retries == 0
+        assert loaded_job.external_id is None
+        
+        # Verify payload roundtrip
+        restored_content = loaded_job.to_content_item()
+        assert restored_content.platform == "twitter"
+        assert restored_content.body_text == "Tweet content here"
+        
+        session.close()
+
+    def test_queue_social_posts_for_campaign(self):
+        """queue_social_posts_for_campaign creates ExecutionJobDB records."""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from aicmo.cam.db_models import CampaignDB, ExecutionJobDB
+        from aicmo.gateways.execution import queue_social_posts_for_campaign
+        
+        # Create in-memory database
+        engine = create_engine("sqlite:///:memory:")
+        CampaignDB.__table__.create(engine, checkfirst=True)
+        ExecutionJobDB.__table__.create(engine, checkfirst=True)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        # Create campaign
+        campaign = CampaignDB(name="Queue Test", description="Test queueing")
+        session.add(campaign)
+        session.commit()
+        
+        # Create content items
+        items = [
+            ContentItem(platform="instagram", body_text="Post 1"),
+            ContentItem(platform="linkedin", body_text="Post 2"),
+            ContentItem(platform="twitter", body_text="Post 3"),
+        ]
+        
+        # Queue posts
+        job_ids = queue_social_posts_for_campaign(campaign.id, items, session)
+        session.commit()
+        
+        # Verify jobs created
+        assert len(job_ids) == 3
+        
+        db_jobs = session.query(ExecutionJobDB).filter_by(campaign_id=campaign.id).all()
+        assert len(db_jobs) == 3
+        
+        # Verify all are QUEUED
+        assert all(job.status == "QUEUED" for job in db_jobs)
+        
+        # Verify platforms
+        platforms = [job.platform for job in db_jobs]
+        assert "instagram" in platforms
+        assert "linkedin" in platforms
+        assert "twitter" in platforms
+        
+        session.close()
+
+    @pytest.mark.asyncio
+    async def test_run_execution_jobs(self):
+        """run_execution_jobs processes QUEUED jobs and updates status."""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from aicmo.cam.db_models import CampaignDB, ExecutionJobDB
+        from aicmo.gateways.execution import queue_social_posts_for_campaign, run_execution_jobs
+        from aicmo.gateways.echo import EchoSocialPoster
+        
+        # Create in-memory database
+        engine = create_engine("sqlite:///:memory:")
+        CampaignDB.__table__.create(engine, checkfirst=True)
+        ExecutionJobDB.__table__.create(engine, checkfirst=True)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        # Create campaign
+        campaign = CampaignDB(name="Execution Test", description="Test execution")
+        session.add(campaign)
+        session.commit()
+        
+        # Queue posts
+        items = [
+            ContentItem(platform="linkedin", body_text="Post 1"),
+            ContentItem(platform="twitter", body_text="Post 2"),
+        ]
+        queue_social_posts_for_campaign(campaign.id, items, session)
+        session.commit()
+        
+        # Verify QUEUED
+        queued_jobs = session.query(ExecutionJobDB).filter_by(status="QUEUED").all()
+        assert len(queued_jobs) == 2
+        
+        # Set up execution service with echo adapters
+        linkedin_echo = EchoSocialPoster(platform="linkedin")
+        twitter_echo = EchoSocialPoster(platform="twitter")
+        
+        execution_service = ExecutionService()
+        execution_service.register_gateway("linkedin", linkedin_echo)
+        execution_service.register_gateway("twitter", twitter_echo)
+        
+        # Run jobs
+        stats = await run_execution_jobs(campaign.id, session, execution_service)
+        
+        # Verify stats
+        assert stats["processed"] == 2
+        assert stats["succeeded"] == 2
+        assert stats["failed"] == 0
+        
+        # Verify all jobs are DONE
+        done_jobs = session.query(ExecutionJobDB).filter_by(status="DONE").all()
+        assert len(done_jobs) == 2
+        
+        # Verify external_id set
+        assert all(job.external_id is not None for job in done_jobs)
+        assert all(job.external_id.startswith(job.platform) for job in done_jobs)
+        
+        # Verify completed_at set
+        assert all(job.completed_at is not None for job in done_jobs)
+        
+        session.close()
+
+    @pytest.mark.asyncio
+    async def test_run_execution_jobs_with_failures(self):
+        """run_execution_jobs handles failures with retry logic."""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from aicmo.cam.db_models import CampaignDB, ExecutionJobDB
+        from aicmo.gateways.execution import queue_social_posts_for_campaign, run_execution_jobs
+        
+        # Create in-memory database
+        engine = create_engine("sqlite:///:memory:")
+        CampaignDB.__table__.create(engine, checkfirst=True)
+        ExecutionJobDB.__table__.create(engine, checkfirst=True)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        # Create campaign
+        campaign = CampaignDB(name="Failure Test", description="Test failures")
+        session.add(campaign)
+        session.commit()
+        
+        # Queue post for unsupported platform
+        items = [ContentItem(platform="unsupported", body_text="Test")]
+        queue_social_posts_for_campaign(campaign.id, items, session)
+        session.commit()
+        
+        # Run with empty execution service (no gateways)
+        execution_service = ExecutionService()
+        
+        # Run jobs (will fail - no gateway)
+        stats = await run_execution_jobs(campaign.id, session, execution_service)
+        
+        assert stats["processed"] == 1
+        assert stats["succeeded"] == 0
+        assert stats["failed"] == 0  # Not failed yet, queued for retry
+        
+        # Verify job still QUEUED (retry)
+        job = session.query(ExecutionJobDB).first()
+        assert job.status == "QUEUED"
+        assert job.retries == 1
+        assert job.last_error is not None
+        
+        # Run 2 more times to exhaust retries
+        await run_execution_jobs(campaign.id, session, execution_service)
+        await run_execution_jobs(campaign.id, session, execution_service)
+        
+        # Now should be FAILED
+        job = session.query(ExecutionJobDB).first()
+        assert job.status == "FAILED"
+        assert job.retries == 3
+        
+        session.close()
+

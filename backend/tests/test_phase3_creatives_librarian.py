@@ -289,3 +289,186 @@ class TestPhase3Integration:
         items = library.to_content_items(project_id=1)
         assert len(items) > 0
         assert all(item.publish_status == PublishStatus.DRAFT for item in items)
+
+
+class TestPhase3CreativesPersistence:
+    """Stage 2: CreativeAssetDB persistence tests."""
+
+    def test_creative_asset_from_variant(self):
+        """CreativeAsset can be created from CreativeVariant."""
+        from aicmo.domain.creative import CreativeAsset
+        
+        variant = CreativeVariant(
+            platform="instagram",
+            format="reel",
+            hook="Test hook for Instagram",
+            caption="Full caption text",
+            cta="Learn more",
+            tone="friendly"
+        )
+        
+        asset = CreativeAsset.from_variant(variant, campaign_id=42)
+        
+        assert asset.campaign_id == 42
+        assert asset.platform == "instagram"
+        assert asset.format == "reel"
+        assert asset.hook == "Test hook for Instagram"
+        assert asset.caption == "Full caption text"
+        assert asset.cta == "Learn more"
+        assert asset.tone == "friendly"
+        assert asset.publish_status == "DRAFT"
+        assert asset.id is None  # Not persisted yet
+
+    def test_creative_asset_db_roundtrip(self):
+        """CreativeAsset can be persisted and loaded from database."""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from aicmo.cam.db_models import CampaignDB, CreativeAssetDB
+        from aicmo.domain.creative import CreativeAsset
+        
+        # Create in-memory database
+        engine = create_engine("sqlite:///:memory:")
+        CampaignDB.__table__.create(engine, checkfirst=True)
+        CreativeAssetDB.__table__.create(engine, checkfirst=True)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        # Create campaign
+        campaign = CampaignDB(name="Test Campaign", description="Test")
+        session.add(campaign)
+        session.commit()
+        
+        # Create and persist creative asset
+        variant = CreativeVariant(
+            platform="linkedin",
+            format="post",
+            hook="Professional hook",
+            caption="Business insights",
+            cta="Connect with us",
+            tone="professional"
+        )
+        
+        asset = CreativeAsset.from_variant(variant, campaign_id=campaign.id)
+        db_asset = CreativeAssetDB()
+        asset.apply_to_db(db_asset)
+        session.add(db_asset)
+        session.commit()
+        
+        # Load from database
+        loaded_db_asset = session.query(CreativeAssetDB).filter_by(campaign_id=campaign.id).first()
+        assert loaded_db_asset is not None
+        
+        loaded_asset = CreativeAsset.from_db(loaded_db_asset)
+        
+        # Verify all fields match
+        assert loaded_asset.id == loaded_db_asset.id
+        assert loaded_asset.campaign_id == campaign.id
+        assert loaded_asset.platform == "linkedin"
+        assert loaded_asset.format == "post"
+        assert loaded_asset.hook == "Professional hook"
+        assert loaded_asset.caption == "Business insights"
+        assert loaded_asset.cta == "Connect with us"
+        assert loaded_asset.tone == "professional"
+        assert loaded_asset.publish_status == "DRAFT"
+        
+        session.close()
+
+    @pytest.mark.asyncio
+    async def test_generate_creatives_with_persistence(self):
+        """generate_creatives persists assets when campaign_id and session provided."""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from aicmo.cam.db_models import CampaignDB, CreativeAssetDB
+        
+        # Create in-memory database
+        engine = create_engine("sqlite:///:memory:")
+        CampaignDB.__table__.create(engine, checkfirst=True)
+        CreativeAssetDB.__table__.create(engine, checkfirst=True)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        # Create campaign
+        campaign = CampaignDB(name="Persistence Test", description="Test persistence")
+        session.add(campaign)
+        session.commit()
+        
+        # Create test data
+        intake = ClientIntake(
+            brand_name="PersistTest Co",
+            primary_goal="awareness",
+            target_audience="developers"
+        )
+        
+        strategy = StrategyDoc(
+            brand_name="PersistTest Co",
+            primary_goal="awareness",
+            executive_summary="Executive summary",
+            situation_analysis="Market analysis",
+            strategy_narrative="Strategic approach",
+            pillars=[
+                StrategyPillar(
+                    name="Developer Relations",
+                    description="Build community with developers",
+                    kpi_impact="Engagement +40%"
+                )
+            ]
+        )
+        
+        # Generate creatives with persistence
+        library = await generate_creatives(
+            intake,
+            strategy,
+            platforms=["linkedin"],
+            campaign_id=campaign.id,
+            session=session
+        )
+        session.commit()
+        
+        # Verify library has variants
+        assert len(library.variants) > 0
+        
+        # Verify database has persisted assets
+        db_assets = session.query(CreativeAssetDB).filter_by(campaign_id=campaign.id).all()
+        assert len(db_assets) == len(library.variants)
+        
+        # Verify first asset
+        first_asset = db_assets[0]
+        assert first_asset.campaign_id == campaign.id
+        assert first_asset.platform == "linkedin"
+        assert first_asset.hook is not None
+        assert first_asset.publish_status == "DRAFT"
+        
+        session.close()
+
+    @pytest.mark.asyncio
+    async def test_generate_creatives_backward_compatible(self):
+        """generate_creatives works without persistence (backward compatible)."""
+        intake = ClientIntake(
+            brand_name="BackCompat Co",
+            primary_goal="engagement",
+            target_audience="marketers"
+        )
+        
+        strategy = StrategyDoc(
+            brand_name="BackCompat Co",
+            primary_goal="engagement",
+            executive_summary="Executive summary",
+            situation_analysis="Market analysis",
+            strategy_narrative="Strategic approach",
+            pillars=[
+                StrategyPillar(
+                    name="Content Marketing",
+                    description="Create valuable content",
+                    kpi_impact="Leads +25%"
+                )
+            ]
+        )
+        
+        # Generate without persistence (no campaign_id or session)
+        library = await generate_creatives(intake, strategy, platforms=["twitter"])
+        
+        # Should work as before
+        assert len(library.variants) > 0
+        twitter_variants = library.get_by_platform("twitter")
+        assert len(twitter_variants) > 0
+

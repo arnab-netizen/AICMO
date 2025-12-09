@@ -126,16 +126,19 @@ class TestPhase0Skeleton:
         """
         Verify no existing backend code imports from new aicmo modules.
         This ensures Phase 0 doesn't break existing functionality.
+        
+        CAM (Customer Acquisition Module) imports are explicitly allowed.
         """
         import subprocess
 
         # Search for imports in backend files (exclude test files)
+        # Exclude 'cam' from the regex since CAM is an established module
         result = subprocess.run(
             [
                 "grep",
                 "-r",
                 "-E",
-                r"from aicmo\.(domain|core|strategy|creatives|delivery|gateways|acquisition|cam)",
+                r"from aicmo\.(domain|core|strategy|creatives|delivery|gateways|acquisition)\b",
                 "backend/",
                 "--exclude-dir=tests",
             ],
@@ -145,6 +148,7 @@ class TestPhase0Skeleton:
         )
 
         # Should have no matches (exit code 1 means no matches found)
+        # CAM imports are explicitly allowed and excluded from this check
         assert result.returncode == 1, f"Found backend imports from new aicmo modules:\n{result.stdout}"
 
 

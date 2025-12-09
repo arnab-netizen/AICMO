@@ -2,6 +2,11 @@
 Social Calendar hooks generator: brief-driven, LLM-capable, with safe stub fallback.
 
 Replaces "Hook idea for day X" with dynamic, channel-aware hooks based on brief context.
+
+🔥 MICRO-PASS IMPLEMENTATION:
+Pass 1 – Skeleton: Day index, platform, theme/angle
+Pass 2 – Captions & CTAs: Generate captions per day with per-day fallback if generation fails
+Never blocks: per-day fallback ensures calendar is always complete
 """
 
 import json
@@ -23,6 +28,10 @@ def generate_social_calendar(
 ) -> List[CalendarPostView]:
     """
     Generate brief-specific Social Calendar posts with hooks and CTAs.
+    
+    Uses 2-pass approach:
+    Pass 1: Skeleton (day, platform, theme)
+    Pass 2: Captions & CTAs (with per-day fallback)
 
     Automatically selects stub or LLM mode based on AICMO_USE_LLM.
     Always returns a non-empty list of CalendarPostView (graceful degradation).
@@ -49,13 +58,13 @@ def generate_social_calendar(
         platforms = _get_platforms(brief)
 
         if use_llm:
-            llm_posts = _generate_social_calendar_with_llm(
+            llm_posts = _generate_social_calendar_with_llm_micro_passes(
                 brief, start_date, days, themes, platforms
             )
-            if llm_posts:
+            if llm_posts and len(llm_posts) == days:
                 return llm_posts
 
-        # Fall back to stub if LLM disabled or errored
+        # Fall back to stub if LLM disabled, errored, or incomplete
         return _stub_social_calendar(brief, start_date, days, themes, platforms)
 
     except Exception:
@@ -69,7 +78,7 @@ def generate_social_calendar(
         return _stub_social_calendar(brief, start_date, days, themes, platforms)
 
 
-def _generate_social_calendar_with_llm(
+def _generate_social_calendar_with_llm_micro_passes(
     brief: ClientInputBrief,
     start_date: date,
     days: int,
@@ -77,79 +86,168 @@ def _generate_social_calendar_with_llm(
     platforms: List[str],
 ) -> Optional[List[CalendarPostView]]:
     """
-    Generate Social Calendar posts using LLM (Claude/OpenAI).
+    Generate Social Calendar posts using LLM with 2-pass approach.
+    
+    Pass 1 – Skeleton: Generate day structure with day index, platform, theme
+    Pass 2 – Captions & CTAs: For each day, generate caption with per-day fallback
+    
+    Per-day fallback ensures calendar never fails entirely - if a single day fails,
+    that day gets stub content, but the rest of the calendar continues.
 
     Returns:
-        List of CalendarPostView, or None if LLM call fails
+        List of CalendarPostView, or None if skeleton generation fails
     """
     try:
-        # Lazy import to avoid hard dependency
+        # PASS 1: Generate skeleton (day structure, no LLM call needed)
+        # We can use a simpler approach: just assign platform and theme to each day
+        skeleton = _generate_skeleton(days, themes, platforms)
+        
+        # PASS 2: Generate captions & CTAs per day with fallback
+        posts = []
+        for day_info in skeleton:
+            post = _generate_caption_for_day(
+                day_info=day_info,
+                brief=brief,
+                start_date=start_date,
+                themes=themes,
+                fallback_platforms=platforms,
+            )
+            if post:
+                posts.append(post)
+        
+        # Only return if we got all days (or very close)
+        if len(posts) >= days - 1:  # Allow 1 day to fail
+            return posts[:days]
+        
+        return None
+
+    except Exception as e:
+        logger.debug(f"LLM micro-passes failed: {e}")
+        return None
+
+
+def _generate_skeleton(
+    days: int,
+    themes: List[str],
+    platforms: List[str],
+) -> List[dict]:
+    """
+    PASS 1: Generate skeleton structure (day, platform, theme).
+    
+    No LLM needed - just deterministic day structure assignment.
+    """
+    skeleton = []
+    for i in range(days):
+        day_num = i + 1
+        skeleton.append({
+            "day": day_num,
+            "platform": platforms[i % len(platforms)] if platforms else "Instagram",
+            "theme": themes[i] if i < len(themes) else "Content",
+        })
+    return skeleton
+
+
+def _generate_caption_for_day(
+    day_info: dict,
+    brief: ClientInputBrief,
+    start_date: date,
+    themes: List[str],
+    fallback_platforms: List[str],
+) -> Optional[CalendarPostView]:
+    """
+    PASS 2: Generate caption & CTA for a single day.
+    
+    Per-day fallback: if LLM generation fails, use stub content for that day only.
+    This ensures the calendar never blocks - worst case, a day gets stub content.
+    """
+    try:
+        day_num = day_info.get("day", 1)
+        platform = day_info.get("platform", "Instagram")
+        theme = day_info.get("theme", "Content")
+        
+        # Try LLM caption first
+        llm_caption = _generate_llm_caption_for_day(
+            day_num=day_num,
+            platform=platform,
+            theme=theme,
+            brief=brief,
+        )
+        
+        if llm_caption and "hook" in llm_caption and "cta" in llm_caption:
+            # LLM success - use it
+            post = CalendarPostView(
+                date=start_date + timedelta(days=day_num - 1),
+                platform=platform,
+                theme=theme,
+                hook=llm_caption["hook"],
+                cta=llm_caption["cta"],
+                asset_type="reel" if day_num % 2 == 1 else "static_post",
+                status="planned",
+            )
+            logger.debug(f"Generated LLM caption for day {day_num}")
+            return post
+        
+        # LLM failed or returned incomplete data - use stub for this day
+        logger.debug(f"LLM caption failed for day {day_num}, using stub")
+        return _generate_stub_caption_for_day(
+            day_num=day_num,
+            platform=platform,
+            theme=theme,
+            brief=brief,
+            start_date=start_date,
+        )
+        
+    except Exception as e:
+        logger.debug(f"Caption generation failed for day {day_info.get('day')}: {e}")
+        # Ultimate fallback for this day
+        return _generate_stub_caption_for_day(
+            day_num=day_info.get("day", 1),
+            platform=day_info.get("platform", "Instagram"),
+            theme=day_info.get("theme", "Content"),
+            brief=brief,
+            start_date=start_date,
+        )
+
+
+def _generate_llm_caption_for_day(
+    day_num: int,
+    platform: str,
+    theme: str,
+    brief: ClientInputBrief,
+) -> Optional[dict]:
+    """
+    Generate caption & CTA for a single day using LLM.
+    
+    Returns dict with "hook" and "cta" keys, or None if generation fails.
+    """
+    try:
         from aicmo.llm.client import _get_llm_provider, _get_claude_client, _get_openai_client
 
         brand_name = brief.brand.brand_name
         category = brief.brand.industry or "their category"
         audience = brief.audience.primary_customer or "their audience"
         goals = brief.goal.primary_goal or "achieve business growth"
-        pain_points = (
-            ", ".join(brief.audience.pain_points[:2])
-            if brief.audience.pain_points
-            else "their pain points"
-        )
-
-        # Extract USP if available
-        usp = ""
-        if brief.product_service and brief.product_service.items:
-            first_item = brief.product_service.items[0]
-            if first_item.usp:
-                usp = first_item.usp
-
-        # Build prompt
-        platform_str = ", ".join(platforms) if platforms else "Instagram, LinkedIn, Twitter"
-
-        prompt = f"""Generate exactly {days} compelling social media post hooks for a 7-day calendar.
+        
+        # Build focused prompt for single day
+        prompt = f"""Generate ONE compelling social media post hook and CTA for day {day_num}.
 
 Brand: {brand_name}
 Category: {category}
 Target Audience: {audience}
 Primary Goal: {goals}
-Audience Pain Points: {pain_points}
-USP: {usp if usp else "Not specified"}
-Platforms to use: {platform_str}
-Content Themes: {', '.join(themes[:days])}
+Platform: {platform}
+Theme: {theme}
 
-For each day (1-{days}), generate a hook (1-2 sentences) that:
+Generate a hook (1-2 sentences) and CTA (2-4 words) that:
 1. Is specific to the brand and audience, not generic
-2. Mentions or addresses the audience's pain point or goal
-3. Is suitable for the assigned platform
-4. Includes a compelling call-to-action (CTA) in 2-4 words
+2. Fits the theme and platform
+3. Has a compelling call-to-action
 
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON:
 {{
-  "posts": [
-    {{
-      "day": 1,
-      "platform": "Instagram",
-      "theme": "Brand Story",
-      "hook": "Show [Brand] solving [problem] in one powerful visual that resonates with [audience].",
-      "cta": "See the story"
-    }},
-    {{
-      "day": 2,
-      "platform": "LinkedIn",
-      "theme": "Educational",
-      "hook": "Share a quick tip on how [Brand] helps [audience] save time on [pain point].",
-      "cta": "Learn the trick"
-    }},
-    ...
-  ]
-}}
-
-Requirements:
-- Each hook must be unique and specific to the day's theme and platform
-- Hooks should not be generic ("Learn more", "Click here", etc.)
-- CTAs must be action-oriented and varied (not all "Learn more")
-- Avoid placeholder phrases like "will be customized", "TBD", "placeholder"
-- Return ONLY the JSON, no explanation"""
+  "hook": "Your compelling hook here",
+  "cta": "Action words here"
+}}"""
 
         # Get LLM provider and call appropriate client
         provider = _get_llm_provider()
@@ -159,7 +257,7 @@ Requirements:
             model = os.getenv("AICMO_CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
             response = client.messages.create(
                 model=model,
-                max_tokens=2000,
+                max_tokens=500,
                 messages=[{"role": "user", "content": prompt}],
             )
             result = response.content[0].text
@@ -168,7 +266,7 @@ Requirements:
             model = os.getenv("AICMO_OPENAI_MODEL", "gpt-4o-mini")
             response = client.chat.completions.create(
                 model=model,
-                max_tokens=2000,
+                max_tokens=500,
                 messages=[{"role": "user", "content": prompt}],
             )
             result = response.choices[0].message.content
@@ -178,52 +276,95 @@ Requirements:
 
         # Parse JSON response
         result = result.strip()
-        # Remove markdown code fence if present
         if result.startswith("```"):
             result = result[result.find("{") : result.rfind("}") + 1]
 
         data = json.loads(result)
-        if not isinstance(data, dict) or "posts" not in data:
+        if not isinstance(data, dict):
             return None
 
-        posts_data = data.get("posts", [])
-        if not isinstance(posts_data, list):
-            return None
+        hook = data.get("hook", "").strip()
+        cta = data.get("cta", "").strip()
 
-        posts = []
-        for item in posts_data:
-            if not isinstance(item, dict):
-                continue
+        if hook and cta:
+            return {"hook": hook, "cta": cta}
 
-            day_num = item.get("day", 0)
-            if day_num < 1 or day_num > days:
-                continue
-
-            hook = item.get("hook", "").strip()
-            cta = item.get("cta", "").strip()
-            platform = item.get("platform", "Instagram").strip()
-            theme = item.get(
-                "theme", themes[day_num - 1] if day_num <= len(themes) else "Content"
-            ).strip()
-
-            if not hook or not cta:
-                continue
-
-            post = CalendarPostView(
-                date=start_date + timedelta(days=day_num - 1),
-                platform=platform,
-                theme=theme,
-                hook=hook,
-                cta=cta,
-                asset_type="reel" if day_num % 2 == 1 else "static_post",
-                status="planned",
-            )
-            posts.append(post)
-
-        return posts if len(posts) == days else None
-
-    except Exception:
         return None
+
+    except Exception as e:
+        logger.debug(f"LLM caption generation failed for day {day_num}: {e}")
+        return None
+
+
+def _generate_stub_caption_for_day(
+    day_num: int,
+    platform: str,
+    theme: str,
+    brief: ClientInputBrief,
+    start_date: date,
+) -> Optional[CalendarPostView]:
+    """
+    Generate stub caption & CTA for a single day (per-day fallback).
+    
+    This is the per-day fallback - ensures calendar never blocks.
+    """
+    try:
+        brand_name = brief.brand.brand_name or "Your Brand"
+        audience = brief.audience.primary_customer or "your ideal customers"
+        category = brief.brand.industry or "your space"
+
+        # Simple, brief-based hooks per day
+        cta_options = [
+            "See how",
+            "Learn more",
+            "Read the full story",
+            "Try it out",
+            "Watch this",
+            "Discover why",
+            "Share this",
+        ]
+
+        # Generate hook based on day
+        if day_num == 1:
+            hook = f"Meet {brand_name}: helping {audience} with {category}."
+        elif day_num == 2:
+            pain_point = brief.audience.pain_points[0] if brief.audience.pain_points else "challenges"
+            hook = f"Struggling with {pain_point}? {brand_name} has a better way."
+        elif day_num == 3:
+            if brief.product_service and brief.product_service.items:
+                usp = brief.product_service.items[0].usp or ""
+                if usp:
+                    hook = f"How {brand_name}'s {usp} saves {audience} time."
+                else:
+                    hook = f"Discover what makes {brand_name} different in {category}."
+            else:
+                hook = f"Discover what makes {brand_name} different in {category}."
+        elif day_num == 4:
+            hook = f"Why {audience} are choosing {brand_name} for {category} solutions."
+        elif day_num == 5:
+            hook = f"Real {audience} getting real results with {brand_name}."
+        elif day_num == 6:
+            hook = f"Ready to experience {brand_name}? Here's how {audience} get started."
+        else:
+            hook = f"{brand_name}: trusted by {audience} for {category} excellence."
+
+        cta = cta_options[(day_num - 1) % len(cta_options)]
+
+        post = CalendarPostView(
+            date=start_date + timedelta(days=day_num - 1),
+            platform=platform,
+            theme=theme,
+            hook=hook,
+            cta=cta,
+            asset_type="reel" if day_num % 2 == 1 else "static_post",
+            status="planned",
+        )
+        return post
+
+    except Exception as e:
+        logger.debug(f"Stub caption generation failed for day {day_num}: {e}")
+        return None
+
 
 
 def _stub_social_calendar(

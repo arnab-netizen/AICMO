@@ -1193,8 +1193,8 @@ def render_command_center_tab() -> None:
         _render_gateway_ticker(gateway_status)
 
     # Nested views inside Command Center
-    cmd_tab, projects_tab, warroom_tab, gallery_tab, control_tab = st.tabs(
-        ["Command", "Projects", "War Room", "Gallery", "Control Tower"]
+    cmd_tab, projects_tab, warroom_tab, gallery_tab, pm_tab, analytics_tab, control_tab = st.tabs(
+        ["Command", "Projects", "War Room", "Gallery", "PM Dashboard", "Analytics", "Control Tower"]
     )
 
     # 1) COMMAND VIEW – "What's blocking money right now?"
@@ -1603,6 +1603,116 @@ def render_command_center_tab() -> None:
                     except Exception as e:
                         st.error(f"Failed to update pause status: {e}")
                 st.session_state.system_paused = paused
+
+    # 6) PM DASHBOARD – Project Management view
+    with pm_tab:
+        current_project_id = st.session_state.get("current_project_id")
+        
+        if not current_project_id:
+            st.info("👈 Select a project from the Projects tab to view PM dashboard.")
+        elif not OPERATOR_SERVICES_AVAILABLE or get_session is None:
+            st.warning("Operator services unavailable. Cannot load PM dashboard.")
+        else:
+            st.markdown("#### PM Dashboard")
+            st.caption("Project management tasks, timeline, and capacity for this project.")
+            
+            try:
+                with get_session() as db:
+                    pm_dashboard = operator_services.get_project_pm_dashboard(db, current_project_id)
+                
+                if "error" in pm_dashboard:
+                    st.error(pm_dashboard["error"])
+                else:
+                    # Display PM data
+                    col1, col2 = st.columns([2, 1])
+                    
+                    with col1:
+                        st.markdown("##### Tasks")
+                        tasks = pm_dashboard.get("tasks", [])
+                        if tasks:
+                            import pandas as pd
+                            df = pd.DataFrame(tasks)
+                            st.dataframe(df, use_container_width=True, hide_index=True)
+                        else:
+                            st.info("No PM tasks found.")
+                    
+                    with col2:
+                        st.markdown("##### Timeline")
+                        timeline = pm_dashboard.get("timeline", {})
+                        if timeline:
+                            for phase, duration in timeline.items():
+                                st.markdown(f"**{phase}**: {duration}")
+                        else:
+                            st.info("No timeline data.")
+                        
+                        st.markdown("---")
+                        st.markdown("##### Capacity")
+                        capacity = pm_dashboard.get("capacity", {})
+                        if capacity:
+                            st.json(capacity)
+                        else:
+                            st.info("No capacity data.")
+                        
+            except Exception as e:
+                st.error(f"Failed to load PM dashboard: {e}")
+
+    # 7) ANALYTICS DASHBOARD – Performance metrics
+    with analytics_tab:
+        current_project_id = st.session_state.get("current_project_id")
+        
+        if not current_project_id:
+            st.info("👈 Select a project from the Projects tab to view analytics.")
+        elif not OPERATOR_SERVICES_AVAILABLE or get_session is None:
+            st.warning("Operator services unavailable. Cannot load analytics.")
+        else:
+            st.markdown("#### Analytics Dashboard")
+            st.caption("Performance metrics and insights for this project.")
+            
+            try:
+                with get_session() as db:
+                    analytics_dashboard = operator_services.get_project_analytics_dashboard(db, current_project_id)
+                
+                if "error" in analytics_dashboard:
+                    st.error(analytics_dashboard["error"])
+                else:
+                    # Display analytics
+                    col1, col2, col3 = st.columns(3)
+                    
+                    metrics = analytics_dashboard.get("metrics", {})
+                    with col1:
+                        st.metric("Engagement Rate", metrics.get("engagement_rate", "N/A"))
+                        st.metric("Reach", metrics.get("reach", "N/A"))
+                    
+                    with col2:
+                        st.metric("Conversions", metrics.get("conversions", "N/A"))
+                        st.metric("CTR", metrics.get("ctr", "N/A"))
+                    
+                    with col3:
+                        st.metric("Sentiment", metrics.get("sentiment", "N/A"))
+                        st.metric("ROI", metrics.get("roi", "N/A"))
+                    
+                    st.markdown("---")
+                    st.markdown("##### Trends")
+                    trends = analytics_dashboard.get("trends", [])
+                    if trends:
+                        import pandas as pd
+                        df = pd.DataFrame(trends)
+                        st.line_chart(df)
+                    else:
+                        st.info("No trend data available yet.")
+                    
+                    st.markdown("---")
+                    st.markdown("##### Goal Progress")
+                    goals = analytics_dashboard.get("goals", {})
+                    if goals:
+                        for goal_name, progress in goals.items():
+                            st.progress(progress / 100 if isinstance(progress, (int, float)) else 0)
+                            st.caption(f"{goal_name}: {progress}%")
+                    else:
+                        st.info("No goal data available.")
+                        
+            except Exception as e:
+                st.error(f"Failed to load analytics: {e}")
 
 
 def render_client_input_tab() -> None:

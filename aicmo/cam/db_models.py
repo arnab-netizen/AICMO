@@ -22,7 +22,7 @@ from sqlalchemy import (
 from sqlalchemy.sql import func
 
 from aicmo.core.db import Base
-from aicmo.cam.domain import LeadSource, LeadStatus, Channel, AttemptStatus
+from aicmo.cam.domain import LeadSource, LeadStatus, Channel, AttemptStatus, CampaignMode
 
 
 class CampaignDB(Base):
@@ -31,6 +31,7 @@ class CampaignDB(Base):
     
     Groups leads together for coordinated messaging and tracking.
     Phase 9.1: Added strategy document storage and status tracking.
+    Stage 1: Added project_state for formal Project ↔ Campaign mapping.
     """
     
     __tablename__ = "cam_campaigns"
@@ -40,6 +41,9 @@ class CampaignDB(Base):
     description = Column(Text, nullable=True)
     target_niche = Column(String, nullable=True)
     active = Column(Boolean, nullable=False, default=True)
+    
+    # Project state tracking (Stage 1)
+    project_state = Column(String, nullable=True, default="STRATEGY_DRAFT")
     
     # Strategy document storage (Phase 9.1)
     strategy_text = Column(Text, nullable=True)
@@ -51,6 +55,17 @@ class CampaignDB(Base):
     intake_constraints = Column(Text, nullable=True)
     intake_audience = Column(Text, nullable=True)
     intake_budget = Column(String, nullable=True)
+    
+    # Phase CAM-1: Lead acquisition parameters
+    service_key = Column(String, nullable=True)  # e.g. "web_design", "seo"
+    target_clients = Column(Integer, nullable=True)  # goal number of leads
+    target_mrr = Column(Float, nullable=True)  # target monthly recurring revenue
+    channels_enabled = Column(JSON, nullable=False, default=["email"])  # list of enabled channels
+    max_emails_per_day = Column(Integer, nullable=True)  # per-campaign daily limit
+    max_outreach_per_day = Column(Integer, nullable=True)
+    
+    # Phase 10: Simulation mode
+    mode = Column(SAEnum(CampaignMode), nullable=False, default=CampaignMode.LIVE)
 
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(
@@ -66,6 +81,7 @@ class LeadDB(Base):
     Lead/prospect database model.
     
     Stores contact information and enrichment data for personalized outreach.
+    Phase CAM-1: Extended with lead scoring and timing fields.
     """
     
     __tablename__ = "cam_leads"
@@ -85,8 +101,23 @@ class LeadDB(Base):
     
     # Phase 8: Pipeline stage
     stage = Column(String, nullable=False, default="NEW")
+    
+    # Phase CAM-1: Lead scoring and profiling
+    lead_score = Column(Float, nullable=True)  # 0.0-1.0, higher = better fit
+    tags = Column(JSON, nullable=False, default=[])  # e.g. ["hot", "warm", "cold"]
+    enrichment_data = Column(JSON, nullable=True)  # From Apollo, Dropcontact, etc.
+    
+    # Phase CAM-1: Timing and follow-up
+    last_contacted_at = Column(DateTime(timezone=True), nullable=True)
+    next_action_at = Column(DateTime(timezone=True), nullable=True)  # When to attempt next contact
+    last_replied_at = Column(DateTime(timezone=True), nullable=True)
 
     notes = Column(Text, nullable=True)
+    
+    # Phase 9: Human review queue
+    requires_human_review = Column(Boolean, nullable=False, default=False)
+    review_type = Column(String, nullable=True)  # e.g. "MESSAGE", "PROPOSAL", "PRICING"
+    review_reason = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(
@@ -225,4 +256,80 @@ class SafetySettingsDB(Base):
     data = Column(JSON, nullable=False)  # Serialized SafetySettings
     system_paused = Column(Boolean, nullable=False, default=False)  # Phase 9.1: Global pause control
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class CreativeAssetDB(Base):
+    """
+    Persistent storage for generated creative assets.
+    
+    Stage 2: Links CreativeVariants to campaigns with publish status tracking.
+    Enables asset library management and execution pipeline integration.
+    """
+    
+    __tablename__ = "creative_assets"
+    
+    id = Column(Integer, primary_key=True)
+    campaign_id = Column(Integer, ForeignKey("cam_campaigns.id"), nullable=False)
+    
+    # Creative content
+    platform = Column(String, nullable=False)  # "instagram", "linkedin", "twitter"
+    format = Column(String, nullable=False)  # "reel", "post", "carousel", "thread"
+    hook = Column(Text, nullable=False)
+    caption = Column(Text, nullable=True)
+    cta = Column(String, nullable=True)
+    tone = Column(String, nullable=True)  # "professional", "friendly", "bold"
+    
+    # Publishing tracking
+    publish_status = Column(String, nullable=False, default="DRAFT")  # DRAFT, APPROVED, SCHEDULED, PUBLISHED
+    scheduled_date = Column(String, nullable=True)  # ISO date string
+    published_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Metadata
+    meta = Column(JSON, nullable=True)  # Additional creative metadata
+    
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ExecutionJobDB(Base):
+    """
+    Persistent storage for execution jobs.
+    
+    Stage 3: Tracks social posts and other content delivery jobs
+    through the execution pipeline from QUEUED → DONE.
+    """
+    
+    __tablename__ = "execution_jobs"
+    
+    id = Column(Integer, primary_key=True)
+    campaign_id = Column(Integer, ForeignKey("cam_campaigns.id"), nullable=False)
+    creative_id = Column(Integer, ForeignKey("creative_assets.id"), nullable=True)
+    
+    # Job details
+    job_type = Column(String, nullable=False)  # "social_post", "email", "crm_sync"
+    platform = Column(String, nullable=False)  # "instagram", "linkedin", "twitter", "email"
+    payload = Column(JSON, nullable=False)  # ContentItem or job-specific data
+    
+    # Execution tracking
+    status = Column(String, nullable=False, default="QUEUED")  # QUEUED, IN_PROGRESS, DONE, FAILED
+    retries = Column(Integer, nullable=False, default=0)
+    max_retries = Column(Integer, nullable=False, default=3)
+    
+    # Results
+    external_id = Column(String, nullable=True)  # Platform's post/job ID
+    last_error = Column(Text, nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
 

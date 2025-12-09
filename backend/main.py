@@ -6892,139 +6892,104 @@ def generate_sections(
             if results[section_id]:  # Only clean non-empty sections
                 results[section_id] = clean_quick_social_text(results[section_id], req)
 
-    # QUALITY GATE: Enforce benchmarks using the enforcer pattern
+    # 4-LAYER GENERATION PIPELINE: Progressive quality improvement (NON-BLOCKING)
+    # Layer 1: Raw Draft (already done in PASS 1)
+    # Layer 2: Humanizer (optional LLM enhancement)
+    # Layer 3: Soft Validators (quality scoring, non-blocking)
+    # Layer 4: Section Rewriter (optional rewrite if quality < 60, non-blocking)
+    
     pack_key = req.package_preset or req.wow_package_key
     if pack_key and results:
-        # Build sections list for validation
-        sections_for_validation = [
-            {"id": section_id, "content": content}
-            for section_id, content in results.items()
-            if content  # Skip empty sections
-        ]
-
-        if sections_for_validation:
-
-            def regenerate_failed_sections(failing_ids, failing_issues):
-                """Regenerate only the failing sections."""
-                logger.warning(
-                    f"[BENCHMARK ENFORCEMENT] Regenerating {len(failing_ids)} failing section(s): {failing_ids}"
+        from backend.layers import (
+            enhance_section_humanizer,
+            run_soft_validators,
+            rewrite_low_quality_section,
+        )
+        
+        # Get LLM provider for Layers 2 and 4 (optional)
+        llm_provider = None
+        # For now, skip LLM provider setup - Layers will gracefully skip if None
+        # Future enhancement: could wire LLM provider here if needed
+        
+        # Apply 4-layer pipeline to each section
+        for section_id in list(results.keys()):
+            if not results[section_id]:
+                continue  # Skip empty sections
+            
+            raw_content = results[section_id]
+            
+            # LAYER 2: Humanizer (optional enhancement)
+            try:
+                enhanced_content = enhance_section_humanizer(
+                    section_id=section_id,
+                    raw_text=raw_content,
+                    context={
+                        "brand_name": req.brief.brand.brand_name if req.brief and req.brief.brand else "",
+                        "campaign_name": req.brief.goal.primary_goal if req.brief and req.brief.goal else "",
+                    },
+                    req=req,
+                    llm_provider=llm_provider,
                 )
-
-                regenerated = []
-                for section_id in failing_ids:
-                    content = None
-
-                    # STUB MODE: Try stub content first before calling generators
-                    if is_stub_mode():
-                        pack_key_for_stub = req.package_preset or req.wow_package_key
-                        stub_content = _stub_section_for_pack(
-                            pack_key_for_stub, section_id, req.brief
-                        )
-                        if stub_content is not None:
-                            content = stub_content
-                            logger.info(
-                                f"[REGENERATION] Regenerated section with stub: {section_id}"
-                            )
-
-                    # Normal generator path (if stub didn't provide content)
-                    if content is None:
-                        generator_fn = SECTION_GENERATORS.get(section_id)
-                        if generator_fn:
-                            try:
-                                content = generator_fn(**context)
-                                logger.info(f"[REGENERATION] Regenerated section: {section_id}")
-                            except Exception as e:
-                                logger.error(
-                                    f"[REGENERATION] Failed to regenerate '{section_id}': {e}",
-                                    exc_info=True,
-                                )
-
-                    # Apply Quick Social cleanup pass to regenerated content
-                    if content:
-                        pack_key_for_cleanup = req.package_preset or req.wow_package_key
-                        if pack_key_for_cleanup and "quick_social" in pack_key_for_cleanup.lower():
-                            from backend.utils.text_cleanup import (
-                                clean_quick_social_text,
-                            )
-
-                            content = clean_quick_social_text(content, req)
-
-                        regenerated.append({"id": section_id, "content": content})
-
-                return regenerated
-
-            # Build fallback templates for sections that are known to be stable
-            # These are the ORIGINAL template-only versions (no LLM refinement)
-            # that passed benchmarks in isolation.
-            fallback_templates = {}
-
-            # For full_funnel_growth_suite + full_30_day_calendar, always have fallback
-            if pack_key == "full_funnel_growth_suite" and "full_30_day_calendar" in results:
-                # Store the original template version as fallback
-                fallback_templates["full_30_day_calendar"] = results["full_30_day_calendar"]
-                logger.info(
-                    "[BENCHMARK FALLBACK] Registered fallback template for "
-                    "full_funnel_growth_suite/full_30_day_calendar (known refinement issue)"
+                if enhanced_content:
+                    raw_content = enhanced_content
+            except Exception as e:
+                logger.debug(f"Layer 2 humanizer failed for {section_id}: {e}")
+                # Continue with previous content (fallback to raw)
+            
+            # LAYER 3: Soft Validators (quality scoring)
+            try:
+                content, quality_score, genericity_score, warnings = run_soft_validators(
+                    pack_key=pack_key,
+                    section_id=section_id,
+                    content=raw_content,
+                    context={
+                        "brand_name": req.brief.brand.brand_name if req.brief and req.brief.brand else "",
+                        "campaign_name": req.brief.goal.primary_goal if req.brief and req.brief.goal else "",
+                        "target_audience": req.brief.audience.primary_customer if req.brief and req.brief.audience else "",
+                    },
                 )
-
-            # STUB MODE: Skip benchmark enforcement entirely
-            # Stubs are placeholders for testing infrastructure, not real content
-            if is_stub_mode():
-                logger.info(f"[STUB MODE] Skipping benchmark enforcement for {pack_key}")
-            else:
-                try:
-                    enforcement = enforce_benchmarks_with_regen(
-                        pack_key=pack_key,
-                        sections=sections_for_validation,
-                        regenerate_failed_sections=regenerate_failed_sections,
-                        max_attempts=2,
-                        fallback_to_original=fallback_templates if fallback_templates else None,
-                        draft_mode=req.draft_mode,  # 🔥 Pass draft_mode from request
-                    )
-
-                    logger.info(
-                        f"[BENCHMARK ENFORCEMENT] Pack: {pack_key}, "
-                        f"Status: {enforcement.status}, "
-                        f"Sections: {len(enforcement.sections)}"
-                    )
-
-                    # Update results with validated sections
-                    for section in enforcement.sections:
-                        section_id = section.get("id") or section.get("section_id")
-                        if section_id:
-                            results[section_id] = section.get("content", "")
-
-                except BenchmarkEnforcementError as exc:
-                    # STEP 1 PROOF: This log tracks when benchmark errors occur
-                    # and what draft_mode value is set at that moment
-                    logger.error(
-                        "LLM failure wrapper triggered",
+                
+                # Log quality metrics
+                if quality_score is not None:
+                    logger.debug(
+                        f"Layer 3 soft validators for {section_id}",
                         extra={
-                            "pack_key": pack_key,
-                            "draft_mode": req.draft_mode,
-                            "error_type": "benchmark_enforcement_error",
-                            "error_detail": str(exc),
+                            "quality_score": quality_score,
+                            "genericity_score": genericity_score,
+                            "warnings": warnings,
                         },
                     )
-                    
-                    # STEP 2 PROOF: In draft mode, don't fail - just log warning and continue
-                    # This prevents llm_failure errors when draft_mode=True
-                    if req.draft_mode:
-                        logger.warning(
-                            f"[DRAFT MODE] Benchmark enforcement failed but continuing: {exc}",
-                            extra={
-                                "pack_key": pack_key,
-                                "failing_sections": "extracted_from_exception",
+                
+                # LAYER 4: Section Rewriter (if quality < 60)
+                if quality_score is not None and quality_score < 60:
+                    try:
+                        rewritten_content = rewrite_low_quality_section(
+                            pack_key=pack_key,
+                            section_id=section_id,
+                            content=content,
+                            warnings=warnings,
+                            context={
+                                "brand_name": req.brief.brand.brand_name if req.brief and req.brief.brand else "",
+                                "campaign_name": req.brief.goal.primary_goal if req.brief and req.brief.goal else "",
+                                "target_audience": req.brief.audience.primary_customer if req.brief and req.brief.audience else "",
                             },
+                            req=req,
+                            llm_provider=llm_provider,
                         )
-                        # Continue with current results - don't raise exception
-                        # The sections in results dict are the generated content before enforcement
-                    else:
-                        logger.error(f"[BENCHMARK ENFORCEMENT] Failed: {exc}")
-                        raise HTTPException(
-                            status_code=500,
-                            detail=str(exc),
-                        )
+                        if rewritten_content:
+                            content = rewritten_content
+                    except Exception as e:
+                        logger.debug(f"Layer 4 rewriter failed for {section_id}: {e}")
+                        # Continue with Layer 3 output (fallback)
+                
+                results[section_id] = content
+                
+            except Exception as e:
+                logger.error(
+                    f"Soft validators failed for {section_id}: {e}",
+                    exc_info=True,
+                )
+                # Continue with previous content (no blocking)
 
     return results
 

@@ -715,3 +715,273 @@ def get_db_url() -> str:
     import os
 
     return os.getenv("AICMO_MEMORY_DB", DEFAULT_DB_PATH)
+
+
+def log_event(
+    event_type: str,
+    project_id: Optional[str] = None,
+    details: Optional[dict] = None,
+    tags: Optional[List[str]] = None
+) -> None:
+    """
+    Log a learning event to the memory database.
+    
+    Stage 4: Records significant system events for learning and analytics.
+    Events are stored as memory items for future analysis.
+    
+    Args:
+        event_type: Type of event (e.g., "STRATEGY_GENERATED", "EXECUTION_ATTEMPTED")
+        project_id: Optional project/campaign identifier
+        details: Optional dict of event details
+        tags: Optional list of tags for categorization
+        
+    Usage:
+        log_event("STRATEGY_GENERATED", project_id="campaign_42", 
+                  details={"success": True, "pillars": 3})
+    """
+    try:
+        title = f"{event_type}"
+        if project_id:
+            title += f" [project={project_id}]"
+        
+        text = f"Event: {event_type}\n"
+        if details:
+            text += f"Details: {json.dumps(details, indent=2)}\n"
+        
+        event_tags = ["learning_event", event_type.lower()]
+        if tags:
+            event_tags.extend(tags)
+        
+        # Store as memory item with dummy embedding (learning events don't need semantic search)
+        dummy_embedding = json.dumps([0.0] * 32)  # Small dummy vector
+        
+        # Use current AICMO_MEMORY_DB setting
+        db_path = os.getenv("AICMO_MEMORY_DB", DEFAULT_DB_PATH)
+        conn = _get_conn(db_path)
+        try:
+            conn.execute(
+                """INSERT INTO memory_items (kind, project_id, title, text, tags, created_at, embedding)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    "learning_event",
+                    project_id,
+                    title,
+                    text,
+                    json.dumps(event_tags),
+                    dt.datetime.utcnow().isoformat(),
+                    dummy_embedding,
+                ),
+            )
+            conn.commit()
+            logger.debug(f"Logged learning event: {event_type}")
+        finally:
+            conn.close()
+    except Exception as e:
+        # Don't fail the main operation if logging fails
+        logger.warning(f"Failed to log learning event {event_type}: {e}")
+
+
+def build_kaizen_context(
+    project_id: Optional[int | str] = None,
+    client_id: Optional[int | str] = None,
+    brand_name: Optional[str] = None,
+    db_path: str = DEFAULT_DB_PATH
+):
+    """
+    Build a KaizenContext from historical learning events.
+    
+    Stage K1: Query the learning event store for this project/client and
+    build a summarized KaizenContext with actionable insights.
+    
+    Analyzes:
+    - Media/Analytics events → best/weak channels
+    - Creative events → rejected patterns, successful hooks
+    - Pitch events → win patterns
+    - PM events → delay risks, capacity issues
+    - Client Portal events → approval patterns
+    
+    Args:
+        project_id: Optional project filter (int or str)
+        client_id: Optional client filter (int or str)
+        brand_name: Optional brand filter
+        db_path: Path to memory database
+        
+    Returns:
+        KaizenContext with aggregated insights
+    """
+    from aicmo.learning.domain import KaizenContext
+    
+    context = KaizenContext(
+        project_id=project_id,
+        client_id=client_id,
+        brand_name=brand_name,
+        context_built_at=dt.datetime.utcnow().isoformat()
+    )
+    
+    try:
+        conn = _get_conn(db_path)
+        cur = conn.cursor()
+        
+        # Build WHERE clause for filtering
+        where_parts = ["kind = 'learning_event'"]
+        params = []
+        
+        if project_id is not None:
+            where_parts.append("project_id = ?")
+            params.append(str(project_id))
+        elif client_id is not None:
+            # Could filter by client if we had that field
+            pass
+        
+        where_clause = " AND ".join(where_parts)
+        
+        # Fetch all relevant learning events
+        cur.execute(
+            f"""SELECT title, text, tags, created_at 
+                FROM memory_items 
+                WHERE {where_clause}
+                ORDER BY created_at DESC
+                LIMIT 500""",
+            params
+        )
+        
+        events = cur.fetchall()
+        context.total_events_analyzed = len(events)
+        
+        # Analyze events by category
+        channel_counts = {}
+        channel_success = {}
+        rejected_creative_patterns = {}
+        successful_creative_hooks = {}
+        pitch_outcomes = {"won": 0, "lost": 0, "industries": {}}
+        delay_events = []
+        capacity_alerts = []
+        approval_counts = {"approved": 0, "rejected": 0, "changes_requested": 0}
+        
+        for title, text, tags_json, created_at in events:
+            tags = json.loads(tags_json) if tags_json else []
+            
+            # Parse event type from title
+            event_type = title.split("[")[0].strip()
+            
+            # Extract details from text
+            details = {}
+            if "Details:" in text:
+                try:
+                    details_json = text.split("Details:")[1].strip()
+                    details = json.loads(details_json)
+                except:
+                    pass
+            
+            # Analyze by event category
+            
+            # MEDIA & ANALYTICS
+            if any(tag in ["media", "analytics"] for tag in tags):
+                # Track channel mentions
+                if "channel" in details:
+                    channel = details["channel"].lower()
+                    channel_counts[channel] = channel_counts.get(channel, 0) + 1
+                    
+                if "best_channel" in details:
+                    channel = details["best_channel"].lower()
+                    channel_success[channel] = channel_success.get(channel, 0) + 1
+                    
+                if "channels" in details and isinstance(details["channels"], list):
+                    for ch in details["channels"]:
+                        if isinstance(ch, str):
+                            channel_counts[ch.lower()] = channel_counts.get(ch.lower(), 0) + 1
+            
+            # CREATIVE
+            if "creative" in tags or "ADV_CREATIVE" in event_type:
+                if "REJECTED" in event_type or "rejected" in str(details).lower():
+                    hook = details.get("hook", details.get("pattern", "unknown"))
+                    rejected_creative_patterns[hook] = rejected_creative_patterns.get(hook, 0) + 1
+                    
+                if "SUCCESS" in event_type or details.get("approved"):
+                    hook = details.get("hook", details.get("creative_hook"))
+                    if hook:
+                        successful_creative_hooks[hook] = successful_creative_hooks.get(hook, 0) + 1
+            
+            # PITCH
+            if "pitch" in tags or "PITCH" in event_type:
+                if "PITCH_WON" in event_type:
+                    pitch_outcomes["won"] += 1
+                    industry = details.get("industry", details.get("prospect_industry"))
+                    if industry:
+                        pitch_outcomes["industries"][industry] = pitch_outcomes["industries"].get(industry, 0) + 1
+                elif "PITCH_LOST" in event_type:
+                    pitch_outcomes["lost"] += 1
+            
+            # PROJECT MANAGEMENT
+            if "pm" in tags or "PM_" in event_type:
+                if "DELAY" in event_type or "delayed" in str(details).lower():
+                    delay_events.append({
+                        "event": event_type,
+                        "reason": details.get("reason", "unknown"),
+                        "date": created_at
+                    })
+                    
+                if "CAPACITY_ALERT" in event_type:
+                    capacity_alerts.append(details.get("reason", "capacity issue"))
+            
+            # CLIENT PORTAL
+            if "portal" in tags or "CLIENT_" in event_type:
+                if "APPROVAL_APPROVED" in event_type or details.get("status") == "approved":
+                    approval_counts["approved"] += 1
+                elif "APPROVAL_REJECTED" in event_type or details.get("status") == "rejected":
+                    approval_counts["rejected"] += 1
+                elif "changes" in str(details).lower():
+                    approval_counts["changes_requested"] += 1
+        
+        # Build context from analysis
+        
+        # Best/weak channels (by mention frequency and success)
+        if channel_counts:
+            sorted_channels = sorted(channel_counts.items(), key=lambda x: x[1], reverse=True)
+            context.best_channels = [ch for ch, _ in sorted_channels[:3]]
+            context.weak_channels = [ch for ch, _ in sorted_channels[-2:] if _ < 2]
+            context.channel_performance = dict(sorted_channels[:5])
+        
+        # Add channels with explicit success markers
+        for channel, count in channel_success.items():
+            if channel not in context.best_channels:
+                context.best_channels.append(channel)
+        
+        # Creative patterns
+        if rejected_creative_patterns:
+            context.rejected_patterns = [
+                {"pattern": pattern, "rejection_count": count}
+                for pattern, count in sorted(rejected_creative_patterns.items(), key=lambda x: x[1], reverse=True)[:5]
+            ]
+        
+        if successful_creative_hooks:
+            context.successful_hooks = list(successful_creative_hooks.keys())[:5]
+        
+        # Pitch patterns
+        if pitch_outcomes["won"] > 0:
+            win_rate = pitch_outcomes["won"] / (pitch_outcomes["won"] + pitch_outcomes["lost"]) if pitch_outcomes["lost"] > 0 else 1.0
+            context.pitch_win_patterns = [
+                {
+                    "total_wins": pitch_outcomes["won"],
+                    "win_rate": round(win_rate, 2),
+                    "successful_industries": list(pitch_outcomes["industries"].keys())[:3]
+                }
+            ]
+        
+        # PM risks
+        context.delay_risks = delay_events[:5]
+        context.capacity_issues = capacity_alerts[:5]
+        
+        # Approval patterns
+        context.approval_patterns = approval_counts
+        
+        conn.close()
+        
+        logger.info(f"Built KaizenContext: {context.total_events_analyzed} events analyzed, "
+                   f"{len(context.best_channels)} best channels, {len(context.rejected_patterns)} rejected patterns")
+        
+    except Exception as e:
+        logger.warning(f"Failed to build KaizenContext: {e}")
+        # Return empty context rather than failing
+    
+    return context

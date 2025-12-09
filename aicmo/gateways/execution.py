@@ -160,3 +160,129 @@ async def execute_content_item(
         ExecutionResult with status and details
     """
     return await execution_service.execute(content)
+
+
+def queue_social_posts_for_campaign(
+    campaign_id: int,
+    content_items: List[ContentItem],
+    session,
+    creative_id: Optional[int] = None
+) -> List[int]:
+    """
+    Queue social posts as execution jobs in database.
+    
+    Stage 3: Creates ExecutionJobDB records for content items.
+    
+    Args:
+        campaign_id: Campaign ID
+        content_items: List of content to queue
+        session: SQLAlchemy session
+        creative_id: Optional creative asset ID
+        
+    Returns:
+        List of created job IDs
+    """
+    from aicmo.cam.db_models import ExecutionJobDB
+    from aicmo.domain.execution_job import ExecutionJob
+    
+    job_ids = []
+    for content in content_items:
+        job = ExecutionJob.from_content_item(content, campaign_id, creative_id)
+        db_job = ExecutionJobDB()
+        job.apply_to_db(db_job)
+        session.add(db_job)
+        session.flush()  # Get ID
+        job_ids.append(db_job.id)
+    
+    return job_ids
+
+
+async def run_execution_jobs(
+    campaign_id: int,
+    session,
+    execution_service: ExecutionService,
+    limit: Optional[int] = None
+) -> Dict[str, int]:
+    """
+    Run queued execution jobs for a campaign.
+    
+    Stage 3: Processes QUEUED jobs through ExecutionService,
+    updates status to DONE/FAILED with external_id tracking.
+    
+    Args:
+        campaign_id: Campaign ID
+        session: SQLAlchemy session
+        execution_service: Configured execution service
+        limit: Optional limit on jobs to process
+        
+    Returns:
+        Dict with counts: {"processed": n, "succeeded": n, "failed": n}
+    """
+    from aicmo.cam.db_models import ExecutionJobDB
+    from aicmo.domain.execution_job import ExecutionJob
+    
+    # Query QUEUED jobs
+    query = session.query(ExecutionJobDB).filter_by(
+        campaign_id=campaign_id,
+        status="QUEUED"
+    )
+    if limit:
+        query = query.limit(limit)
+    
+    jobs = query.all()
+    
+    processed = 0
+    succeeded = 0
+    failed = 0
+    
+    for db_job in jobs:
+        job = ExecutionJob.from_db(db_job)
+        job.status = "IN_PROGRESS"
+        job.apply_to_db(db_job)
+        session.commit()
+        
+        # Execute the job
+        content = job.to_content_item()
+        result = await execution_service.execute(content)
+        
+        processed += 1
+        
+        # Update job based on result
+        if result.status == ExecutionStatus.SUCCESS:
+            job.status = "DONE"
+            job.external_id = result.platform_post_id
+            job.completed_at = datetime.utcnow()
+            succeeded += 1
+        else:
+            job.retries += 1
+            if job.retries >= job.max_retries:
+                job.status = "FAILED"
+                failed += 1
+            else:
+                job.status = "QUEUED"  # Retry
+            job.last_error = result.error_message
+        
+        # Stage 4: Log execution attempt
+        from aicmo.memory.engine import log_event
+        log_event(
+            "EXECUTION_ATTEMPTED",
+            project_id=f"campaign_{campaign_id}",
+            details={
+                "job_id": job.id,
+                "platform": job.platform,
+                "status": job.status,
+                "success": result.status == ExecutionStatus.SUCCESS,
+                "external_id": job.external_id,
+                "retries": job.retries
+            },
+            tags=["execution", job.platform, "success" if result.status == ExecutionStatus.SUCCESS else "failure"]
+        )
+        
+        job.apply_to_db(db_job)
+        session.commit()
+    
+    return {
+        "processed": processed,
+        "succeeded": succeeded,
+        "failed": failed
+    }

@@ -251,3 +251,120 @@ class TestPhase2ProjectOrchestrator:
         # 4. Start creative phase
         project = await orchestrator.start_creative_phase(project)
         assert project.state == ProjectState.CREATIVE_IN_PROGRESS
+
+
+class TestPhase2CampaignDBPersistence:
+    """Stage 1: Tests for Project ↔ CampaignDB persistence mapping."""
+
+    def test_project_from_campaign_basic(self):
+        """Project.from_campaign() creates domain model from CampaignDB."""
+        from aicmo.cam.db_models import CampaignDB
+        from datetime import datetime
+        
+        # Create mock campaign
+        campaign = CampaignDB(
+            id=123,
+            name="Test Campaign",
+            description="Campaign notes",
+            target_niche="Tech Startups",
+            project_state="STRATEGY_APPROVED",
+            strategy_status="APPROVED",
+            created_at=datetime(2025, 1, 1),
+            updated_at=datetime(2025, 1, 2),
+        )
+        
+        project = Project.from_campaign(campaign)
+        
+        assert project.id == 123
+        assert project.campaign_id == 123
+        assert project.name == "Test Campaign"
+        assert project.state == ProjectState.STRATEGY_APPROVED
+        assert project.client_name == "Tech Startups"
+        assert project.notes == "Campaign notes"
+        assert "2025-01-01" in project.created_at
+    
+    def test_project_from_campaign_backward_compat(self):
+        """Project.from_campaign() infers state from strategy_status if project_state missing."""
+        from aicmo.cam.db_models import CampaignDB
+        
+        campaign = CampaignDB(
+            id=456,
+            name="Legacy Campaign",
+            strategy_status="APPROVED",
+            project_state=None,  # Old campaigns may not have this
+        )
+        
+        project = Project.from_campaign(campaign)
+        
+        assert project.state == ProjectState.STRATEGY_APPROVED
+    
+    def test_project_apply_to_campaign(self):
+        """Project.apply_to_campaign() writes state back to CampaignDB."""
+        from aicmo.cam.db_models import CampaignDB
+        
+        campaign = CampaignDB(
+            id=789,
+            name="Update Test",
+            project_state="STRATEGY_DRAFT",
+            strategy_status="DRAFT",
+        )
+        
+        project = Project.from_campaign(campaign)
+        project = project.transition_to(ProjectState.STRATEGY_APPROVED)
+        
+        updated_campaign = project.apply_to_campaign(campaign)
+        
+        assert updated_campaign.project_state == "STRATEGY_APPROVED"
+        assert updated_campaign.strategy_status == "APPROVED"
+    
+    @pytest.mark.asyncio
+    async def test_end_to_end_with_db_persistence(self, tmp_path):
+        """Full workflow: create campaign, wrap as project, transition, persist."""
+        from aicmo.cam.db_models import CampaignDB
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from aicmo.core.db import Base
+        
+        # Create in-memory database
+        engine = create_engine("sqlite:///:memory:")
+        # Only create CampaignDB table, not all metadata
+        CampaignDB.__table__.create(engine, checkfirst=True)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        try:
+            # 1. Create campaign in DB
+            campaign = CampaignDB(
+                name="E2E Test Campaign",
+                description="End-to-end test",
+                project_state="STRATEGY_DRAFT",
+            )
+            session.add(campaign)
+            session.commit()
+            session.refresh(campaign)
+            
+            # 2. Wrap as Project
+            project = Project.from_campaign(campaign)
+            assert project.state == ProjectState.STRATEGY_DRAFT
+            
+            # 3. Transition state
+            project = project.transition_to(ProjectState.STRATEGY_IN_PROGRESS)
+            assert project.state == ProjectState.STRATEGY_IN_PROGRESS
+            
+            # 4. Persist back to DB
+            project.apply_to_campaign(campaign)
+            session.commit()
+            session.refresh(campaign)
+            
+            # 5. Verify persistence
+            assert campaign.project_state == "STRATEGY_IN_PROGRESS"
+            
+            # 6. Re-load and verify
+            loaded_campaign = session.query(CampaignDB).filter_by(id=campaign.id).first()
+            assert loaded_campaign.project_state == "STRATEGY_IN_PROGRESS"
+            
+            loaded_project = Project.from_campaign(loaded_campaign)
+            assert loaded_project.state == ProjectState.STRATEGY_IN_PROGRESS
+        
+        finally:
+            session.close()

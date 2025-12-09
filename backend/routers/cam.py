@@ -452,3 +452,255 @@ def update_safety_settings_endpoint(
     
     return response_data
 
+
+# ==========================================
+# PHASE 4-5: AUTONOMOUS ENGINE ENDPOINTS
+# ==========================================
+
+
+@router.get("/campaigns", response_model=List[dict])
+def list_campaigns(db: Session = Depends(get_db)):
+    """
+    List all campaigns with their current metrics.
+    
+    Returns:
+        List of campaigns with lead counts and status
+    """
+    from aicmo.cam.db_models import CampaignDB
+    from aicmo.cam.engine.targets_tracker import compute_campaign_metrics
+    
+    campaigns = db.query(CampaignDB).all()
+    
+    result = []
+    for campaign in campaigns:
+        metrics = compute_campaign_metrics(db, campaign.id)
+        result.append({
+            "id": campaign.id,
+            "name": campaign.name,
+            "active": campaign.active,
+            "target_niche": campaign.target_niche,
+            "service_key": campaign.service_key,
+            "target_clients": campaign.target_clients,
+            "current_leads": metrics.total_leads,
+            "qualified_leads": metrics.status_qualified,
+            "conversion_rate": metrics.conversion_rate,
+            "goal_progress": metrics.qualified_pct,
+        })
+    
+    return result
+
+
+@router.get("/campaigns/{campaign_id}", response_model=dict)
+def get_campaign_details(campaign_id: int, db: Session = Depends(get_db)):
+    """
+    Get detailed metrics for a campaign.
+    
+    Args:
+        campaign_id: Campaign ID
+        db: Database session
+        
+    Returns:
+        Campaign details with full metrics breakdown
+        
+    Raises:
+        HTTPException: If campaign not found
+    """
+    from aicmo.cam.db_models import CampaignDB
+    from aicmo.cam.engine.targets_tracker import compute_campaign_metrics
+    from aicmo.cam.engine.outreach_engine import get_outreach_stats
+    
+    campaign = db.query(CampaignDB).filter(CampaignDB.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found")
+    
+    metrics = compute_campaign_metrics(db, campaign_id)
+    outreach_stats = get_outreach_stats(db, campaign_id, days=1)
+    
+    return {
+        "id": campaign.id,
+        "name": campaign.name,
+        "active": campaign.active,
+        "description": campaign.description,
+        "target_niche": campaign.target_niche,
+        "service_key": campaign.service_key,
+        "target_clients": campaign.target_clients,
+        "target_mrr": campaign.target_mrr,
+        "channels_enabled": campaign.channels_enabled,
+        "max_emails_per_day": campaign.max_emails_per_day,
+        "metrics": {
+            "total_leads": metrics.total_leads,
+            "leads_by_status": {
+                "new": metrics.status_new,
+                "enriched": metrics.status_enriched,
+                "contacted": metrics.status_contacted,
+                "replied": metrics.status_replied,
+                "qualified": metrics.status_qualified,
+                "lost": metrics.status_lost,
+            },
+            "conversion_rate": metrics.conversion_rate,
+            "goal_progress": metrics.qualified_pct,
+        },
+        "today_outreach": {
+            "total": outreach_stats["total"],
+            "sent": outreach_stats["sent"],
+            "failed": outreach_stats["failed"],
+            "skipped": outreach_stats["skipped"],
+        },
+    }
+
+
+@router.post("/campaigns", response_model=dict, status_code=201)
+def create_campaign(request: dict, db: Session = Depends(get_db)):
+    """
+    Create a new CAM campaign.
+    
+    Args:
+        request: Campaign creation data (name, target_niche, service_key, target_clients, etc.)
+        db: Database session
+        
+    Returns:
+        Created campaign
+        
+    Raises:
+        HTTPException: If campaign name already exists
+    """
+    from aicmo.cam.db_models import CampaignDB
+    
+    name = request.get("name")
+    if not name:
+        raise HTTPException(status_code=400, detail="Campaign name required")
+    
+    # Check for duplicate
+    existing = db.query(CampaignDB).filter(CampaignDB.name == name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Campaign '{name}' already exists")
+    
+    campaign = CampaignDB(
+        name=name,
+        description=request.get("description"),
+        target_niche=request.get("target_niche"),
+        service_key=request.get("service_key"),
+        target_clients=request.get("target_clients"),
+        target_mrr=request.get("target_mrr"),
+        channels_enabled=request.get("channels_enabled", ["email"]),
+        max_emails_per_day=request.get("max_emails_per_day", 20),
+        max_outreach_per_day=request.get("max_outreach_per_day", 50),
+        active=True,
+    )
+    
+    db.add(campaign)
+    db.commit()
+    db.refresh(campaign)
+    
+    return {
+        "id": campaign.id,
+        "name": campaign.name,
+        "active": campaign.active,
+        "message": f"Campaign '{name}' created successfully",
+    }
+
+
+@router.put("/campaigns/{campaign_id}/pause", response_model=dict)
+def pause_campaign(campaign_id: int, db: Session = Depends(get_db)):
+    """
+    Pause a campaign (stop all outreach).
+    
+    Args:
+        campaign_id: Campaign ID
+        db: Database session
+        
+    Returns:
+        Confirmation
+        
+    Raises:
+        HTTPException: If campaign not found
+    """
+    from aicmo.cam.db_models import CampaignDB
+    
+    campaign = db.query(CampaignDB).filter(CampaignDB.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found")
+    
+    campaign.active = False
+    db.commit()
+    
+    return {
+        "id": campaign.id,
+        "name": campaign.name,
+        "active": campaign.active,
+        "message": f"Campaign '{campaign.name}' paused",
+    }
+
+
+@router.put("/campaigns/{campaign_id}/resume", response_model=dict)
+def resume_campaign(campaign_id: int, db: Session = Depends(get_db)):
+    """
+    Resume a paused campaign.
+    
+    Args:
+        campaign_id: Campaign ID
+        db: Database session
+        
+    Returns:
+        Confirmation
+        
+    Raises:
+        HTTPException: If campaign not found
+    """
+    from aicmo.cam.db_models import CampaignDB
+    
+    campaign = db.query(CampaignDB).filter(CampaignDB.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found")
+    
+    campaign.active = True
+    db.commit()
+    
+    return {
+        "id": campaign.id,
+        "name": campaign.name,
+        "active": campaign.active,
+        "message": f"Campaign '{campaign.name}' resumed",
+    }
+
+
+@router.post("/campaigns/{campaign_id}/run-cycle", response_model=dict)
+def run_campaign_cycle(
+    campaign_id: int,
+    dry_run: bool = True,
+    db: Session = Depends(get_db),
+):
+    """
+    Manually trigger CAM cycle for a campaign.
+    
+    Runs lead discovery, enrichment, and outreach in sequence.
+    
+    Args:
+        campaign_id: Campaign ID
+        dry_run: If True, don't send real emails (default: True)
+        db: Database session
+        
+    Returns:
+        Execution statistics
+        
+    Raises:
+        HTTPException: If campaign not found
+    """
+    from aicmo.cam.auto_runner import run_cam_cycle_for_campaign
+    
+    stats = run_cam_cycle_for_campaign(db, campaign_id, dry_run=dry_run)
+    
+    if "error" in stats:
+        raise HTTPException(status_code=400, detail=stats["error"])
+    
+    return {
+        "campaign_id": campaign_id,
+        "dry_run": dry_run,
+        "leads_discovered": stats.get("leads_discovered", 0),
+        "leads_enriched": stats.get("leads_enriched", 0),
+        "outreach_sent": stats.get("outreach_sent", 0),
+        "outreach_failed": stats.get("outreach_failed", 0),
+        "outreach_skipped": stats.get("outreach_skipped", 0),
+        "errors": stats.get("errors", []),
+    }
+
