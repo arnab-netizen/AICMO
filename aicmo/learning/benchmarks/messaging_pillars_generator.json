@@ -1,0 +1,25 @@
+{
+  "target_feature": "messaging_pillars_generator",
+  "name": "Messaging Pillars Generator Benchmark",
+  "description": "Benchmark for messaging pillars generation",
+  "version": "1.0",
+  "test_cases": [
+    {
+      "id": "pillars_001",
+      "scenario": "Product messaging",
+      "required_pillars": 3,
+      "expected_fields": [
+        "pillar_name",
+        "supporting_messages",
+        "target_audience",
+        "key_benefits"
+      ]
+    }
+  ],
+  "quality_metrics": {
+    "min_pillars": 3,
+    "max_pillars": 5,
+    "min_messages_per_pillar": 2,
+    "message_clarity_score": 0.8
+  }
+}

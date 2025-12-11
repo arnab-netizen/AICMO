@@ -69,14 +69,14 @@ def generate_persona(
 
 def _generate_persona_with_llm(brief: ClientInputBrief) -> Optional[PersonaCard]:
     """
-    Generate persona using LLM (Claude/OpenAI).
+    Generate persona using the Phase 8.4 LLM router.
 
     Returns:
         PersonaCard, or None if LLM call fails
     """
     try:
-        # Lazy import to avoid hard dependency
-        from aicmo.llm.client import _get_llm_provider, _get_claude_client, _get_openai_client
+        # Import LLM router (Phase 8.4)
+        from aicmo.llm.router import get_llm_client, LLMUseCase
 
         brand_name = brief.brand.brand_name
         category = brief.brand.industry or "their category"
@@ -125,37 +125,40 @@ Return ONLY valid JSON in this exact format:
   "tone_preference": "Professional yet approachable, data-driven but human"
 }}"""
 
-        provider = _get_llm_provider()
+        # Get LLM client for CREATIVE_SPEC use-case (personas inform creative spec)
+        chain = get_llm_client(
+            use_case=LLMUseCase.CREATIVE_SPEC,
+            profile_override=None,
+            deep_research=False,
+            multimodal=False
+        )
 
-        if provider == "claude":
-            client = _get_claude_client()
-            model = os.getenv("AICMO_CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
-            response = client.messages.create(
-                model=model,
-                max_tokens=2000,
-                messages=[{"role": "user", "content": prompt}],
+        # Call the chain via ProviderChain.invoke
+        import asyncio
+        success, result, provider_name = asyncio.run(
+            chain.invoke(
+                "generate",
+                prompt=prompt
             )
-            result = response.content[0].text
-        else:
-            client = _get_openai_client()
-            model = os.getenv("AICMO_OPENAI_MODEL", "gpt-4o-mini")
-            response = client.chat.completions.create(
-                model=model,
-                max_tokens=2000,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            result = response.choices[0].message.content
+        )
 
-        if not result or not result.strip():
+        if not success or not result:
+            logger.warning(f"Persona: LLM returned failure via {provider_name}")
+            return None
+
+        # Extract response text
+        response_text = result if isinstance(result, str) else result.get("content", "")
+
+        if not response_text or not response_text.strip():
             return None
 
         # Parse JSON response
-        result = result.strip()
+        response_text = response_text.strip()
         # Remove markdown code fence if present
-        if result.startswith("```"):
-            result = result[result.find("{") : result.rfind("}") + 1]
+        if response_text.startswith("```"):
+            response_text = response_text[response_text.find("{") : response_text.rfind("}") + 1]
 
-        data = json.loads(result)
+        data = json.loads(response_text)
         if not isinstance(data, dict):
             return None
 

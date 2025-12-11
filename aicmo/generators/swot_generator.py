@@ -66,23 +66,13 @@ def _generate_swot_with_llm(
     memory_snippets: Optional[List[str]] = None,
 ) -> Optional[Dict[str, List[str]]]:
     """
-    Call the LLM to generate brief-specific SWOT.
+    Call the LLM to generate brief-specific SWOT using the Phase 8.4 router.
 
     Returns dict with strengths/weaknesses/opportunities/threats or None on failure.
     """
     try:
-        # Import LLM client (lazy load to avoid requiring it in stub mode)
-        from aicmo.llm.client import _get_llm_provider, _get_claude_client, _get_openai_client
-        import os
-
-        provider = _get_llm_provider()
-
-        if provider == "claude":
-            client = _get_claude_client()
-            model = os.getenv("AICMO_CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
-        else:
-            client = _get_openai_client()
-            model = os.getenv("AICMO_OPENAI_MODEL", "gpt-4o-mini")
+        # Import LLM router (Phase 8.4)
+        from aicmo.llm.router import get_llm_client, LLMUseCase
 
         # Build the prompt
         brand_name = brief.brand.brand_name
@@ -120,32 +110,30 @@ Each item should be:
 - No "will be refined" or "TBD" language
 """.strip()
 
-        # Call LLM
-        if provider == "claude":
-            response = client.messages.create(
-                model=model,
-                max_tokens=1200,
-                system="You are a senior marketing strategist. Return ONLY valid JSON, no explanations.",
-                messages=[
-                    {"role": "user", "content": prompt},
-                ],
-            )
-            response_text = response.content[0].text
-        else:
-            response = client.chat.completions.create(
-                model=model,
-                max_tokens=1200,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a senior marketing strategist. Return ONLY valid JSON, no explanations.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.7,
-            )
-            response_text = response.choices[0].message.content
+        # Get LLM client for STRATEGY_DOC use-case (SWOT is part of strategy)
+        chain = get_llm_client(
+            use_case=LLMUseCase.STRATEGY_DOC,
+            profile_override=None,
+            deep_research=False,
+            multimodal=False
+        )
 
+        # Call the chain via ProviderChain.invoke
+        import asyncio
+        success, result, provider_name = asyncio.run(
+            chain.invoke(
+                "generate",
+                prompt=prompt
+            )
+        )
+
+        if not success or not result:
+            logger.warning(f"SWOT: LLM returned failure via {provider_name}")
+            return None
+
+        # Extract response text
+        response_text = result if isinstance(result, str) else result.get("content", "")
+        
         if not response_text:
             logger.warning("SWOT: LLM returned empty response")
             return None

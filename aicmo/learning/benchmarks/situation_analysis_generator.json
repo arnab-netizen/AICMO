@@ -1,0 +1,24 @@
+{
+  "target_feature": "situation_analysis_generator",
+  "name": "Situation Analysis Generator Benchmark",
+  "description": "Benchmark for situation/competitive analysis generation",
+  "version": "1.0",
+  "test_cases": [
+    {
+      "id": "situation_001",
+      "scenario": "Market analysis",
+      "required_sections": [
+        "market_overview",
+        "competitive_landscape",
+        "target_market_insights",
+        "industry_trends"
+      ]
+    }
+  ],
+  "quality_metrics": {
+    "min_word_count": 300,
+    "max_word_count": 1500,
+    "required_insights": 5,
+    "analysis_depth": "comprehensive"
+  }
+}

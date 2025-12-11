@@ -49,6 +49,18 @@ class GatewayConfig:
     AIRTABLE_CONTACTS_TABLE: Optional[str] = field(default_factory=lambda: os.getenv("AIRTABLE_CONTACTS_TABLE", "Contacts"))
     AIRTABLE_INTERACTIONS_TABLE: Optional[str] = field(default_factory=lambda: os.getenv("AIRTABLE_INTERACTIONS_TABLE", "Interactions"))
     
+    # Phase 4.5: Media generation config
+    FIGMA_API_TOKEN: Optional[str] = field(default_factory=lambda: os.getenv("FIGMA_API_TOKEN"))
+    SDXL_API_KEY: Optional[str] = field(default_factory=lambda: os.getenv("SDXL_API_KEY"))
+    OPENAI_API_KEY: Optional[str] = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
+    REPLICATE_API_KEY: Optional[str] = field(default_factory=lambda: os.getenv("REPLICATE_API_KEY"))
+    CANVA_API_KEY: Optional[str] = field(default_factory=lambda: os.getenv("CANVA_API_KEY"))
+    
+    # Phase 7: Video generation config
+    RUNWAY_ML_API_KEY: Optional[str] = field(default_factory=lambda: os.getenv("RUNWAY_ML_API_KEY"))
+    PIKA_LABS_API_KEY: Optional[str] = field(default_factory=lambda: os.getenv("PIKA_LABS_API_KEY"))
+    LUMA_DREAM_API_KEY: Optional[str] = field(default_factory=lambda: os.getenv("LUMA_DREAM_API_KEY"))
+    
     def is_email_configured(self) -> bool:
         """Check if email gateway has necessary credentials."""
         if not self.USE_REAL_EMAIL_GATEWAY:
@@ -104,3 +116,67 @@ def reset_gateway_config() -> None:
     """Reset gateway config (useful for testing)."""
     global _gateway_config
     _gateway_config = None
+
+
+# Multi-Provider Configuration
+# Maps capabilities to their available provider chains (primary + fallbacks)
+# Order matters: first provider is primary, others are fallbacks
+# Reorder to change fallback priority
+MULTI_PROVIDER_CONFIG = {
+    "email_sending": {
+        "description": "Send emails via SMTP/Gmail",
+        "providers": ["real_email", "noop_email"],  # Primary: real, Fallback: noop
+    },
+    "social_posting": {
+        "description": "Post content to social platforms",
+        "providers": ["real_social", "noop_social"],  # Primary: real (LinkedIn, Twitter, etc), Fallback: noop
+    },
+    "crm_sync": {
+        "description": "Sync contacts and engagement to CRM",
+        "providers": ["airtable_crm", "noop_crm"],  # Primary: Airtable, Fallback: noop
+    },
+    "lead_enrichment": {
+        "description": "Enrich leads with additional data",
+        "providers": ["apollo_enricher", "noop_lead_enricher"],  # Primary: Apollo API, Fallback: noop
+    },
+    "email_verification": {
+        "description": "Verify email addresses",
+        "providers": ["dropcontact_verifier", "noop_email_verifier"],  # Primary: Dropcontact API, Fallback: noop
+    },
+    "reply_fetching": {
+        "description": "Fetch incoming email replies",
+        "providers": ["imap_reply_fetcher", "noop_reply_fetcher"],  # Primary: IMAP, Fallback: noop
+    },
+    "webhook_dispatch": {
+        "description": "Send events to external systems (Make.com, Zapier, etc)",
+        "providers": ["make_webhook"],  # Primary: Make.com
+    },
+    "media_generation": {
+        "description": "Generate images from text prompts",
+        "providers": ["sdxl", "openai_images", "flux", "replicate_sdxl", "figma_api", "canva_api", "noop_media"],
+        "comment": "Primary: SDXL, Fallbacks: OpenAI, Flux, Replicate, Figma, Canva, No-op",
+    },
+    "video_generation": {
+        "description": "Generate videos from text prompts (reels, shorts, etc)",
+        "providers": ["runway_ml", "pika_labs", "luma_dream", "noop_video"],
+        "comment": "Primary: Runway ML, Fallbacks: Pika Labs, Luma Dream, No-op",
+    },
+}
+
+
+def get_provider_chain_config(capability: str):
+    """
+    Get multi-provider configuration for a capability.
+    
+    Args:
+        capability: Capability name (e.g., "email_sending")
+        
+    Returns:
+        Configuration dict with description and provider list, or None if not found
+    """
+    return MULTI_PROVIDER_CONFIG.get(capability)
+
+
+def list_capabilities():
+    """Get list of all configured capabilities."""
+    return list(MULTI_PROVIDER_CONFIG.keys())

@@ -778,3 +778,475 @@ def get_project_analytics_dashboard(db: Session, project_id: int) -> Dict[str, A
         return {"error": f"Failed to generate analytics dashboard: {str(e)}"}
 
 
+# ============================================================================
+# PHASE 7.5: CREATIVE REVIEW SERVICE
+# ============================================================================
+
+class CreativeReviewService:
+    """
+    Service for managing creative review and optimization task approval.
+    
+    Provides operators with visibility into:
+    - Pending optimization tasks
+    - Variant suggestions
+    - Performance metrics
+    - Approval/rejection workflows
+    """
+    
+    def __init__(self, optimization_optimizer=None, media_engine=None):
+        """
+        Initialize creative review service.
+        
+        Args:
+            optimization_optimizer: CreativePerformanceOptimizer instance
+            media_engine: MediaEngine instance
+        """
+        self.optimizer = optimization_optimizer
+        self.media_engine = media_engine
+        self.approval_history: List[Dict[str, Any]] = []
+    
+    def list_creative_optimization_tasks(
+        self,
+        client_id: str,
+        status: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get list of optimization tasks for review.
+        
+        Args:
+            client_id: Client to get tasks for
+            status: Filter by status (pending, approved, etc)
+            limit: Max results
+            
+        Returns:
+            List of task dicts with metadata for UI display
+        """
+        if not self.optimizer:
+            return []
+        
+        try:
+            # Get tasks from optimizer
+            if status:
+                tasks = self.optimizer.list_tasks_by_status(status)
+            else:
+                tasks = self.optimizer.list_all_tasks()
+            
+            # Format for UI
+            result = []
+            for task in tasks[:limit]:
+                # Get asset info for display
+                asset = None
+                if self.media_engine:
+                    asset = self.media_engine.assets.get(task.asset_id)
+                
+                task_data = {
+                    "task_id": task.task_id,
+                    "asset_id": task.asset_id,
+                    "asset_name": asset.name if asset else "Unknown",
+                    "asset_type": asset.media_type.value if asset else "unknown",
+                    "reason": task.reason,
+                    "action_type": task.action_type,
+                    "status": task.status,
+                    "created_at": task.created_at.isoformat(),
+                    "updated_at": task.updated_at.isoformat(),
+                    "metadata": task.metadata,
+                }
+                
+                result.append(task_data)
+            
+            return result
+            
+        except Exception as e:
+            return []
+    
+    def approve_creative_task(
+        self,
+        task_id: str,
+        operator_id: str,
+        notes: Optional[str] = None,
+    ) -> bool:
+        """
+        Operator approves a task for execution.
+        
+        Args:
+            task_id: Task to approve
+            operator_id: Operator ID (for audit trail)
+            notes: Optional approval notes
+            
+        Returns:
+            True if approved, False otherwise
+        """
+        if not self.optimizer:
+            return False
+        
+        try:
+            # Update task status
+            self.optimizer.mark_task_status(
+                task_id=task_id,
+                new_status="approved",
+                metadata={
+                    "approved_by": operator_id,
+                    "approved_at": datetime.now().isoformat(),
+                    "approval_notes": notes,
+                },
+            )
+            
+            # Log approval
+            self.approval_history.append({
+                "task_id": task_id,
+                "operator_id": operator_id,
+                "action": "approve",
+                "timestamp": datetime.now(),
+                "notes": notes,
+            })
+            
+            return True
+            
+        except Exception:
+            return False
+    
+    def reject_creative_task(
+        self,
+        task_id: str,
+        operator_id: str,
+        reason: Optional[str] = None,
+    ) -> bool:
+        """
+        Operator rejects a task.
+        
+        Args:
+            task_id: Task to reject
+            operator_id: Operator ID (for audit trail)
+            reason: Rejection reason
+            
+        Returns:
+            True if rejected, False otherwise
+        """
+        if not self.optimizer:
+            return False
+        
+        try:
+            # Update task status
+            self.optimizer.mark_task_status(
+                task_id=task_id,
+                new_status="rejected",
+                metadata={
+                    "rejected_by": operator_id,
+                    "rejected_at": datetime.now().isoformat(),
+                    "rejection_reason": reason,
+                },
+            )
+            
+            # Log rejection
+            self.approval_history.append({
+                "task_id": task_id,
+                "operator_id": operator_id,
+                "action": "reject",
+                "timestamp": datetime.now(),
+                "reason": reason,
+            })
+            
+            return True
+            
+        except Exception:
+            return False
+    
+    def trigger_task_execution(self, task_id: str) -> bool:
+        """
+        Trigger execution of an approved task.
+        
+        Args:
+            task_id: Task to execute
+            
+        Returns:
+            True if execution started, False otherwise
+        """
+        if not self.optimizer:
+            return False
+        
+        try:
+            task = self.optimizer.get_task(task_id)
+            if not task:
+                return False
+            
+            if task.status != "approved":
+                return False
+            
+            # Execute based on action type
+            if task.action_type == "generate_variants":
+                success = self.optimizer.execute_task_generate_variants(task_id)
+            elif task.action_type == "replace":
+                success = self.optimizer.execute_task_replace(task_id)
+            else:
+                success = False
+            
+            return success
+            
+        except Exception:
+            return False
+    
+    def get_dashboard_summary(self, client_id: str) -> Dict[str, Any]:
+        """
+        Get summary data for operator dashboard.
+        
+        Args:
+            client_id: Client to get summary for
+            
+        Returns:
+            Dashboard summary dict
+        """
+        if not self.optimizer:
+            return {
+                "pending_count": 0,
+                "approved_count": 0,
+                "executed_count": 0,
+                "recent_activity": [],
+            }
+        
+        try:
+            # Count tasks by status
+            pending_tasks = self.optimizer.list_tasks_by_status("pending")
+            approved_tasks = self.optimizer.list_tasks_by_status("approved")
+            executed_tasks = self.optimizer.list_tasks_by_status("executed")
+            
+            summary = {
+                "pending_count": len(pending_tasks),
+                "approved_count": len(approved_tasks),
+                "executed_count": len(executed_tasks),
+                "total_count": len(pending_tasks) + len(approved_tasks) + len(executed_tasks),
+                "recent_activity": [
+                    {
+                        "task_id": activity["task_id"],
+                        "action": activity["action"],
+                        "operator_id": activity["operator_id"],
+                        "timestamp": activity["timestamp"].isoformat(),
+                    }
+                    for activity in self.approval_history[-10:]
+                ],
+            }
+            
+            return summary
+            
+        except Exception:
+            return {
+                "pending_count": 0,
+                "approved_count": 0,
+                "executed_count": 0,
+            }
+
+
+# ============================================================================
+# PHASE 14: OPERATOR DASHBOARD SERVICE
+# ============================================================================
+
+def get_operator_dashboard_service(
+    brand_brain_repo: Optional[Any] = None,
+    auto_brain_task_repo: Optional[Any] = None,
+    scheduler_repo: Optional[Any] = None,
+    feedback_loop: Optional[Any] = None,
+) -> Any:
+    """
+    Factory for OperatorDashboardService.
+    
+    Initializes the service with available repositories.
+    
+    Args:
+        brand_brain_repo: BrandBrainRepository (Phase 9)
+        auto_brain_task_repo: AutoBrainTaskRepository (Phase 10)
+        scheduler_repo: SchedulerRepository (Phase 12)
+        feedback_loop: FeedbackLoop (Phase 13)
+        
+    Returns:
+        OperatorDashboardService instance
+    """
+    from aicmo.operator.dashboard_service import OperatorDashboardService
+    from aicmo.operator.automation_settings import AutomationSettingsRepository
+    
+    automation_settings_repo = AutomationSettingsRepository()
+    
+    return OperatorDashboardService(
+        brand_brain_repo=brand_brain_repo,
+        auto_brain_task_repo=auto_brain_task_repo,
+        scheduler_repo=scheduler_repo,
+        feedback_loop=feedback_loop,
+        automation_settings_repo=automation_settings_repo,
+    )
+
+
+def get_brand_dashboard(
+    brand_id: str,
+    dashboard_service: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """
+    Get complete dashboard view for a brand.
+    
+    Returns JSON-serializable dict with:
+    - Brand status (LBB data, analytics, risk flags)
+    - Task queue (counts, recent tasks)
+    - Schedule (upcoming, overdue, next tick)
+    - Feedback (anomalies, last run)
+    - Automation mode (manual, review_first, full_auto, dry_run)
+    
+    Args:
+        brand_id: Brand UUID
+        dashboard_service: OperatorDashboardService (if None, creates default)
+        
+    Returns:
+        Dict with dashboard view
+    """
+    if dashboard_service is None:
+        dashboard_service = get_operator_dashboard_service()
+    
+    try:
+        view = dashboard_service.get_dashboard_view(brand_id)
+        return view.to_dict()
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to get dashboard: {str(e)}",
+        }
+
+
+def update_automation_settings(
+    brand_id: str,
+    mode: str,
+    dry_run: bool,
+    dashboard_service: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """
+    Update automation settings for a brand.
+    
+    Modes:
+    - "manual": Operator must explicitly trigger everything
+    - "review_first": Operator approves before execution (default)
+    - "full_auto": Auto-approve & execute safe tasks
+    
+    Args:
+        brand_id: Brand UUID
+        mode: Automation mode
+        dry_run: If True, no external APIs called
+        dashboard_service: OperatorDashboardService (if None, creates default)
+        
+    Returns:
+        Dict with success/error status
+    """
+    if dashboard_service is None:
+        dashboard_service = get_operator_dashboard_service()
+    
+    return dashboard_service.set_automation_mode(
+        brand_id=brand_id,
+        mode=mode,
+        dry_run=dry_run,
+    )
+
+
+def trigger_auto_brain(
+    brand_id: str,
+    dashboard_service: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """
+    Trigger Agency Auto-Brain (AAB) scan for a brand.
+    
+    AAB detects what work needs to be done (SWOT, personas, messaging, etc.)
+    and proposes tasks.
+    
+    Args:
+        brand_id: Brand UUID
+        dashboard_service: OperatorDashboardService (if None, creates default)
+        
+    Returns:
+        Dict with execution summary
+    """
+    if dashboard_service is None:
+        dashboard_service = get_operator_dashboard_service()
+    
+    return dashboard_service.run_auto_brain_for_brand(brand_id)
+
+
+def trigger_execution_cycle(
+    brand_id: str,
+    max_tasks: int = 5,
+    dashboard_service: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """
+    Trigger execution cycle for a brand.
+    
+    Based on automation mode:
+    - "manual": Returns skipped (no execution)
+    - "review_first": Only executes approved tasks
+    - "full_auto": Auto-approves safe tasks, then executes
+    
+    Respects dry_run flag (no external APIs when True).
+    
+    Args:
+        brand_id: Brand UUID
+        max_tasks: Maximum tasks to execute
+        dashboard_service: OperatorDashboardService (if None, creates default)
+        
+    Returns:
+        Dict with execution results
+    """
+    if dashboard_service is None:
+        dashboard_service = get_operator_dashboard_service()
+    
+    return dashboard_service.run_execution_cycle_for_brand(
+        brand_id=brand_id,
+        max_tasks=max_tasks,
+    )
+
+
+def trigger_scheduler_tick(
+    brand_id: str,
+    max_to_run: int = 10,
+    dashboard_service: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """
+    Trigger scheduler tick for a brand.
+    
+    Finds tasks due for execution and runs them.
+    
+    Args:
+        brand_id: Brand UUID
+        max_to_run: Maximum tasks to execute in this tick
+        dashboard_service: OperatorDashboardService (if None, creates default)
+        
+    Returns:
+        Dict with execution results
+    """
+    if dashboard_service is None:
+        dashboard_service = get_operator_dashboard_service()
+    
+    return dashboard_service.run_scheduler_tick_for_brand(
+        brand_id=brand_id,
+        max_to_run=max_to_run,
+    )
+
+
+def trigger_feedback_cycle(
+    brand_id: str,
+    dashboard_service: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """
+    Trigger feedback loop for a brand.
+    
+    Collects performance data, detects anomalies, proposes corrective tasks.
+    Updates Learning Brain (Phase 9) with observations.
+    
+    Args:
+        brand_id: Brand UUID
+        dashboard_service: OperatorDashboardService (if None, creates default)
+        
+    Returns:
+        Dict with feedback summary
+    """
+    if dashboard_service is None:
+        dashboard_service = get_operator_dashboard_service()
+    
+    return dashboard_service.run_feedback_cycle_for_brand(brand_id)
+
+
+
+
+
+

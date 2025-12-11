@@ -1,0 +1,40 @@
+{
+  "target_feature": "persona_generator",
+  "name": "Persona Generator Benchmark",
+  "description": "Benchmark for persona generator output quality",
+  "version": "1.0",
+  "test_cases": [
+    {
+      "id": "persona_001",
+      "scenario": "B2B SaaS persona",
+      "expected_fields": [
+        "name",
+        "role",
+        "company_size",
+        "challenges",
+        "goals",
+        "preferred_channels"
+      ]
+    },
+    {
+      "id": "persona_002",
+      "scenario": "e-commerce persona",
+      "expected_fields": [
+        "name",
+        "demographics",
+        "buying_behavior",
+        "budget",
+        "pain_points"
+      ]
+    }
+  ],
+  "quality_metrics": {
+    "min_word_count": 100,
+    "max_word_count": 500,
+    "required_sections": [
+      "background",
+      "goals",
+      "challenges"
+    ]
+  }
+}

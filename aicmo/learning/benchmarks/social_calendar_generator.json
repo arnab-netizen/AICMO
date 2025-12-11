@@ -1,0 +1,34 @@
+{
+  "target_feature": "social_calendar_generator",
+  "name": "Social Calendar Generator Benchmark",
+  "description": "Benchmark for social calendar generation",
+  "version": "1.0",
+  "test_cases": [
+    {
+      "id": "calendar_001",
+      "scenario": "30-day LinkedIn calendar",
+      "expected_fields": [
+        "date",
+        "content",
+        "platform",
+        "engagement_goal"
+      ],
+      "minimum_posts": 28
+    },
+    {
+      "id": "calendar_002",
+      "scenario": "multi-platform calendar",
+      "platforms": [
+        "LinkedIn",
+        "Twitter"
+      ],
+      "minimum_posts": 40
+    }
+  ],
+  "quality_metrics": {
+    "min_content_length": 20,
+    "max_content_length": 280,
+    "required_post_count": 30,
+    "platform_diversity": true
+  }
+}

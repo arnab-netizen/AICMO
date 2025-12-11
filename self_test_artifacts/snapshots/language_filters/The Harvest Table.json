@@ -1,0 +1,10 @@
+{
+  "feature": "language_filters",
+  "scenario": "The Harvest Table",
+  "timestamp": "2025-12-11T14:07:45.910804",
+  "metadata": {},
+  "payload": {
+    "output_type": "ClientInputBrief",
+    "has_content": true
+  }
+}

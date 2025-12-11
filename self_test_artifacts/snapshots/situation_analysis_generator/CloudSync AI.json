@@ -1,0 +1,10 @@
+{
+  "feature": "situation_analysis_generator",
+  "scenario": "CloudSync AI",
+  "timestamp": "2025-12-11T14:07:45.923200",
+  "metadata": {},
+  "payload": {
+    "output_type": "str",
+    "has_content": true
+  }
+}

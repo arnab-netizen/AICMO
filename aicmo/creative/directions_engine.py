@@ -44,11 +44,9 @@ def generate_creative_directions(
     Returns:
         List of 3 CreativeDirection objects
     """
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY environment variable not set")
-
-    client = OpenAI(api_key=api_key)
+    # Import LLM router (Phase 8.4)
+    from aicmo.llm.router import get_llm_client, LLMUseCase
+    import asyncio
 
     # Extract key info from brief
     brief_text = ""
@@ -104,14 +102,28 @@ Return a JSON array with exactly 3 direction objects. Example format:
 Generate ONLY the JSON array, no other text."""
 
     try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=2000,
+        # Get LLM client for CREATIVE_SPEC use-case
+        chain = get_llm_client(
+            use_case=LLMUseCase.CREATIVE_SPEC,
+            profile_override=None,
+            deep_research=False,
+            multimodal=False
         )
 
-        text = response.choices[0].message.content.strip()
+        # Call the chain via ProviderChain.invoke
+        success, result, provider_name = asyncio.run(
+            chain.invoke(
+                "generate",
+                prompt=prompt
+            )
+        )
+
+        if not success or not result:
+            raise Exception(f"LLM returned failure via {provider_name}")
+
+        # Extract response text
+        text = result if isinstance(result, str) else result.get("content", "")
+        text = text.strip()
 
         # Parse JSON response
         try:

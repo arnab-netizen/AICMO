@@ -41,15 +41,57 @@ class ApolloEnricher(LeadEnricherPort):
         if not self.is_configured():
             return None
         
+        if not lead.email:
+            return None
+        
         try:
-            # TODO: Implement actual Apollo API call
-            # For now: placeholder that would call Apollo's people search endpoint
-            logger.debug(f"ApolloEnricher would fetch data for {lead.email}")
-            return {
-                "source": "apollo",
-                "enriched_at": "2024-01-17T00:00:00Z",
-                # Would include: company, job_title, linkedin_url, email_status, etc.
+            import requests
+            from datetime import datetime
+            
+            # Apollo People Search endpoint
+            url = f"{self.api_base}/people/search"
+            
+            headers = {
+                "X-Api-Key": self.api_key,
+                "Content-Type": "application/json"
             }
+            
+            payload = {
+                "q_emails": [lead.email],
+                "reveal_personal_emails": True
+            }
+            
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            if data.get("contacts") and len(data["contacts"]) > 0:
+                contact = data["contacts"][0]
+                
+                enrichment = {
+                    "source": "apollo",
+                    "enriched_at": datetime.utcnow().isoformat(),
+                    "contact_id": contact.get("id"),
+                    "email_status": contact.get("email_status"),  # verified, bounced, etc.
+                    "company": contact.get("organization", {}).get("name"),
+                    "job_title": contact.get("title"),
+                    "linkedin_url": contact.get("linkedin_url"),
+                    "phone": contact.get("phone_number"),
+                    "industry": contact.get("organization", {}).get("industry"),
+                    "company_size": contact.get("organization", {}).get("size"),
+                    "seniority_level": contact.get("seniority"),
+                }
+                
+                logger.info(f"Apollo enriched {lead.email}: {contact.get('title')} at {contact.get('organization', {}).get('name')}")
+                return enrichment
+            else:
+                logger.debug(f"Apollo: No data found for {lead.email}")
+                return None
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Apollo API request error for {lead.email}: {e}")
+            return None
         except Exception as e:
             logger.error(f"Apollo enrichment error for {lead.email}: {e}")
             return None
@@ -78,7 +120,7 @@ class ApolloEnricher(LeadEnricherPort):
     
     def enrich_batch(self, leads: list[Lead]) -> list[Lead]:
         """
-        Enrich multiple leads.
+        Enrich multiple leads in batch (more efficient than individual calls).
         
         Args:
             leads: List of leads to enrich
@@ -86,10 +128,78 @@ class ApolloEnricher(LeadEnricherPort):
         Returns:
             List of enriched leads
         """
-        # TODO: Use Apollo's batch endpoint if available
-        # For now: fall back to individual enrichment
-        logger.debug(f"Enriching batch of {len(leads)} leads via Apollo")
-        return [self.enrich(lead) for lead in leads]
+        if not self.is_configured():
+            logger.debug(f"Apollo not configured, returning {len(leads)} leads unenriched")
+            return leads
+        
+        if not leads:
+            return leads
+        
+        try:
+            import requests
+            from datetime import datetime
+            
+            # Filter leads with emails
+            enrichable_leads = [lead for lead in leads if lead.email]
+            if not enrichable_leads:
+                return leads
+            
+            # Apollo People Search with batch of emails
+            url = f"{self.api_base}/people/search"
+            
+            headers = {
+                "X-Api-Key": self.api_key,
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "q_emails": [lead.email for lead in enrichable_leads],
+                "reveal_personal_emails": True
+            }
+            
+            response = requests.post(url, json=payload, headers=headers, timeout=15)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            # Build email -> contact data mapping
+            contact_map = {}
+            if data.get("contacts"):
+                for contact in data["contacts"]:
+                    email = contact.get("email")
+                    if email:
+                        contact_map[email] = contact
+            
+            # Update leads with enrichment data
+            enriched_count = 0
+            for lead in enrichable_leads:
+                if lead.email in contact_map:
+                    contact = contact_map[lead.email]
+                    lead.enrichment_data = lead.enrichment_data or {}
+                    lead.enrichment_data.update({
+                        "source": "apollo",
+                        "enriched_at": datetime.utcnow().isoformat(),
+                        "contact_id": contact.get("id"),
+                        "email_status": contact.get("email_status"),
+                        "company": contact.get("organization", {}).get("name"),
+                        "job_title": contact.get("title"),
+                        "linkedin_url": contact.get("linkedin_url"),
+                        "phone": contact.get("phone_number"),
+                        "industry": contact.get("organization", {}).get("industry"),
+                        "company_size": contact.get("organization", {}).get("size"),
+                        "seniority_level": contact.get("seniority"),
+                    })
+                    enriched_count += 1
+            
+            logger.info(f"Enriched {enriched_count}/{len(enrichable_leads)} leads via Apollo")
+            return leads
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Apollo batch enrichment API error: {e}")
+            return leads
+        except Exception as e:
+            logger.error(f"Apollo batch enrichment error: {e}")
+            return leads
     
     def is_configured(self) -> bool:
         """Check if Apollo API key is set."""

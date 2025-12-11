@@ -8,6 +8,10 @@ Provides centralized creation of gateway instances with proper fallback logic:
 Never raises exceptions at import or creation time.
 
 Phase CAM-2: Added factory functions for CAM port adapters (LeadSource, Enricher, Verifier).
+
+Phase 0 (Step 4): Integrated ProviderChain for multi-provider support with health monitoring
+and automatic fallback. Factory maintains backward compatibility while enabling advanced
+provider management via ProviderChain registry.
 """
 
 import logging
@@ -22,9 +26,18 @@ from .adapters.cam_noop import NoOpLeadSource, NoOpLeadEnricher, NoOpEmailVerifi
 from .adapters.apollo_enricher import ApolloEnricher
 from .adapters.dropcontact_verifier import DropcontactVerifier
 from .adapters.make_webhook import MakeWebhookAdapter
+from .adapters.airtable_crm import AirtableCRMSyncer
 
 # Phase 8: Reply fetcher factory
 from .adapters.reply_fetcher import IMAPReplyFetcher, NoOpReplyFetcher
+
+# Phase 0 Step 4: ProviderChain integration (optional advanced usage)
+from .provider_chain import (
+    ProviderChain,
+    ProviderWrapper,
+    register_provider_chain,
+    get_provider_chain,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -108,14 +121,14 @@ def get_crm_syncer() -> NoOpCRMSyncer:
     
     if config.USE_REAL_CRM_GATEWAY and config.is_crm_configured():
         try:
-            # Try to import and create real CRM adapter
-            # For now, only Airtable is supported as a simple CRM
-            logger.info("Using real CRM gateway (Airtable)")
-            # TODO: Import real AirtableCRMSyncer when implemented
-            # from ..adapters.airtable import AirtableCRMSyncer
-            # return AirtableCRMSyncer()
-            logger.warning("Real CRM adapter not yet implemented, using no-op")
-            return NoOpCRMSyncer()
+            # Try Airtable first (simple REST API)
+            airtable = AirtableCRMSyncer()
+            if airtable.is_configured():
+                logger.info("Using Airtable CRM gateway")
+                return airtable
+            else:
+                logger.debug("Airtable not configured, using no-op CRM gateway")
+                return NoOpCRMSyncer()
         except Exception as e:
             logger.warning(
                 f"Failed to create real CRM gateway: {e}. "
@@ -243,3 +256,334 @@ def get_reply_fetcher():
     
     logger.debug("Using no-op reply fetcher")
     return NoOpReplyFetcher()
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PHASE 0 STEP 4: PROVIDER CHAIN INTEGRATION
+# ═══════════════════════════════════════════════════════════════════════
+
+def setup_provider_chains(is_dry_run: bool = False) -> None:
+    """
+    Setup ProviderChain instances for all capabilities with health monitoring.
+    
+    Creates and registers ProviderChain for each capability, enabling:
+    - Health-based provider prioritization
+    - Automatic fallback on provider failure
+    - Provider performance monitoring
+    - Self-healing provider selection
+    
+    Call this once at application startup to enable advanced provider management.
+    
+    Args:
+        is_dry_run: If True, all providers run in simulation mode (no real calls)
+        
+    Example:
+        # At application startup
+        setup_provider_chains(is_dry_run=not config.USE_REAL_GATEWAYS)
+        
+        # Then use ProviderChain for advanced provider management:
+        chain = get_provider_chain("email_sending")
+        success, result, provider = await chain.invoke("send_email", ...)
+    """
+    config = get_gateway_config()
+    
+    # Email Sending Chain
+    try:
+        email_providers = []
+        if config.USE_REAL_EMAIL_GATEWAY and config.is_email_configured():
+            real_email = get_email_sender()
+            email_providers.append(
+                ProviderWrapper(real_email, "real_email_gateway", is_dry_run)
+            )
+        
+        # Fallback to no-op
+        email_providers.append(
+            ProviderWrapper(NoOpEmailSender(), "noop_email", is_dry_run)
+        )
+        
+        email_chain = ProviderChain(
+            capability_name="email_sending",
+            providers=email_providers,
+            is_dry_run=is_dry_run,
+        )
+        register_provider_chain(email_chain)
+        logger.info(f"Registered ProviderChain: email_sending ({len(email_providers)} providers)")
+    except Exception as e:
+        logger.error(f"Failed to setup email_sending ProviderChain: {e}")
+    
+    # Social Posting Chain (multi-platform)
+    for platform in ["linkedin", "twitter", "instagram"]:
+        try:
+            social_providers = []
+            if config.USE_REAL_SOCIAL_GATEWAYS and config.is_social_configured(platform):
+                real_social = get_social_poster(platform)
+                social_providers.append(
+                    ProviderWrapper(real_social, f"real_{platform}", is_dry_run)
+                )
+            
+            # Fallback to no-op
+            social_providers.append(
+                ProviderWrapper(NoOpSocialPoster(platform), f"noop_{platform}", is_dry_run)
+            )
+            
+            social_chain = ProviderChain(
+                capability_name=f"social_posting_{platform}",
+                providers=social_providers,
+                is_dry_run=is_dry_run,
+            )
+            register_provider_chain(social_chain)
+            logger.info(f"Registered ProviderChain: social_posting_{platform} ({len(social_providers)} providers)")
+        except Exception as e:
+            logger.error(f"Failed to setup social_posting_{platform} ProviderChain: {e}")
+    
+    # CRM Sync Chain
+    try:
+        crm_providers = []
+        if config.USE_REAL_CRM_GATEWAY and config.is_crm_configured():
+            airtable = AirtableCRMSyncer()
+            crm_providers.append(
+                ProviderWrapper(airtable, "airtable_crm", is_dry_run)
+            )
+        
+        # Fallback to no-op
+        crm_providers.append(
+            ProviderWrapper(NoOpCRMSyncer(), "noop_crm", is_dry_run)
+        )
+        
+        crm_chain = ProviderChain(
+            capability_name="crm_sync",
+            providers=crm_providers,
+            is_dry_run=is_dry_run,
+        )
+        register_provider_chain(crm_chain)
+        logger.info(f"Registered ProviderChain: crm_sync ({len(crm_providers)} providers)")
+    except Exception as e:
+        logger.error(f"Failed to setup crm_sync ProviderChain: {e}")
+    
+    # Lead Enrichment Chain
+    try:
+        enricher_providers = []
+        apollo = ApolloEnricher()
+        if apollo.is_configured():
+            enricher_providers.append(
+                ProviderWrapper(apollo, "apollo_enricher", is_dry_run)
+            )
+        
+        # Fallback to no-op
+        enricher_providers.append(
+            ProviderWrapper(NoOpLeadEnricher(), "noop_enricher", is_dry_run)
+        )
+        
+        enricher_chain = ProviderChain(
+            capability_name="lead_enrichment",
+            providers=enricher_providers,
+            is_dry_run=is_dry_run,
+        )
+        register_provider_chain(enricher_chain)
+        logger.info(f"Registered ProviderChain: lead_enrichment ({len(enricher_providers)} providers)")
+    except Exception as e:
+        logger.error(f"Failed to setup lead_enrichment ProviderChain: {e}")
+    
+    # Email Verification Chain
+    try:
+        verifier_providers = []
+        dropcontact = DropcontactVerifier()
+        if dropcontact.is_configured():
+            verifier_providers.append(
+                ProviderWrapper(dropcontact, "dropcontact_verifier", is_dry_run)
+            )
+        
+        # Fallback to no-op
+        verifier_providers.append(
+            ProviderWrapper(NoOpEmailVerifier(), "noop_verifier", is_dry_run)
+        )
+        
+        verifier_chain = ProviderChain(
+            capability_name="email_verification",
+            providers=verifier_providers,
+            is_dry_run=is_dry_run,
+        )
+        register_provider_chain(verifier_chain)
+        logger.info(f"Registered ProviderChain: email_verification ({len(verifier_providers)} providers)")
+    except Exception as e:
+        logger.error(f"Failed to setup email_verification ProviderChain: {e}")
+    
+    # Reply Fetching Chain
+    try:
+        fetcher_providers = []
+        imap = IMAPReplyFetcher()
+        if imap.is_configured():
+            fetcher_providers.append(
+                ProviderWrapper(imap, "imap_reply_fetcher", is_dry_run)
+            )
+        
+        # Fallback to no-op
+        fetcher_providers.append(
+            ProviderWrapper(NoOpReplyFetcher(), "noop_reply_fetcher", is_dry_run)
+        )
+        
+        fetcher_chain = ProviderChain(
+            capability_name="reply_fetching",
+            providers=fetcher_providers,
+            is_dry_run=is_dry_run,
+        )
+        register_provider_chain(fetcher_chain)
+        logger.info(f"Registered ProviderChain: reply_fetching ({len(fetcher_providers)} providers)")
+    except Exception as e:
+        logger.error(f"Failed to setup reply_fetching ProviderChain: {e}")
+    
+    logger.info("✓ All ProviderChains registered and ready")
+
+
+def get_email_sending_chain() -> Optional[ProviderChain]:
+    """
+    Get ProviderChain for email sending (requires setup_provider_chains() call).
+    
+    Returns:
+        ProviderChain for email_sending capability, or None if not registered
+    """
+    return get_provider_chain("email_sending")
+
+
+def get_social_posting_chain(platform: str) -> Optional[ProviderChain]:
+    """
+    Get ProviderChain for social posting on specific platform.
+    
+    Args:
+        platform: Platform name (linkedin, twitter, instagram)
+        
+    Returns:
+        ProviderChain for social_posting_{platform} capability, or None if not registered
+    """
+    return get_provider_chain(f"social_posting_{platform}")
+
+
+def get_crm_sync_chain() -> Optional[ProviderChain]:
+    """
+    Get ProviderChain for CRM synchronization.
+    
+    Returns:
+        ProviderChain for crm_sync capability, or None if not registered
+    """
+    return get_provider_chain("crm_sync")
+
+
+def get_lead_enrichment_chain() -> Optional[ProviderChain]:
+    """
+    Get ProviderChain for lead enrichment.
+    
+    Returns:
+        ProviderChain for lead_enrichment capability, or None if not registered
+    """
+    return get_provider_chain("lead_enrichment")
+
+
+def get_email_verification_chain() -> Optional[ProviderChain]:
+    """
+    Get ProviderChain for email verification.
+    
+    Returns:
+        ProviderChain for email_verification capability, or None if not registered
+    """
+    return get_provider_chain("email_verification")
+
+
+def get_reply_fetching_chain() -> Optional[ProviderChain]:
+    """
+    Get ProviderChain for reply fetching.
+    
+    Returns:
+        ProviderChain for reply_fetching capability, or None if not registered
+    """
+    return get_provider_chain("reply_fetching")
+
+
+# Phase 4.5: Media generation support
+def get_media_generator_chain():
+    """
+    Get MediaGeneratorChain for image generation with automatic provider fallback.
+    
+    Builds chain of media generation providers (SDXL, OpenAI, Flux, etc.)
+    with automatic fallback and health monitoring.
+    
+    Returns:
+        MediaGeneratorChain with ordered providers or None if not registered
+    """
+    from ..media.generators.provider_chain import MediaGeneratorChain
+    from ..media.adapters import (
+        SDXLAdapter,
+        OpenAIImagesAdapter,
+        FluxAdapter,
+        ReplicateSDXLAdapter,
+        FigmaAPIAdapter,
+        CanvaAPIAdapter,
+        NoOpMediaAdapter,
+    )
+    
+    config = get_gateway_config()
+    
+    # Build provider list with priority ordering
+    providers = [
+        SDXLAdapter(dry_run=config.DRY_RUN_MODE),
+        OpenAIImagesAdapter(dry_run=config.DRY_RUN_MODE),
+        FluxAdapter(dry_run=config.DRY_RUN_MODE),
+        ReplicateSDXLAdapter(dry_run=config.DRY_RUN_MODE),
+        FigmaAPIAdapter(
+            api_token=config.FIGMA_API_TOKEN if hasattr(config, 'FIGMA_API_TOKEN') else None,
+            dry_run=config.DRY_RUN_MODE,
+        ),
+        CanvaAPIAdapter(dry_run=config.DRY_RUN_MODE),
+        NoOpMediaAdapter(),  # Always last - safe fallback
+    ]
+    
+    logger.info(f"Created MediaGeneratorChain with {len(providers)} providers")
+    return MediaGeneratorChain(
+        providers=providers,
+        dry_run=config.DRY_RUN_MODE,
+    )
+
+
+# Phase 7: Video generation support
+def get_video_generator_chain():
+    """
+    Get VideoGeneratorChain for video generation with automatic provider fallback.
+    
+    Builds chain of video generation providers (Runway ML, Pika Labs, Luma Dream, etc.)
+    with automatic fallback and health monitoring.
+    
+    Returns:
+        MediaGeneratorChain with ordered video providers or None if not registered
+    """
+    from ..media.generators.provider_chain import MediaGeneratorChain
+    from ..media.adapters import (
+        RunwayMLAdapter,
+        PikaLabsAdapter,
+        LumaDreamAdapter,
+        NoOpVideoAdapter,
+    )
+    
+    config = get_gateway_config()
+    
+    # Build provider list with priority ordering
+    providers = [
+        RunwayMLAdapter(
+            api_key=config.RUNWAY_ML_API_KEY if hasattr(config, 'RUNWAY_ML_API_KEY') else None,
+            dry_run=config.DRY_RUN_MODE,
+        ),
+        PikaLabsAdapter(
+            api_key=config.PIKA_LABS_API_KEY if hasattr(config, 'PIKA_LABS_API_KEY') else None,
+            dry_run=config.DRY_RUN_MODE,
+        ),
+        LumaDreamAdapter(
+            api_key=config.LUMA_DREAM_API_KEY if hasattr(config, 'LUMA_DREAM_API_KEY') else None,
+            dry_run=config.DRY_RUN_MODE,
+        ),
+        NoOpVideoAdapter(),  # Always last - safe fallback
+    ]
+    
+    logger.info(f"Created video generation chain with {len(providers)} providers")
+    return MediaGeneratorChain(
+        providers=providers,
+        dry_run=config.DRY_RUN_MODE,
+    )
+

@@ -378,11 +378,107 @@ def generate_full_deck_pptx(project_data: Dict[str, Any]) -> Optional[str]:
     Raises:
         Exception: On PPTX generation errors
     """
-    # TODO: Implement PPTX generation
-    # Should call underlying deck generator or PPTX library
-    # Expected to exist as generate_full_deck in reporting module
-    logger.debug("generate_full_deck_pptx")
-    return None
+    try:
+        from pptx import Presentation
+        from pptx.util import Inches, Pt
+        from pptx.enum.text import PP_ALIGN
+        from datetime import datetime
+        import tempfile
+        import os
+        
+        # Create presentation
+        prs = Presentation()
+        prs.slide_width = Inches(10)
+        prs.slide_height = Inches(7.5)
+        
+        # Title Slide
+        slide = prs.slides.add_slide(prs.slide_layouts[6])  # Blank layout
+        left = Inches(0.5)
+        top = Inches(2.5)
+        width = Inches(9)
+        height = Inches(2)
+        
+        title_box = slide.shapes.add_textbox(left, top, width, height)
+        title_frame = title_box.text_frame
+        title_frame.text = project_data.get("project_name", "Creative Execution Deck")
+        title_frame.paragraphs[0].font.size = Pt(54)
+        title_frame.paragraphs[0].font.bold = True
+        
+        # Subtitle
+        subtitle_box = slide.shapes.add_textbox(Inches(0.5), Inches(4.5), Inches(9), Inches(1))
+        subtitle_frame = subtitle_box.text_frame
+        subtitle_frame.text = f"Generated: {datetime.now().strftime('%B %d, %Y')}"
+        subtitle_frame.paragraphs[0].font.size = Pt(18)
+        
+        # Strategy Slide
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(9), Inches(0.6))
+        title_frame = title_box.text_frame
+        title_frame.text = "Strategy Overview"
+        title_frame.paragraphs[0].font.size = Pt(40)
+        title_frame.paragraphs[0].font.bold = True
+        
+        content_box = slide.shapes.add_textbox(Inches(0.5), Inches(1.2), Inches(9), Inches(5.8))
+        content_frame = content_box.text_frame
+        content_frame.word_wrap = True
+        
+        strategy_text = project_data.get("strategy", "")[:500] or "Strategy details available"
+        content_frame.text = strategy_text
+        content_frame.paragraphs[0].font.size = Pt(14)
+        content_frame.paragraphs[0].level = 0
+        
+        # Creatives Slide (per platform)
+        platforms = project_data.get("platforms", [])
+        for platform in platforms[:3]:  # Limit to 3 platform slides
+            slide = prs.slides.add_slide(prs.slide_layouts[6])
+            
+            title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(9), Inches(0.6))
+            title_frame = title_box.text_frame
+            title_frame.text = f"{platform.title()} Content"
+            title_frame.paragraphs[0].font.size = Pt(40)
+            title_frame.paragraphs[0].font.bold = True
+            
+            content_box = slide.shapes.add_textbox(Inches(0.5), Inches(1.2), Inches(9), Inches(5.8))
+            content_frame = content_box.text_frame
+            content_frame.word_wrap = True
+            
+            platform_content = f"• Primary platform: {platform}\n• Content strategy tailored for {platform}\n• Expected engagement metrics"
+            content_frame.text = platform_content
+            content_frame.paragraphs[0].font.size = Pt(14)
+        
+        # Calendar Slide
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(9), Inches(0.6))
+        title_frame = title_box.text_frame
+        title_frame.text = "Content Calendar"
+        title_frame.paragraphs[0].font.size = Pt(40)
+        title_frame.paragraphs[0].font.bold = True
+        
+        content_box = slide.shapes.add_textbox(Inches(0.5), Inches(1.2), Inches(9), Inches(5.8))
+        content_frame = content_box.text_frame
+        content_frame.word_wrap = True
+        
+        calendar_data = project_data.get("calendar", [])
+        calendar_text = f"• Total posts planned: {len(calendar_data)}\n• Posting frequency: Daily\n• Best performing times: TBD"
+        content_frame.text = calendar_text
+        content_frame.paragraphs[0].font.size = Pt(14)
+        
+        # Save to temp file
+        temp_dir = tempfile.gettempdir()
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        pptx_filename = f"creative_deck_{timestamp}.pptx"
+        pptx_path = os.path.join(temp_dir, pptx_filename)
+        
+        prs.save(pptx_path)
+        logger.info(f"Generated PPTX: {pptx_path}")
+        return pptx_path
+        
+    except ImportError:
+        logger.warning("python-pptx not installed, cannot generate PPTX")
+        return None
+    except Exception as e:
+        logger.error(f"PPTX generation error: {e}")
+        return None
 
 
 def generate_html_summary(project_data: Dict[str, Any]) -> Optional[str]:
@@ -401,8 +497,186 @@ def generate_html_summary(project_data: Dict[str, Any]) -> Optional[str]:
     Raises:
         Exception: On HTML generation errors
     """
-    # TODO: Implement HTML generation
-    # Should create HTML file or call template renderer
-    # Expected to exist as generate_html_summary in reporting module
-    logger.debug("generate_html_summary")
-    return None
+    try:
+        from jinja2 import Template
+        from datetime import datetime
+        import tempfile
+        import os
+        import html as html_module
+        
+        # HTML template
+        html_template = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project_name }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 40px 20px;
+            margin: -40px -20px 40px -20px;
+            border-radius: 8px 8px 0 0;
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .meta {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        h2 {
+            font-size: 1.8em;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .platforms {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .platform-tag {
+            background: #3498db;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+        .calendar-preview {
+            margin-top: 15px;
+        }
+        .calendar-item {
+            background: #ecf0f1;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-left: 4px solid #3498db;
+            border-radius: 4px;
+        }
+        footer {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ecf0f1;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>{{ project_name }}</h1>
+        <div class="meta">Generated {{ generated_at }}</div>
+    </header>
+    
+    <div class="container">
+        <section>
+            <h2>Project Overview</h2>
+            <p>{{ overview }}</p>
+        </section>
+        
+        <section>
+            <h2>Strategy</h2>
+            <p>{{ strategy }}</p>
+            {% if platforms %}
+            <div class="platforms">
+                {% for platform in platforms %}
+                <span class="platform-tag">{{ platform }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </section>
+        
+        {% if calendar %}
+        <section>
+            <h2>Content Calendar</h2>
+            <p>Total posts planned: {{ calendar|length }}</p>
+            <div class="calendar-preview">
+                {% for item in calendar[:7] %}
+                <div class="calendar-item">
+                    <strong>{{ item.date or 'TBD' }}</strong> - {{ item.platform or 'Multi' }}: {{ item.hook[:60] or 'Content post' }}...
+                </div>
+                {% endfor %}
+                {% if calendar|length > 7 %}
+                <p style="margin-top: 10px; color: #7f8c8d;"><em>+ {{ calendar|length - 7 }} more posts</em></p>
+                {% endif %}
+            </div>
+        </section>
+        {% endif %}
+        
+        <section>
+            <h2>Deliverables</h2>
+            <ul>
+                <li>Content strategy document</li>
+                <li>{{ calendar|length }} social media posts (planned)</li>
+                <li>Multi-platform content calendar</li>
+                <li>Monthly performance metrics framework</li>
+            </ul>
+        </section>
+        
+        <footer>
+            <p>This report was automatically generated. All content is confidential.</p>
+        </footer>
+    </div>
+</body>
+</html>
+        """
+        
+        # Prepare template data
+        template_data = {
+            "project_name": html_module.escape(project_data.get("project_name", "Marketing Strategy")),
+            "generated_at": datetime.now().strftime("%B %d, %Y at %H:%M"),
+            "overview": html_module.escape(project_data.get("overview", "")[:500] or "Project overview"),
+            "strategy": html_module.escape(project_data.get("strategy", "")[:1000] or "Strategy details"),
+            "platforms": project_data.get("platforms", []),
+            "calendar": project_data.get("calendar", []),
+        }
+        
+        # Render template
+        template = Template(html_template)
+        html_content = template.render(**template_data)
+        
+        # Save to temp file
+        temp_dir = tempfile.gettempdir()
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        html_filename = f"summary_{timestamp}.html"
+        html_path = os.path.join(temp_dir, html_filename)
+        
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+        
+        logger.info(f"Generated HTML summary: {html_path}")
+        return html_path
+        
+    except Exception as e:
+        logger.error(f"HTML generation error: {e}")
+        return None

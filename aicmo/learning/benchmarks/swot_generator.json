@@ -1,0 +1,24 @@
+{
+  "target_feature": "swot_generator",
+  "name": "SWOT Generator Benchmark",
+  "description": "Benchmark for SWOT analysis generation",
+  "version": "1.0",
+  "test_cases": [
+    {
+      "id": "swot_001",
+      "scenario": "B2B software company",
+      "required_sections": [
+        "strengths",
+        "weaknesses",
+        "opportunities",
+        "threats"
+      ]
+    }
+  ],
+  "quality_metrics": {
+    "min_items_per_category": 3,
+    "max_items_per_category": 10,
+    "min_total_items": 12,
+    "required_analysis_depth": "strategic"
+  }
+}

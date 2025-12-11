@@ -221,7 +221,8 @@ def _generate_llm_caption_for_day(
     Returns dict with "hook" and "cta" keys, or None if generation fails.
     """
     try:
-        from aicmo.llm.client import _get_llm_provider, _get_claude_client, _get_openai_client
+        from aicmo.llm.router import get_llm_client, LLMUseCase
+        import asyncio
 
         brand_name = brief.brand.brand_name
         category = brief.brand.industry or "their category"
@@ -249,37 +250,38 @@ Return ONLY valid JSON:
   "cta": "Action words here"
 }}"""
 
-        # Get LLM provider and call appropriate client
-        provider = _get_llm_provider()
+        # Get LLM client for SOCIAL_CONTENT use-case
+        chain = get_llm_client(
+            use_case=LLMUseCase.SOCIAL_CONTENT,
+            profile_override=None,
+            deep_research=False,
+            multimodal=False
+        )
 
-        if provider == "claude":
-            client = _get_claude_client()
-            model = os.getenv("AICMO_CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
-            response = client.messages.create(
-                model=model,
-                max_tokens=500,
-                messages=[{"role": "user", "content": prompt}],
+        # Call the chain via ProviderChain.invoke
+        success, result, provider_name = asyncio.run(
+            chain.invoke(
+                "generate",
+                prompt=prompt
             )
-            result = response.content[0].text
-        else:
-            client = _get_openai_client()
-            model = os.getenv("AICMO_OPENAI_MODEL", "gpt-4o-mini")
-            response = client.chat.completions.create(
-                model=model,
-                max_tokens=500,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            result = response.choices[0].message.content
+        )
 
-        if not result or not result.strip():
+        if not success or not result:
+            logger.warning(f"Social Calendar: LLM returned failure via {provider_name}")
+            return None
+
+        # Extract response text
+        response_text = result if isinstance(result, str) else result.get("content", "")
+
+        if not response_text or not response_text.strip():
             return None
 
         # Parse JSON response
-        result = result.strip()
-        if result.startswith("```"):
-            result = result[result.find("{") : result.rfind("}") + 1]
+        response_text = response_text.strip()
+        if response_text.startswith("```"):
+            response_text = response_text[response_text.find("{") : response_text.rfind("}") + 1]
 
-        data = json.loads(result)
+        data = json.loads(response_text)
         if not isinstance(data, dict):
             return None
 
