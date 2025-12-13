@@ -743,3 +743,188 @@ def run_campaign_cycle(
         "errors": stats.get("errors", []),
     }
 
+
+# ==========================================
+# PHASE 1: EMAIL SENDING ENDPOINTS
+# ==========================================
+
+@router.post("/nurture/send-email", response_model=dict, status_code=201)
+def send_nurture_email(
+    lead_id: int,
+    campaign_id: int,
+    sequence_number: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Send a nurture email to a lead.
+    
+    Phase 1: Email sending via configured provider (Resend, SMTP, etc.).
+    
+    Features:
+    - Personalized templates
+    - Provider idempotency (no duplicate sends)
+    - Daily/batch caps enforcement
+    - Database persistence with threading support
+    
+    Args:
+        lead_id: Lead ID to send email to
+        campaign_id: Campaign ID
+        sequence_number: Step in nurture sequence (optional)
+        db: Database session
+    
+    Returns:
+        {
+            "success": bool,
+            "email_id": int,
+            "lead_id": int,
+            "to_email": str,
+            "subject": str,
+            "provider": str,
+            "provider_message_id": str,
+            "status": str,
+            "message": str,
+        }
+    
+    Raises:
+        HTTPException 404: If lead or campaign not found
+        HTTPException 400: If send failed or caps prevented sending
+    
+    Examples:
+        POST /api/cam/nurture/send-email?lead_id=1&campaign_id=1&sequence_number=1
+    """
+    import asyncio
+    from aicmo.cam.db_models import LeadDB, CampaignDB
+    from aicmo.cam.services.email_sending_service import EmailSendingService
+    from aicmo.cam.engine.lead_nurture import EmailTemplate, ContentSequenceType
+    
+    # Validate lead and campaign exist
+    lead = db.query(LeadDB).filter_by(id=lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail=f"Lead {lead_id} not found")
+    
+    campaign = db.query(CampaignDB).filter_by(id=campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found")
+    
+    # Create email template (using default sequence for now)
+    # In production, would look up template from campaign strategy
+    template = EmailTemplate(
+        sequence_type=ContentSequenceType.REGULAR_NURTURE,
+        email_number=sequence_number or 1,
+        subject=f"Check out {{{{service}}}} for {{{{company}}}}",
+        body=(
+            "Hi {{first_name}},\n\n"
+            "We help companies like {{company}} with {{service}}.\n\n"
+            "Are you available for a quick call this week?\n\n"
+            "Best,\nAICMO"
+        ),
+        cta_link="https://example.com/cta",
+    )
+    
+    # Prepare personalization
+    personalization = {
+        "first_name": lead.first_name or lead.name.split()[0] if lead.name else "there",
+        "company": lead.company or "your company",
+        "service": campaign.service_key or "our services",
+    }
+    
+    # Send email
+    service = EmailSendingService(db)
+    try:
+        # Use asyncio to run async function
+        outbound_email = asyncio.run(service.send_email(
+            to_email=lead.email,
+            campaign_id=campaign_id,
+            lead_id=lead_id,
+            template=template,
+            personalization_dict=personalization,
+            sequence_number=sequence_number,
+            campaign_sequence_id=f"{campaign.id}-seq-{sequence_number}" if sequence_number else None,
+        ))
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Email send failed: {str(e)}"
+        )
+    
+    if not outbound_email:
+        raise HTTPException(
+            status_code=400,
+            detail="Email send failed; check caps and configuration"
+        )
+    
+    return {
+        "success": outbound_email.status == "SENT",
+        "email_id": outbound_email.id,
+        "lead_id": lead_id,
+        "to_email": outbound_email.to_email,
+        "subject": outbound_email.subject,
+        "provider": outbound_email.provider,
+        "provider_message_id": outbound_email.provider_message_id,
+        "status": outbound_email.status,
+        "message": f"Email {'sent' if outbound_email.status == 'SENT' else 'failed'} to {outbound_email.to_email}",
+    }
+
+
+@router.get("/nurture/outbound-emails", response_model=List[dict])
+def list_outbound_emails(
+    campaign_id: Optional[int] = None,
+    lead_id: Optional[int] = None,
+    status: Optional[str] = None,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    """
+    List outbound emails with optional filtering.
+    
+    Phase 1: View sent emails for debugging and analytics.
+    
+    Args:
+        campaign_id: Filter by campaign ID (optional)
+        lead_id: Filter by lead ID (optional)
+        status: Filter by status: QUEUED, SENT, FAILED, BOUNCED (optional)
+        limit: Max results (default: 100, max: 1000)
+        db: Database session
+    
+    Returns:
+        List of outbound email records
+    
+    Examples:
+        GET /api/cam/nurture/outbound-emails?campaign_id=1&status=SENT&limit=50
+    """
+    from aicmo.cam.db_models import OutboundEmailDB
+    from sqlalchemy import desc
+    
+    limit = min(limit, 1000)  # Cap at 1000
+    
+    query = db.query(OutboundEmailDB)
+    
+    if campaign_id:
+        query = query.filter_by(campaign_id=campaign_id)
+    
+    if lead_id:
+        query = query.filter_by(lead_id=lead_id)
+    
+    if status:
+        query = query.filter_by(status=status)
+    
+    emails = query.order_by(desc(OutboundEmailDB.created_at)).limit(limit).all()
+    
+    return [
+        {
+            "id": email.id,
+            "lead_id": email.lead_id,
+            "campaign_id": email.campaign_id,
+            "to_email": email.to_email,
+            "subject": email.subject,
+            "provider": email.provider,
+            "status": email.status,
+            "provider_message_id": email.provider_message_id,
+            "sequence_number": email.sequence_number,
+            "sent_at": email.sent_at.isoformat() if email.sent_at else None,
+            "error_message": email.error_message,
+        }
+        for email in emails
+    ]
+
+

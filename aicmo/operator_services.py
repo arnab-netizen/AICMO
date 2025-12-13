@@ -522,6 +522,261 @@ def bulk_schedule_creatives(db: Session, project_id: int, ids: List[int], schedu
 
 
 # ============================================================================
+# LEAD MANAGEMENT - CRM OPERATIONS
+# ============================================================================
+
+def get_lead_detail(db: Session, campaign_id: int, lead_id: int) -> Dict[str, Any]:
+    """
+    Fetch complete lead record with all CRM fields.
+    
+    Phase A (Mini-CRM): Returns lead detail including new grading fields.
+    
+    Args:
+        db: Database session
+        campaign_id: Campaign/Project ID (for authorization)
+        lead_id: Lead ID to fetch
+        
+    Returns:
+        Dict with lead data including:
+        - Basic: id, name, email, company
+        - Company Info: company_size, industry, growth_rate, annual_revenue, etc.
+        - Decision Maker: decision_maker_name, decision_maker_email, role, linkedin
+        - Sales: budget_estimate_range, timeline_months, pain_points, buying_signals
+        - Grading: lead_grade (A/B/C/D), conversion_probability, fit_score_for_service
+        - Tracking: proposal_generated_at, contract_signed_at, referral_source
+    """
+    lead = db.query(LeadDB).filter(
+        LeadDB.id == lead_id,
+        LeadDB.campaign_id == campaign_id
+    ).first()
+    
+    if not lead:
+        return {"error": f"Lead {lead_id} not found"}
+    
+    return {
+        # Basic fields
+        "id": lead.id,
+        "name": lead.name,
+        "email": lead.email,
+        "company": lead.company,
+        "campaign_id": lead.campaign_id,
+        "status": lead.status,
+        "lead_score": lead.lead_score,
+        
+        # Company Info (Phase A)
+        "company_size": lead.company_size,
+        "industry": lead.industry,
+        "growth_rate": lead.growth_rate,
+        "annual_revenue": lead.annual_revenue,
+        "employee_count": lead.employee_count,
+        "company_website": lead.company_website,
+        "company_headquarters": lead.company_headquarters,
+        "founding_year": lead.founding_year,
+        "funding_status": lead.funding_status,
+        
+        # Decision Maker (Phase A)
+        "decision_maker_name": lead.decision_maker_name,
+        "decision_maker_email": lead.decision_maker_email,
+        "decision_maker_role": lead.decision_maker_role,
+        "decision_maker_linkedin": lead.decision_maker_linkedin,
+        
+        # Sales (Phase A)
+        "budget_estimate_range": lead.budget_estimate_range,
+        "timeline_months": lead.timeline_months,
+        "pain_points": lead.pain_points or [],
+        "buying_signals": lead.buying_signals or {},
+        
+        # Grading (Phase A)
+        "lead_grade": lead.lead_grade,
+        "conversion_probability": lead.conversion_probability,
+        "fit_score_for_service": lead.fit_score_for_service,
+        "graded_at": lead.graded_at.isoformat() if lead.graded_at else None,
+        "grade_reason": lead.grade_reason,
+        
+        # Tracking (Phase A)
+        "proposal_generated_at": lead.proposal_generated_at.isoformat() if lead.proposal_generated_at else None,
+        "proposal_content_id": lead.proposal_content_id,
+        "contract_signed_at": lead.contract_signed_at.isoformat() if lead.contract_signed_at else None,
+        "referral_source": lead.referral_source,
+        "referred_by_name": lead.referred_by_name,
+        
+        # Timestamps
+        "created_at": lead.created_at.isoformat() if lead.created_at else None,
+        "updated_at": lead.updated_at.isoformat() if lead.updated_at else None,
+    }
+
+
+def update_lead_crm_fields(
+    db: Session,
+    campaign_id: int,
+    lead_id: int,
+    updates: Dict[str, Any],
+    auto_regrade: bool = True,
+) -> Dict[str, Any]:
+    """
+    Update lead CRM fields and optionally re-grade lead.
+    
+    Phase A (Mini-CRM): Supports updating all CRM fields. When auto_regrade=True,
+    automatically recalculates lead grade after updating fields.
+    
+    Args:
+        db: Database session
+        campaign_id: Campaign/Project ID
+        lead_id: Lead ID to update
+        updates: Dict of field_name -> value pairs to update
+        auto_regrade: If True, recalculate grade after update (default: True)
+        
+    Returns:
+        Updated lead dict (from get_lead_detail) or error dict
+    """
+    lead = db.query(LeadDB).filter(
+        LeadDB.id == lead_id,
+        LeadDB.campaign_id == campaign_id
+    ).first()
+    
+    if not lead:
+        return {"error": f"Lead {lead_id} not found"}
+    
+    # List of allowed update fields
+    allowed_fields = {
+        "company_size", "industry", "growth_rate", "annual_revenue", "employee_count",
+        "company_website", "company_headquarters", "founding_year", "funding_status",
+        "decision_maker_name", "decision_maker_email", "decision_maker_role", "decision_maker_linkedin",
+        "budget_estimate_range", "timeline_months", "pain_points", "buying_signals",
+        "referral_source", "referred_by_name", "status", "phone",
+    }
+    
+    # Apply updates
+    for field, value in updates.items():
+        if field in allowed_fields and hasattr(lead, field):
+            setattr(lead, field, value)
+    
+    # Auto-regrade if enabled
+    if auto_regrade:
+        try:
+            from aicmo.cam.domain import Lead
+            from aicmo.cam.lead_grading import LeadGradeService
+            
+            # Convert LeadDB to domain model
+            lead_domain = Lead(
+                id=lead.id,
+                name=lead.name,
+                email=lead.email,
+                company=lead.company,
+                lead_score=lead.lead_score,
+                company_size=lead.company_size,
+                industry=lead.industry,
+                growth_rate=lead.growth_rate,
+                annual_revenue=lead.annual_revenue,
+                employee_count=lead.employee_count,
+                budget_estimate_range=lead.budget_estimate_range,
+                timeline_months=lead.timeline_months,
+                pain_points=lead.pain_points,
+                buying_signals=lead.buying_signals,
+            )
+            
+            # Re-grade using service
+            LeadGradeService.update_lead_grade(db, lead_id, lead_domain)
+        except Exception as e:
+            # Graceful degradation - continue without grading if service fails
+            pass
+    
+    db.commit()
+    
+    return get_lead_detail(db, campaign_id, lead_id)
+
+
+def list_leads_by_grade(
+    db: Session,
+    campaign_id: int,
+    grade: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+) -> Dict[str, Any]:
+    """
+    List leads filtered by grade (A/B/C/D).
+    
+    Phase A (Mini-CRM): Queries leads by lead_grade and returns paginated results.
+    
+    Args:
+        db: Database session
+        campaign_id: Campaign/Project ID
+        grade: Filter by grade ('A', 'B', 'C', 'D', or None for all)
+        skip: Pagination offset
+        limit: Maximum results to return
+        
+    Returns:
+        Dict with keys:
+        - total: Total matching leads
+        - grade_filter: The grade filter applied (if any)
+        - leads: List of lead dicts with key fields
+    """
+    query = db.query(LeadDB).filter(LeadDB.campaign_id == campaign_id)
+    
+    if grade and grade.upper() in ['A', 'B', 'C', 'D']:
+        query = query.filter(LeadDB.lead_grade == grade.upper())
+    
+    total = query.count()
+    leads_db = query.order_by(
+        desc(LeadDB.lead_grade),
+        desc(LeadDB.conversion_probability)
+    ).offset(skip).limit(limit).all()
+    
+    leads = [
+        {
+            "id": lead.id,
+            "name": lead.name,
+            "email": lead.email,
+            "company": lead.company,
+            "lead_grade": lead.lead_grade,
+            "conversion_probability": lead.conversion_probability,
+            "fit_score_for_service": lead.fit_score_for_service,
+            "budget_estimate_range": lead.budget_estimate_range,
+            "timeline_months": lead.timeline_months,
+            "status": lead.status,
+            "lead_score": lead.lead_score,
+        }
+        for lead in leads_db
+    ]
+    
+    return {
+        "total": total,
+        "grade_filter": grade.upper() if grade else None,
+        "skip": skip,
+        "limit": limit,
+        "leads": leads,
+    }
+
+
+def get_lead_grade_distribution(db: Session, campaign_id: int) -> Dict[str, int]:
+    """
+    Get count of leads by grade for a campaign.
+    
+    Phase A (Mini-CRM): Returns grade counts (A, B, C, D).
+    
+    Args:
+        db: Database session
+        campaign_id: Campaign/Project ID
+        
+    Returns:
+        Dict with grade counts: {'A': 5, 'B': 12, 'C': 20, 'D': 8, 'total': 45}
+    """
+    grades = ['A', 'B', 'C', 'D']
+    distribution = {}
+    
+    for grade in grades:
+        count = db.query(LeadDB).filter(
+            LeadDB.campaign_id == campaign_id,
+            LeadDB.lead_grade == grade
+        ).count()
+        distribution[grade] = count
+    
+    distribution['total'] = sum(distribution.values())
+    
+    return distribution
+
+
+# ============================================================================
 # CONTROL TOWER - TIMELINE
 # ============================================================================
 
@@ -1244,6 +1499,612 @@ def trigger_feedback_cycle(
         dashboard_service = get_operator_dashboard_service()
     
     return dashboard_service.run_feedback_cycle_for_brand(brand_id)
+
+
+# ============================================================================
+# PHASE B: OUTREACH CHANNEL OPERATIONS
+# ============================================================================
+
+def send_outreach_message(
+    db: Session,
+    lead_id: int,
+    message_body: str,
+    subject: Optional[str] = None,
+    force_channel: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Send outreach message via multi-channel sequencer.
+    
+    Initiates multi-channel outreach using ChannelSequencer:
+    - Attempts Email first
+    - Falls back to LinkedIn if Email fails
+    - Falls back to Contact Form if LinkedIn fails
+    
+    Args:
+        db: Database session
+        lead_id: Lead ID to send to
+        message_body: Message body text
+        subject: Optional subject line (for email)
+        force_channel: Optional channel to force (bypasses sequencer)
+        
+    Returns:
+        Dict with:
+        - success: Boolean result
+        - message_id: UUID of sent message
+        - channel_used: Which channel succeeded
+        - attempts: List of all attempts made
+    """
+    from aicmo.cam.domain import OutreachMessage
+    from aicmo.cam.outreach.sequencer import ChannelSequencer
+    
+    # Get lead
+    lead = db.query(LeadDB).filter(LeadDB.id == lead_id).first()
+    if not lead:
+        return {
+            'success': False,
+            'error': f'Lead {lead_id} not found',
+        }
+    
+    # Build message
+    outreach_msg = OutreachMessage(
+        body=message_body,
+        subject=subject,
+        personalization_data={
+            'name': lead.name,
+            'company': lead.company,
+        }
+    )
+    
+    # Execute sequence
+    sequencer = ChannelSequencer()
+    result = sequencer.execute_sequence(
+        message=outreach_msg,
+        recipient_email=lead.email,
+        recipient_linkedin_id=getattr(lead, 'linkedin_id', None),
+        form_url=getattr(lead, 'contact_form_url', None),
+    )
+    
+    return result
+
+
+def get_channel_config(db: Session, channel_name: str) -> Dict[str, Any]:
+    """
+    Get configuration for a channel.
+    
+    Args:
+        db: Database session
+        channel_name: Channel name (EMAIL, LINKEDIN, CONTACT_FORM)
+        
+    Returns:
+        Dict with channel configuration
+    """
+    from aicmo.cam.db_models import ChannelConfigDB
+    
+    config = db.query(ChannelConfigDB).filter(
+        ChannelConfigDB.channel == channel_name
+    ).first()
+    
+    if not config:
+        return {
+            'channel': channel_name,
+            'configured': False,
+        }
+    
+    return {
+        'channel': channel_name,
+        'configured': True,
+        'enabled': config.enabled,
+        'rate_limit_per_hour': config.rate_limit_per_hour,
+        'rate_limit_per_day': config.rate_limit_per_day,
+        'templates': config.templates or [],
+        'settings': config.settings or {},
+    }
+
+
+def update_channel_config(
+    db: Session,
+    channel_name: str,
+    enabled: Optional[bool] = None,
+    rate_limit_per_hour: Optional[int] = None,
+    rate_limit_per_day: Optional[int] = None,
+    settings: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Update configuration for a channel.
+    
+    Args:
+        db: Database session
+        channel_name: Channel name (EMAIL, LINKEDIN, CONTACT_FORM)
+        enabled: Whether channel is enabled
+        rate_limit_per_hour: Max messages per hour
+        rate_limit_per_day: Max messages per day
+        settings: Channel-specific settings
+        
+    Returns:
+        Updated configuration dict
+    """
+    from aicmo.cam.db_models import ChannelConfigDB
+    
+    config = db.query(ChannelConfigDB).filter(
+        ChannelConfigDB.channel == channel_name
+    ).first()
+    
+    if not config:
+        config = ChannelConfigDB(channel=channel_name)
+        db.add(config)
+    
+    if enabled is not None:
+        config.enabled = enabled
+    if rate_limit_per_hour is not None:
+        config.rate_limit_per_hour = rate_limit_per_hour
+    if rate_limit_per_day is not None:
+        config.rate_limit_per_day = rate_limit_per_day
+    if settings is not None:
+        config.settings = settings
+    
+    db.commit()
+    
+    return get_channel_config(db, channel_name)
+
+
+def get_outreach_history(
+    db: Session,
+    lead_id: int,
+    limit: int = 50,
+) -> List[Dict[str, Any]]:
+    """
+    Get outreach history for a lead.
+    
+    Args:
+        db: Database session
+        lead_id: Lead ID
+        limit: Maximum records to return
+        
+    Returns:
+        List of outreach attempts (newest first)
+    """
+    attempts = (
+        db.query(OutreachAttemptDB)
+        .filter(OutreachAttemptDB.lead_id == lead_id)
+        .order_by(desc(OutreachAttemptDB.created_at))
+        .limit(limit)
+        .all()
+    )
+    
+    return [
+        {
+            'id': a.id,
+            'channel': a.channel if hasattr(a, 'channel') else None,
+            'status': a.status if hasattr(a, 'status') else None,
+            'message': a.outreach_message if hasattr(a, 'outreach_message') else None,
+            'sent_at': a.created_at.isoformat() if a.created_at else None,
+            'opened_at': a.opened_at.isoformat() if hasattr(a, 'opened_at') and a.opened_at else None,
+            'replied_at': a.replied_at.isoformat() if hasattr(a, 'replied_at') and a.replied_at else None,
+        }
+        for a in attempts
+    ]
+
+
+def get_channel_metrics(
+    db: Session,
+    campaign_id: Optional[int] = None,
+    days: int = 7,
+) -> Dict[str, Any]:
+    """
+    Get channel performance metrics.
+    
+    Args:
+        db: Database session
+        campaign_id: Optional campaign to filter by
+        days: Number of days to look back
+        
+    Returns:
+        Dict with metrics per channel:
+        - total_sent
+        - delivery_rate
+        - reply_rate
+        - bounce_rate
+    """
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    
+    query = db.query(OutreachAttemptDB).filter(
+        OutreachAttemptDB.created_at >= cutoff
+    )
+    
+    if campaign_id:
+        query = query.join(LeadDB).filter(LeadDB.campaign_id == campaign_id)
+    
+    attempts = query.all()
+    
+    # Group by channel
+    channels = {}
+    for attempt in attempts:
+        channel = getattr(attempt, 'channel', 'unknown')
+        if channel not in channels:
+            channels[channel] = {
+                'total_sent': 0,
+                'delivered': 0,
+                'replied': 0,
+                'bounced': 0,
+            }
+        
+        channels[channel]['total_sent'] += 1
+        
+        status = getattr(attempt, 'status', None)
+        if status and 'delivered' in str(status).lower():
+            channels[channel]['delivered'] += 1
+        if hasattr(attempt, 'replied_at') and attempt.replied_at:
+            channels[channel]['replied'] += 1
+        if status and 'bounce' in str(status).lower():
+            channels[channel]['bounced'] += 1
+    
+    # Calculate rates
+    metrics = {}
+    for channel, stats in channels.items():
+        total = stats['total_sent']
+        metrics[channel] = {
+            'total_sent': total,
+            'delivery_rate': (stats['delivered'] / total * 100) if total > 0 else 0,
+            'reply_rate': (stats['replied'] / total * 100) if total > 0 else 0,
+            'bounce_rate': (stats['bounced'] / total * 100) if total > 0 else 0,
+        }
+    
+    return metrics
+
+
+# ============================================================================
+# PHASE C: ANALYTICS & REPORTING OPERATOR SERVICES
+# ============================================================================
+
+def get_campaign_metrics(campaign_id: int, period: str = 'DAILY') -> Dict[str, any]:
+    """
+    Get campaign metrics for specified period.
+    
+    Args:
+        campaign_id: Campaign ID
+        period: Aggregation period (DAILY, WEEKLY, MONTHLY, etc.)
+    
+    Returns:
+        Dictionary with campaign metrics
+    """
+    db = next(get_db())
+    try:
+        from aicmo.cam.analytics import MetricsCalculator
+        from aicmo.cam.domain import MetricsPeriod
+        
+        calculator = MetricsCalculator(db)
+        period_enum = MetricsPeriod[period]
+        
+        result = calculator.calculate_all_metrics(campaign_id, period_enum)
+        logger.info(f"Retrieved metrics for campaign {campaign_id}")
+        
+        return {
+            'campaign_id': campaign_id,
+            'period': period,
+            'metrics': result,
+            'timestamp': datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error getting campaign metrics: {e}")
+        raise
+    finally:
+        db.close()
+
+
+def get_channel_dashboard(campaign_id: int) -> Dict[str, any]:
+    """
+    Get channel performance dashboard data.
+    
+    Args:
+        campaign_id: Campaign ID
+    
+    Returns:
+        Dashboard data with channel breakdown
+    """
+    db = next(get_db())
+    try:
+        from aicmo.cam.analytics import DashboardService
+        from aicmo.cam.domain import MetricsPeriod
+        
+        service = DashboardService(db)
+        dashboard = service.get_channel_dashboard(campaign_id, MetricsPeriod.DAILY)
+        
+        logger.info(f"Retrieved channel dashboard for campaign {campaign_id}")
+        return dashboard
+    except Exception as e:
+        logger.error(f"Error getting channel dashboard: {e}")
+        raise
+    finally:
+        db.close()
+
+
+def get_roi_analysis(campaign_id: int) -> Dict[str, any]:
+    """
+    Get ROI and profitability analysis for campaign.
+    
+    Args:
+        campaign_id: Campaign ID
+    
+    Returns:
+        ROI analysis with cost, revenue, and metrics
+    """
+    db = next(get_db())
+    try:
+        from aicmo.cam.analytics import DashboardService
+        
+        service = DashboardService(db)
+        roi_data = service.get_roi_dashboard(campaign_id)
+        
+        logger.info(f"Retrieved ROI analysis for campaign {campaign_id}")
+        return roi_data
+    except Exception as e:
+        logger.error(f"Error getting ROI analysis: {e}")
+        raise
+    finally:
+        db.close()
+
+
+def create_ab_test(
+    campaign_id: int,
+    test_name: str,
+    hypothesis: str,
+    test_type: str,
+    control_variant: str,
+    treatment_variant: str,
+    sample_size: int,
+    confidence_level: float = 0.95
+) -> Dict[str, any]:
+    """
+    Create new A/B test configuration.
+    
+    Args:
+        campaign_id: Campaign ID
+        test_name: Unique test name
+        hypothesis: Test hypothesis
+        test_type: Type of test (MESSAGE, CHANNEL, TIMING, etc.)
+        control_variant: Control variant description
+        treatment_variant: Treatment variant description
+        sample_size: Total sample size
+        confidence_level: Statistical confidence (0.9, 0.95, 0.99)
+    
+    Returns:
+        Test configuration with ID
+    """
+    db = next(get_db())
+    try:
+        from aicmo.cam.analytics import ABTestRunner
+        from aicmo.cam.domain import ABTestType
+        
+        runner = ABTestRunner(db)
+        test_type_enum = ABTestType[test_type]
+        
+        result = runner.create_test(
+            campaign_id=campaign_id,
+            test_name=test_name,
+            hypothesis=hypothesis,
+            test_type=test_type_enum,
+            control_variant=control_variant,
+            treatment_variant=treatment_variant,
+            sample_size=sample_size,
+            confidence_level=confidence_level
+        )
+        
+        logger.info(f"Created A/B test '{test_name}' for campaign {campaign_id}")
+        return result
+    except Exception as e:
+        logger.error(f"Error creating A/B test: {e}")
+        raise
+    finally:
+        db.close()
+
+
+def analyze_ab_test(
+    test_config_id: int,
+    control_metric_value: float,
+    control_sample_size: int,
+    treatment_metric_value: float,
+    treatment_sample_size: int,
+    metric_type: str = 'rate'
+) -> Dict[str, any]:
+    """
+    Analyze A/B test results and compute statistical significance.
+    
+    Args:
+        test_config_id: Test configuration ID
+        control_metric_value: Control group metric value
+        control_sample_size: Control group sample size
+        treatment_metric_value: Treatment group metric value
+        treatment_sample_size: Treatment group sample size
+        metric_type: Type of metric (rate, mean, count)
+    
+    Returns:
+        Statistical analysis results with p-value and winner
+    """
+    db = next(get_db())
+    try:
+        from aicmo.cam.analytics import ABTestRunner
+        
+        runner = ABTestRunner(db)
+        results = runner.analyze_test(
+            test_config_id=test_config_id,
+            control_metric_value=control_metric_value,
+            control_sample_size=control_sample_size,
+            treatment_metric_value=treatment_metric_value,
+            treatment_sample_size=treatment_sample_size,
+            metric_type=metric_type
+        )
+        
+        logger.info(f"Analyzed A/B test {test_config_id}: winner={results.get('winner')}")
+        return results
+    except Exception as e:
+        logger.error(f"Error analyzing A/B test: {e}")
+        raise
+    finally:
+        db.close()
+
+
+def get_ab_test_dashboard(campaign_id: int, status: str = None) -> Dict[str, any]:
+    """
+    Get A/B test dashboard with all tests for campaign.
+    
+    Args:
+        campaign_id: Campaign ID
+        status: Filter by status (RUNNING, COMPLETED, etc.)
+    
+    Returns:
+        A/B test dashboard data
+    """
+    db = next(get_db())
+    try:
+        from aicmo.cam.analytics import DashboardService
+        
+        service = DashboardService(db)
+        dashboard = service.get_abtest_dashboard(campaign_id, status)
+        
+        logger.info(f"Retrieved A/B test dashboard for campaign {campaign_id}")
+        return dashboard
+    except Exception as e:
+        logger.error(f"Error getting A/B test dashboard: {e}")
+        raise
+    finally:
+        db.close()
+
+
+def get_trend_analysis(
+    campaign_id: int,
+    days: int = 30,
+    period: str = 'DAILY'
+) -> Dict[str, any]:
+    """
+    Get historical trend analysis for campaign.
+    
+    Args:
+        campaign_id: Campaign ID
+        days: Number of days to include
+        period: Aggregation period (DAILY, WEEKLY, MONTHLY)
+    
+    Returns:
+        Trend data with time-series metrics
+    """
+    db = next(get_db())
+    try:
+        from aicmo.cam.analytics import DashboardService
+        from aicmo.cam.domain import MetricsPeriod
+        
+        service = DashboardService(db)
+        period_enum = MetricsPeriod[period]
+        
+        trend = service.get_trend_dashboard(campaign_id, days, period_enum)
+        
+        logger.info(f"Retrieved trend analysis for campaign {campaign_id}")
+        return trend
+    except Exception as e:
+        logger.error(f"Error getting trend analysis: {e}")
+        raise
+    finally:
+        db.close()
+
+
+def generate_report(
+    campaign_id: int,
+    report_type: str = 'executive_summary',
+    format: str = 'html'
+) -> Dict[str, any]:
+    """
+    Generate campaign report in specified format.
+    
+    Args:
+        campaign_id: Campaign ID
+        report_type: Type of report (executive_summary, detailed_analysis, 
+                     channel_comparison, roi_analysis)
+        format: Output format (html, csv, json)
+    
+    Returns:
+        Report content and metadata
+    """
+    db = next(get_db())
+    try:
+        from aicmo.cam.analytics import ReportGenerator
+        
+        generator = ReportGenerator(db)
+        
+        if report_type == 'executive_summary':
+            content = generator.generate_executive_summary(campaign_id, format)
+        elif report_type == 'detailed_analysis':
+            content = generator.generate_detailed_analysis(campaign_id, format)
+        elif report_type == 'channel_comparison':
+            content = generator.generate_channel_comparison(campaign_id, format)
+        elif report_type == 'roi_analysis':
+            content = generator.generate_roi_analysis(campaign_id, format)
+        else:
+            raise ValueError(f"Unknown report type: {report_type}")
+        
+        logger.info(f"Generated {report_type} report for campaign {campaign_id}")
+        
+        return {
+            'campaign_id': campaign_id,
+            'report_type': report_type,
+            'format': format,
+            'content': content,
+            'generated_at': datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error generating report: {e}")
+        raise
+    finally:
+        db.close()
+
+
+def get_lead_dashboard(campaign_id: int) -> Dict[str, any]:
+    """
+    Get lead quality and status breakdown dashboard.
+    
+    Args:
+        campaign_id: Campaign ID
+    
+    Returns:
+        Lead dashboard with grade, status, and source breakdown
+    """
+    db = next(get_db())
+    try:
+        from aicmo.cam.analytics import DashboardService
+        
+        service = DashboardService(db)
+        dashboard = service.get_lead_dashboard(campaign_id)
+        
+        logger.info(f"Retrieved lead dashboard for campaign {campaign_id}")
+        return dashboard
+    except Exception as e:
+        logger.error(f"Error getting lead dashboard: {e}")
+        raise
+    finally:
+        db.close()
+
+
+def get_campaign_summary(campaign_id: int) -> Dict[str, any]:
+    """
+    Get high-level campaign summary with all KPIs.
+    
+    Args:
+        campaign_id: Campaign ID
+    
+    Returns:
+        Campaign summary with all key metrics
+    """
+    db = next(get_db())
+    try:
+        from aicmo.cam.analytics import DashboardService
+        
+        service = DashboardService(db)
+        dashboard = service.get_campaign_dashboard(campaign_id)
+        
+        logger.info(f"Retrieved campaign summary for {campaign_id}")
+        return dashboard
+    except Exception as e:
+        logger.error(f"Error getting campaign summary: {e}")
+        raise
+    finally:
+        db.close()
 
 
 

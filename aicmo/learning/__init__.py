@@ -1,16 +1,13 @@
 """
-AICMO Learning Module.
+learning module.
 
-Provides event tracking and Kaizen continuous improvement across all subsystems.
+Business responsibility: Intelligence / memory plane (crosscutting)
+
+Public API: api.ports, api.dtos, api.events
+Internal logic: internal/*
 """
 
-from aicmo.learning.event_types import EventType, EVENT_GROUPS, get_events_by_group
-from aicmo.learning.domain import KaizenContext, KaizenInsight
+__version__ = "1.0.0"
+CONTRACT_VERSION = 1
 
-__all__ = [
-    "EventType",
-    "EVENT_GROUPS",
-    "get_events_by_group",
-    "KaizenContext",
-    "KaizenInsight",
-]
+__all__ = []
