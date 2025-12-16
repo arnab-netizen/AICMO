@@ -28,6 +28,8 @@ from datetime import datetime
 from typing import Callable, Dict, Any, Optional, Tuple
 import json
 import traceback
+import base64
+from io import BytesIO
 
 # ===================================================================
 # BUILD MARKER & DASHBOARD IDENTIFICATION
@@ -239,6 +241,128 @@ def is_manifest_only(content: object) -> bool:
     return has_id_fields and not has_content_fields
 
 
+def to_draft_markdown(tab_key: str, content: object) -> str:
+    """
+    Convert any content into human-readable markdown for operator amendment.
+    
+    Used after Generate to create an editable draft that operator can amend.
+    Returns markdown string ready for st.text_area editing.
+    """
+    if content is None:
+        return "# Draft Output\n\n(No content generated)\n\n## Operator Notes\n- Edit here..."
+    
+    lines = []
+    
+    # ─────────────────────────────────────────────────────────────
+    # Case 1: Manifest-only (IDs without content)
+    # ─────────────────────────────────────────────────────────────
+    if isinstance(content, dict) and "creatives" in content and isinstance(content.get("creatives"), list):
+        creatives = content.get("creatives", [])
+        topic = content.get("topic", "Generated Content")
+        
+        # Check if manifest-only
+        if creatives and is_manifest_only(content):
+            lines.append(f"# {topic}\n")
+            lines.append(f"Count: {len(creatives)} items\n")
+            lines.append("\n## Items\n")
+            for idx, creative in enumerate(creatives, 1):
+                platform = creative.get("platform", "N/A")
+                ctype = creative.get("type", "N/A")
+                cid = creative.get("id", "N/A")
+                lines.append(f"{idx}. {platform} | {ctype} | {cid}\n")
+            lines.append("\n## Operator Notes\n- Edit above items or add notes here...\n")
+            return "".join(lines)
+        
+        # Not manifest-only, has full deliverables
+        lines.append(f"# {topic}\n")
+        lines.append(f"Total Creatives: {len(creatives)}\n\n")
+        
+        for idx, creative in enumerate(creatives, 1):
+            title = creative.get("title", f"Creative {idx}")
+            lines.append(f"## {idx}. {title}\n")
+            
+            platform = creative.get("platform")
+            if platform:
+                lines.append(f"**Platform:** {platform}\n")
+            
+            ctype = creative.get("type")
+            if ctype:
+                lines.append(f"**Type:** {ctype}\n")
+            
+            cid = creative.get("id")
+            if cid:
+                lines.append(f"**ID:** {cid}\n")
+            
+            # Caption/copy content
+            caption = creative.get("caption") or creative.get("copy") or creative.get("body")
+            if caption:
+                lines.append(f"\n{caption}\n")
+            
+            hashtags = creative.get("hashtags", [])
+            if hashtags:
+                hashtag_str = " ".join([f"#{tag}" for tag in hashtags])
+                lines.append(f"\n{hashtag_str}\n")
+            
+            lines.append("\n")
+        
+        lines.append("\n## Operator Notes\n- Edit content above...\n")
+        return "".join(lines)
+    
+    # ─────────────────────────────────────────────────────────────
+    # Case 2: String content
+    # ─────────────────────────────────────────────────────────────
+    if isinstance(content, str):
+        lines.append("# Generated Output\n\n")
+        lines.append(content)
+        lines.append("\n\n## Operator Notes\n- Edit above...\n")
+        return "".join(lines)
+    
+    # ─────────────────────────────────────────────────────────────
+    # Case 3: Dict content (non-manifest)
+    # ─────────────────────────────────────────────────────────────
+    if isinstance(content, dict):
+        lines.append("# Generated Content\n\n")
+        
+        # Try to extract readable fields
+        for key, value in content.items():
+            if key.lower() in ["topic", "title", "name", "campaign"]:
+                lines.append(f"**{key}:** {value}\n")
+            elif isinstance(value, (str, int, float)) and len(str(value)) < 200:
+                lines.append(f"**{key}:** {value}\n")
+            elif isinstance(value, list) and key not in ["creatives", "debug"]:
+                lines.append(f"**{key}:**\n")
+                for item in value[:10]:  # Limit to 10 items
+                    lines.append(f"  - {item}\n")
+        
+        lines.append("\n## Operator Notes\n- Edit above...\n")
+        return "".join(lines)
+    
+    # ─────────────────────────────────────────────────────────────
+    # Case 4: List content
+    # ─────────────────────────────────────────────────────────────
+    if isinstance(content, list):
+        lines.append("# Generated Items\n\n")
+        for idx, item in enumerate(content[:20], 1):  # Limit to 20
+            if isinstance(item, dict):
+                title = item.get("title") or item.get("name") or f"Item {idx}"
+                lines.append(f"{idx}. {title}\n")
+                for k, v in item.items():
+                    if k not in ["title", "name"] and isinstance(v, (str, int, float)):
+                        lines.append(f"   - {k}: {v}\n")
+            else:
+                lines.append(f"{idx}. {str(item)}\n")
+            lines.append("\n")
+        
+        lines.append("\n## Operator Notes\n- Edit above...\n")
+        return "".join(lines)
+    
+    # ─────────────────────────────────────────────────────────────
+    # Case 5: Numeric/other
+    # ─────────────────────────────────────────────────────────────
+    lines.append(f"# Result\n\n{str(content)}\n\n## Operator Notes\n- Edit above...\n")
+    return "".join(lines)
+
+
 def expand_manifest_to_deliverables(module_key: str, manifest: dict) -> dict:
     """
     Attempt to expand a manifest (IDs only) into full deliverables.
@@ -388,7 +512,7 @@ def render_deliverables_section(module_key: str, deliverables: dict) -> None:
 
 def render_deliverables_output(tab_key: str, last_result: dict) -> None:
     """
-    SINGLE FUNCTION that owns ALL output rendering for aicmo_tab_shell.
+    Output rendering with Amendment, Approval, and Export workflow.
     
     Expected envelope format:
     {
@@ -398,13 +522,24 @@ def render_deliverables_output(tab_key: str, last_result: dict) -> None:
         "debug": {<exception/traceback if failed>}
     }
     
-    Behavior:
-    - If last_result is None: show "No output yet…"
-    - If manifest_only: render clean summary + cards (not raw JSON)
-    - If deliverables: render cards with images/markdown/etc
-    - Raw JSON ALWAYS in st.expander("Raw response (debug)")
-    - No other function renders output
+    Workflow:
+    1. Generate → Creates draft markdown via to_draft_markdown()
+    2. Output Preview → Shows current draft
+    3. Amend → Operator edits draft in text_area
+    4. Save Amendments → Stores modified draft
+    5. Approve → Operator approves; enables Export
+    6. Export → Downloads approved draft as markdown file
+    7. Debug → Raw response in expander
     """
+    
+    # Get session state keys
+    draft_text_key = f"{tab_key}__draft_text"
+    draft_saved_key = f"{tab_key}__draft_saved_at"
+    approved_text_key = f"{tab_key}__approved_text"
+    approved_at_key = f"{tab_key}__approved_at"
+    approved_by_key = f"{tab_key}__approved_by"
+    export_ready_key = f"{tab_key}__export_ready"
+    
     if last_result is None:
         st.info("💭 No output yet. Fill inputs above and press Generate.")
         return
@@ -415,7 +550,7 @@ def render_deliverables_output(tab_key: str, last_result: dict) -> None:
     debug = last_result.get("debug", {})
     
     # ─────────────────────────────────────────────────────────────
-    # SUCCESS PATH
+    # SUCCESS PATH: Full Amendment + Approval + Export Workflow
     # ─────────────────────────────────────────────────────────────
     if status == "SUCCESS":
         # Render metadata if present
@@ -425,57 +560,139 @@ def render_deliverables_output(tab_key: str, last_result: dict) -> None:
                 with cols[i % len(cols)]:
                     st.caption(f"**{k}:** {v}")
         
-        # CASE 1: Content is normalized deliverables (from normalize_to_deliverables)
-        if isinstance(content, dict) and "module_key" in content and "items" in content:
-            render_deliverables_section(tab_key, content)
+        # ─────────────────────────────────────────────────────────────
+        # A) OUTPUT PREVIEW
+        # ─────────────────────────────────────────────────────────────
         
-        # CASE 2: Content is manifest-only (detected by is_manifest_only)
-        elif is_manifest_only(content):
-            # Show manifest summary + card list
-            creatives = content.get("creatives", [])
-            st.info(f"ℹ️ **Deliverable content not available in response (only IDs).** Found {len(creatives)} items with metadata only.")
+        with st.expander("📋 Output Preview", expanded=True):
+            draft_text = st.session_state.get(draft_text_key, "")
+            if draft_text:
+                # Show preview with scroll
+                st.markdown(draft_text)
+            else:
+                st.info("No draft available yet.")
+        
+        st.write("")  # Spacing
+        
+        # ─────────────────────────────────────────────────────────────
+        # B) AMEND: Edit draft text
+        # ─────────────────────────────────────────────────────────────
+        
+        st.subheader("✏️ Amend Deliverable")
+        
+        current_draft = st.session_state.get(draft_text_key, "")
+        amended_text = st.text_area(
+            "Edit deliverable content:",
+            value=current_draft,
+            height=300,
+            key=f"{tab_key}__draft_editor",
+            help="Make any changes to the deliverable content. Click 'Save Amendments' to persist."
+        )
+        
+        col_save, col_reset_amend = st.columns([2, 1])
+        with col_save:
+            if st.button("💾 Save Amendments", key=f"{tab_key}__save_amend", use_container_width=True):
+                st.session_state[draft_text_key] = amended_text
+                st.session_state[draft_saved_key] = datetime.now().isoformat()
+                st.toast("✅ Amendments saved!")
+        
+        with col_reset_amend:
+            if st.button("↩️ Reset to Generated", key=f"{tab_key}__reset_amend", use_container_width=True):
+                # Re-create draft from original content
+                draft_text = to_draft_markdown(tab_key, content)
+                st.session_state[draft_text_key] = draft_text
+                st.toast("Reset to generated content")
+                st.rerun()
+        
+        # Show save timestamp if saved
+        if st.session_state.get(draft_saved_key):
+            st.caption(f"✅ Saved at: {st.session_state.get(draft_saved_key)}")
+        
+        st.write("")  # Spacing
+        
+        # ─────────────────────────────────────────────────────────────
+        # C) APPROVE: Operator approval gate
+        # ─────────────────────────────────────────────────────────────
+        
+        st.subheader("✅ Approval")
+        
+        if st.session_state.get(export_ready_key):
+            # Already approved
+            st.success("✅ **Approved** - Ready for export")
+            if st.session_state.get(approved_at_key):
+                st.caption(f"Approved at: {st.session_state.get(approved_at_key)}")
+            if st.session_state.get(approved_by_key):
+                st.caption(f"Approved by: {st.session_state.get(approved_by_key)}")
             
-            # Render each creative as a minimal card
-            for idx, creative in enumerate(creatives, 1):
-                with st.container(border=True):
-                    title = creative.get("title", f"Item {idx}")
-                    platform = creative.get("platform", "N/A")
-                    item_type = creative.get("type", "N/A")
-                    item_id = creative.get("id", "N/A")
-                    
-                    st.markdown(f"**{title}**")
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.caption(f"📱 Platform: {platform}")
-                    with col2:
-                        st.caption(f"📝 Type: {item_type}")
-                    with col3:
-                        st.caption(f"🔑 ID: {item_id}")
-        
-        # CASE 3: String content - render as markdown
-        elif isinstance(content, str):
-            st.markdown(content)
-        
-        # CASE 4: Numeric content - render as metric
-        elif isinstance(content, (int, float)):
-            st.metric("Result", content)
-        
-        # CASE 5: Dict/List content - show in debug expander only
-        elif isinstance(content, (dict, list)):
-            st.info("ℹ️ Content rendered in debug panel below.")
-        
-        # CASE 6: Any other type
+            if st.button("🔄 Revoke Approval", key=f"{tab_key}__revoke_approval", use_container_width=True):
+                st.session_state[approved_text_key] = None
+                st.session_state[approved_at_key] = None
+                st.session_state[approved_by_key] = None
+                st.session_state[export_ready_key] = False
+                st.toast("Approval revoked")
+                st.rerun()
         else:
-            st.write(str(content))
+            # Not yet approved
+            st.info("Ready to approve?")
+            if st.button("👍 Approve Deliverable", key=f"{tab_key}__approve", type="primary", use_container_width=True):
+                # Copy draft to approved
+                st.session_state[approved_text_key] = st.session_state.get(draft_text_key, "")
+                st.session_state[approved_at_key] = datetime.now().isoformat()
+                st.session_state[approved_by_key] = "operator"
+                st.session_state[export_ready_key] = True
+                st.toast("✅ Deliverable approved!")
+                st.rerun()
         
-        # Copy/Export buttons (optional, only on success)
-        col_copy, col_export = st.columns(2)
-        with col_copy:
-            if st.button("📋 Copy Result", key=f"{tab_key}__copy", use_container_width=True):
-                st.toast("Result copied to clipboard (in production)")
-        with col_export:
-            if st.button("💾 Export", key=f"{tab_key}__export", use_container_width=True):
-                st.toast("Export started (in production)")
+        st.write("")  # Spacing
+        
+        # ─────────────────────────────────────────────────────────────
+        # D) EXPORT: Download approved deliverable
+        # ─────────────────────────────────────────────────────────────
+        
+        st.subheader("📥 Export")
+        
+        export_ready = st.session_state.get(export_ready_key, False)
+        approved_text = st.session_state.get(approved_text_key, "")
+        
+        # Generate filename with timestamp
+        now = datetime.now()
+        timestamp_str = now.strftime("%Y%m%d_%H%M")
+        markdown_filename = f"aicmo_{tab_key}_{timestamp_str}.md"
+        json_filename = f"aicmo_{tab_key}_{timestamp_str}.json"
+        
+        col_md, col_json = st.columns(2)
+        
+        with col_md:
+            if st.download_button(
+                label="⬇️ Download Markdown",
+                data=approved_text,
+                file_name=markdown_filename,
+                mime="text/markdown",
+                disabled=not export_ready,
+                key=f"{tab_key}__download_md"
+            ):
+                st.toast(f"Exported: {markdown_filename}")
+        
+        with col_json:
+            # Optional: Also provide JSON export of approved envelope
+            if st.download_button(
+                label="⬇️ Download JSON",
+                data=json.dumps({
+                    "tab": tab_key,
+                    "approved_text": approved_text,
+                    "approved_at": st.session_state.get(approved_at_key),
+                    "approved_by": st.session_state.get(approved_by_key),
+                    "exported_at": datetime.now().isoformat()
+                }, indent=2),
+                file_name=json_filename,
+                mime="application/json",
+                disabled=not export_ready,
+                key=f"{tab_key}__download_json"
+            ):
+                st.toast(f"Exported: {json_filename}")
+        
+        if not export_ready:
+            st.warning("⚠️ **Export disabled.** Approve the deliverable first.")
     
     # ─────────────────────────────────────────────────────────────
     # FAILURE PATH
@@ -510,7 +727,7 @@ def aicmo_tab_shell(
     output_renderer: Callable[[Dict[str, Any]], None]
 ) -> None:
     """
-    Unified tab template: Inputs → Generate → Output
+    Unified tab template: Inputs → Generate → Output (with Amendment, Approval, Export)
     
     Args:
         tab_key: Unique identifier (e.g., "intake", "strategy")
@@ -525,6 +742,12 @@ def aicmo_tab_shell(
         - f"{tab_key}__last_error": Last error message
         - f"{tab_key}__is_running": Whether generate is in progress
         - f"{tab_key}__last_run_at": ISO timestamp of last run
+        - f"{tab_key}__draft_text": Editable draft (from Generate)
+        - f"{tab_key}__draft_saved_at": Timestamp when draft was last amended
+        - f"{tab_key}__approved_text": Approved version (locked for export)
+        - f"{tab_key}__approved_at": Approval timestamp
+        - f"{tab_key}__approved_by": Approval author
+        - f"{tab_key}__export_ready": Whether export is enabled
     """
     
     # Ensure session state keys exist
@@ -533,6 +756,14 @@ def aicmo_tab_shell(
     error_key = f"{tab_key}__last_error"
     running_key = f"{tab_key}__is_running"
     timestamp_key = f"{tab_key}__last_run_at"
+    
+    # NEW: Amendment, Approval, Export workflow keys
+    draft_text_key = f"{tab_key}__draft_text"
+    draft_saved_key = f"{tab_key}__draft_saved_at"
+    approved_text_key = f"{tab_key}__approved_text"
+    approved_at_key = f"{tab_key}__approved_at"
+    approved_by_key = f"{tab_key}__approved_by"
+    export_ready_key = f"{tab_key}__export_ready"
     
     if inputs_key not in st.session_state:
         st.session_state[inputs_key] = {}
@@ -544,6 +775,20 @@ def aicmo_tab_shell(
         st.session_state[running_key] = False
     if timestamp_key not in st.session_state:
         st.session_state[timestamp_key] = None
+    
+    # NEW: Initialize amendment/approval/export keys
+    if draft_text_key not in st.session_state:
+        st.session_state[draft_text_key] = ""
+    if draft_saved_key not in st.session_state:
+        st.session_state[draft_saved_key] = None
+    if approved_text_key not in st.session_state:
+        st.session_state[approved_text_key] = None
+    if approved_at_key not in st.session_state:
+        st.session_state[approved_at_key] = None
+    if approved_by_key not in st.session_state:
+        st.session_state[approved_by_key] = None
+    if export_ready_key not in st.session_state:
+        st.session_state[export_ready_key] = False
     
     # ─────────────────────────────────────────────────────────────
     # SECTION A: INPUTS
@@ -590,6 +835,17 @@ def aicmo_tab_shell(
                 
                 st.session_state[result_key] = result
                 st.session_state[timestamp_key] = datetime.now().isoformat()
+                
+                # NEW: Create draft from content for amendment workflow
+                if result.get("status") == "SUCCESS":
+                    content = result.get("content")
+                    draft_text = to_draft_markdown(tab_key, content)
+                    st.session_state[draft_text_key] = draft_text
+                    # Clear any old approvals
+                    st.session_state[approved_text_key] = None
+                    st.session_state[approved_at_key] = None
+                    st.session_state[approved_by_key] = None
+                    st.session_state[export_ready_key] = False
                 
             except Exception as e:
                 # Capture exception and set error state
@@ -1608,4 +1864,72 @@ if __name__ == "__main__":
 # ✅ Searched: json.dumps( - ONLY in summaries or debug expander
 # ✅ Searched: pprint( - ZERO instances found
 # ✅ Searched: print(result|response|output|last_result) - ZERO instances
+# ===================================================================
+
+# ===================================================================
+# VERIFICATION CHECKLIST - AMENDMENT, APPROVAL, EXPORT WORKFLOW
+# ===================================================================
+# NEW: After clicking Generate, operator workflow for each tab:
+#
+# SESSION STATE KEYS (per tab):
+# ✅ f"{tab_key}__draft_text": str (editable deliverable draft)
+# ✅ f"{tab_key}__draft_saved_at": str|None (amendment timestamp)
+# ✅ f"{tab_key}__approved_text": str|None (approved version)
+# ✅ f"{tab_key}__approved_at": str|None (approval timestamp)
+# ✅ f"{tab_key}__approved_by": str|None (approval author, "operator")
+# ✅ f"{tab_key}__export_ready": bool (True after approval)
+#
+# GENERATE HANDLER:
+# ✅ After successful runner, creates draft via to_draft_markdown()
+# ✅ Draft stored in f"{tab_key}__draft_text"
+# ✅ Old approvals cleared when new draft created
+# ✅ Manifest-only content converted to human-readable markdown
+# ✅ Operator NEVER sees blank output after Generate
+#
+# OUTPUT PANEL WORKFLOW (all 11 tabs):
+# ✅ A) Output Preview - Shows current draft in expander
+# ✅ B) Amend - Large text_area for operator editing
+#      - "Save Amendments" button stores changes
+#      - "Reset to Generated" button reverts to original
+#      - Save timestamp shows when draft was last modified
+# ✅ C) Approve - Approval gate
+#      - Shows "Approved" badge after approval
+#      - Timestamps and approval author visible
+#      - "Revoke Approval" button to unlock
+# ✅ D) Export - Download buttons
+#      - Markdown export with filename: aicmo_{tab_key}_{YYYYMMDD_HHMM}.md
+#      - JSON envelope export as backup
+#      - Both disabled until approved
+#      - Warning message when not approved
+#
+# RENDER FLOW:
+# ✅ render_deliverables_output() handles entire workflow
+# ✅ SUCCESS path: Shows all 4 sections (Preview, Amend, Approve, Export)
+# ✅ FAILURE path: Shows error + debug expander
+# ✅ Raw JSON ONLY in "Raw response (debug)" expander
+# ✅ No raw dicts visible in primary UI
+#
+# HELPER FUNCTIONS:
+# ✅ to_draft_markdown(tab_key, content) - Converts any content to markdown
+#      - Manifest-only → Item list
+#      - Creatives → Formatted creative list
+#      - String → As-is
+#      - Dict/List → Formatted key-value pairs
+#      - Returns always-editable markdown with "Operator Notes" section
+#
+# IMPLEMENTATION COMPLETE (All 11 tabs):
+# ✅ Tab 1: Intake
+# ✅ Tab 2: Strategy
+# ✅ Tab 3: Creatives
+# ✅ Tab 4: Execution
+# ✅ Tab 5: Monitoring
+# ✅ Tab 6: Lead Gen
+# ✅ Tab 7: Campaigns
+# ✅ Tab 8: Autonomy
+# ✅ Tab 9: Delivery
+# ✅ Tab 10: Learn
+# ✅ Tab 11: System (if applicable)
+#
+# ===================================================================
+# END VERIFICATION CHECKLIST
 # ===================================================================
