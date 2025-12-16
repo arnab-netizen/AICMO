@@ -1,0 +1,23 @@
+============================================================
+VERIFICATION: LeadStatus Enum Values
+============================================================
+
+Valid LeadStatus values:
+  ✓ NEW
+  ✓ ENRICHED
+  ✓ CONTACTED
+  ✓ REPLIED
+  ✓ QUALIFIED
+  ✓ ROUTED
+  ✓ LOST
+  ✓ MANUAL_REVIEW
+
+============================================================
+CHECK: Is 'ENGAGED' a valid LeadStatus?
+============================================================
+✅ PASSED: ENGAGED is NOT valid - 'ENGAGED' is not a valid LeadStatus
+
+============================================================
+CHECK: Is 'CONTACTED' a valid LeadStatus?
+============================================================
+✅ PASSED: CONTACTED is valid - CONTACTED

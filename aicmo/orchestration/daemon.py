@@ -67,6 +67,14 @@ class AOLDaemon:
         Returns:
             Exit code (0 = success, 1 = failure)
         """
+        # CAMPAIGN_OPS_FIX_START - Log DB identity at startup
+        try:
+            from aicmo.core.db_diagnostics import format_db_identity
+            print(f"[AOL] Starting daemon - Database: {format_db_identity()}", file=sys.stderr)
+        except Exception:
+            pass  # Don't fail startup if diagnostics unavailable
+        # CAMPAIGN_OPS_FIX_END
+        
         tick_count = 0
         session = self.session_maker()
         
@@ -166,6 +174,29 @@ class AOLDaemon:
                         payload["idempotency_key"] = action.idempotency_key
                         handle_post_social(session, action.id, payload, proof_mode=proof_mode)
                         actions_succeeded += 1
+                    # AICMO_CAMPAIGN_OPS_WIRING_START
+                    elif action.action_type == "CAMPAIGN_TICK":
+                        import json
+                        from aicmo.campaign_ops.actions import handle_campaign_tick
+                        payload = json.loads(action.payload_json) if action.payload_json else {}
+                        payload["idempotency_key"] = action.idempotency_key
+                        handle_campaign_tick(session, action.id, payload, proof_mode=proof_mode)
+                        actions_succeeded += 1
+                    elif action.action_type == "ESCALATE_OVERDUE_TASKS":
+                        import json
+                        from aicmo.campaign_ops.actions import handle_escalate_overdue_tasks
+                        payload = json.loads(action.payload_json) if action.payload_json else {}
+                        payload["idempotency_key"] = action.idempotency_key
+                        handle_escalate_overdue_tasks(session, action.id, payload, proof_mode=proof_mode)
+                        actions_succeeded += 1
+                    elif action.action_type == "WEEKLY_CAMPAIGN_SUMMARY":
+                        import json
+                        from aicmo.campaign_ops.actions import handle_weekly_campaign_summary
+                        payload = json.loads(action.payload_json) if action.payload_json else {}
+                        payload["idempotency_key"] = action.idempotency_key
+                        handle_weekly_campaign_summary(session, action.id, payload, proof_mode=proof_mode)
+                        actions_succeeded += 1
+                    # AICMO_CAMPAIGN_OPS_WIRING_END
                     else:
                         # Unknown action type
                         error_msg = f"Unknown action type: {action.action_type}"

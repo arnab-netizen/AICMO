@@ -1,0 +1,3 @@
+aicmo/cam/orchestrator/run.py:        while True:
+aicmo/monitoring/self_check.py:        self._check_task = asyncio.create_task(check_loop())
+scripts/run_self_check.py:        while True:

@@ -10,6 +10,7 @@ import subprocess
 import pytest
 
 
+@pytest.mark.smoke
 def test_worker_imports_without_openai_key():
     """Test that worker script can be imported without OPENAI_API_KEY set."""
     env = os.environ.copy()
@@ -26,6 +27,7 @@ def test_worker_imports_without_openai_key():
     assert result.returncode == 0, f"Worker compile failed: {result.stderr}"
 
 
+@pytest.mark.smoke
 def test_worker_imports_modules():
     """Test that worker imports required AOL modules."""
     env = os.environ.copy()
@@ -45,6 +47,7 @@ def test_worker_imports_modules():
         f"Unexpected error: {result.stderr}"
 
 
+@pytest.mark.smoke
 def test_worker_script_exists():
     """Test that worker script file exists and is readable."""
     assert os.path.exists('scripts/run_aol_worker.py'), "Worker script not found"

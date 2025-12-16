@@ -1,0 +1,20 @@
+aicmo/cam/engine/reply_engine.py:        "please remove", "decline", "declining",
+aicmo/cam/humanization.py:        "Please note that I am an AI",
+aicmo/cam/orchestrator/run.py:  python -m aicmo.cam.orchestrator.run --campaign-id 1 --mode proof --ticks 1
+aicmo/cam/orchestrator/run.py:    parser.add_argument("--interval-seconds", type=int, default=30, help="Seconds between ticks")
+aicmo/cam/orchestrator/run.py:    parser.add_argument("--ticks", type=int, help="Number of ticks (omit for infinite)")
+aicmo/cam/orchestrator/run.py:    parser.add_argument("--batch-size", type=int, default=25, help="Leads per tick")
+aicmo/cam/orchestrator/run.py:    print(f"Ticks: {args.ticks or 'infinite'}")
+aicmo/cam/orchestrator/run.py:    tick_count = 0
+aicmo/cam/orchestrator/run.py:                # Execute tick
+aicmo/cam/orchestrator/run.py:                print(f"\n[Tick {tick_count + 1}] {now.isoformat()}")
+aicmo/cam/orchestrator/run.py:                result = orchestrator.tick(
+aicmo/cam/orchestrator/run.py:            tick_count += 1
+aicmo/cam/orchestrator/run.py:            if args.ticks and tick_count >= args.ticks:
+aicmo/cam/orchestrator/run.py:                print(f"\nCompleted {tick_count} ticks")
+aicmo/cam/orchestrator/run.py:            if not args.ticks:
+aicmo/cam/orchestrator/models.py:- Single-writer lease (orchestrator_runs)
+aicmo/cam/orchestrator/models.py:    Orchestrator run state with single-writer lease.
+aicmo/cam/orchestrator/models.py:    Uses atomic UPDATE for lease acquisition.
+aicmo/cam/orchestrator/models.py:    lease_expires_at = Column(DateTime(timezone=True), nullable=False)
+aicmo/cam/orchestrator/models.py:        Index('idx_orchestrator_lease', 'campaign_id', 'lease_expires_at'),

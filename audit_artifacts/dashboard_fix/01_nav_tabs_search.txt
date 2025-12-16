@@ -1,0 +1,6 @@
+1525:    # 1) COMMAND VIEW – "What's blocking money right now?"
+1585:    # 2) PROJECTS VIEW – Kanban state machine
+1693:    # 3) WAR ROOM – Strategy review interface
+1842:    # 6) AUTONOMY TAB – Orchestration Layer monitoring
+1846:    # 7) CONTROL TOWER – Execution & gateways
+1936:    # 6) PM DASHBOARD – Project Management view

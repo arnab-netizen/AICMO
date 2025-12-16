@@ -1,0 +1,25 @@
+======================================================================
+Campaign Ops Database Table Verification
+======================================================================
+
+Database Identity (sanitized):
+  Scheme: postgresql
+  Host: ep-sweet-hat-ad3o70vb-pooler.c-2.us-east-1.aws.neon.tech
+  Port: 5432
+  Database: neondb
+  User: neondb_owner
+
+Campaign Ops Tables: 0/6
+
+
+❌ Missing:
+   - campaign_ops_campaigns
+   - campaign_ops_plans
+   - campaign_ops_calendar_items
+   - campaign_ops_operator_tasks
+   - campaign_ops_metric_entries
+   - campaign_ops_audit_log
+
+To fix, run:
+  cd /workspaces/AICMO
+  bash scripts/apply_campaign_ops_migrations.sh

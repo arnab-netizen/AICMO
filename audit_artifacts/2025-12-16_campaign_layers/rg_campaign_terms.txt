@@ -1,0 +1,35 @@
+=== SCHEDULER ===
+aicmo/crm/models.py:    CALL_SCHEDULED = "call_scheduled"
+aicmo/cam/run_models.py:    Each time a campaign runs (manually or scheduled), a run is created.
+aicmo/cam/run_models.py:    triggered_by = Column(String, nullable=True)  # "operator", "scheduler", "api"
+aicmo/cam/runner.py:from aicmo.cam.scheduler import find_leads_to_contact
+aicmo/cam/orchestrator.py:        scheduled = schedule_outreach_for_scored_leads(config)
+aicmo/cam/orchestrator.py:            "cam.outreach_scheduled",
+aicmo/cam/orchestrator.py:            details={"count": scheduled},
+aicmo/cam/orchestrator.py:        error_msg = f"schedule_outreach_for_scored_leads failed: {str(e)}"
+aicmo/cam/orchestrator.py:            details={"stage": "schedule_outreach", "error": str(e)},
+aicmo/cam/orchestrator.py:def schedule_outreach_for_scored_leads(config: CAMCycleConfig) -> int:
+
+=== PUBLISHING ===
+aicmo/cam/messaging.py:            "We've built a system that plans and executes content end-to-end (strategy, creatives, posting),",
+aicmo/cam/db_models.py:    Stage 2: Links CreativeVariants to campaigns with publish status tracking.
+aicmo/cam/db_models.py:    publish_status = Column(String, nullable=False, default="DRAFT")  # DRAFT, APPROVED, SCHEDULED, PUBLISHED
+aicmo/cam/db_models.py:    published_at = Column(DateTime(timezone=True), nullable=True)
+aicmo/media/models.py:Integrates with Phase 2 publishing and Phase 3 analytics.
+aicmo/media/models.py:    PUBLISHED = "published"
+aicmo/media/engine.py:Integrates with Phase 2 publishing and Phase 3 analytics.
+aicmo/social/domain.py:    posting_frequency: Optional[str] = None  # e.g., "daily", "weekly"
+aicmo/gateways/social.py:Social media posting adapters.
+aicmo/gateways/social.py:    Instagram posting adapter using Instagram Graph API.
+
+=== ANALYTICS ===
+aicmo/creative/directions_engine.py:        competitor_context = "\n\nCompetitor insights:\n"
+aicmo/crm/enrichment.py:            Dict with enrichment metrics
+aicmo/cam/api/orchestration.py:- Real-time metrics and dashboard data
+aicmo/cam/api/orchestration.py:    """Pipeline metrics response."""
+aicmo/cam/api/orchestration.py:    Returns comprehensive metrics on:
+aicmo/cam/api/orchestration.py:    Returns: Dashboard data with all metrics
+aicmo/cam/api/orchestration.py:        # Get orchestrator metrics
+aicmo/cam/api/orchestration.py:            jobs=[],  # Would be populated with metrics from dashboard
+aicmo/cam/api/orchestration.py:    - Performance metrics
+aicmo/cam/engine/harvest_orchestrator.py:5. Comprehensive logging and metrics

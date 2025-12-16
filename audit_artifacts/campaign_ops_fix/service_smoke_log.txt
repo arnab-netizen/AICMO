@@ -1,0 +1,49 @@
+Traceback (most recent call last):
+  File "<stdin>", line 61, in <module>
+  File "/home/vscode/.local/lib/python3.11/site-packages/pydantic/main.py", line 1026, in __getattr__
+    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+AttributeError: 'CampaignPlanRead' object has no attribute 'status'
+======================================================================
+CAMPAIGN OPS SERVICE SMOKE TEST
+======================================================================
+
+1️⃣  Creating test campaign...
+   ✅ Created campaign ID: 4
+   Name: Smoke Test Campaign 2025-12-16T13:55:44.123505
+   Status: PLANNED
+
+2️⃣  Listing campaigns...
+   ✅ Found 4 campaign(s) total
+   Latest created: Smoke Test Campaign 2025-12-16T13:53:13.377699
+
+3️⃣  Retrieving campaign by ID...
+   ✅ Retrieved campaign: Smoke Test Campaign 2025-12-16T13:55:44.123505
+
+4️⃣  Generating campaign plan...
+   ✅ Generated plan ID: 1
+
+❌ ERROR: 'CampaignPlanRead' object has no attribute 'status'
+
+======================================================================
+CAMPAIGN OPS SERVICE SMOKE TEST
+======================================================================
+
+1️⃣  Creating test campaign...
+   ✅ Created campaign ID: 5, Status: PLANNED
+
+2️⃣  Listing campaigns...
+   ✅ Found 5 campaign(s)
+
+3️⃣  Retrieving campaign by ID...
+   ✅ Retrieved: Smoke Test 2025-12-16T13:56:13.127124 (ID 5)
+
+4️⃣  Generating campaign plan...
+   ✅ Generated plan ID: 2
+
+5️⃣  Activating campaign...
+   ✅ Activated, new status: ACTIVE
+
+======================================================================
+✅ ALL TESTS PASSED - Campaign Ops Service Operational!
+======================================================================
+

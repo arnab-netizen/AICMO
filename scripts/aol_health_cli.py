@@ -70,20 +70,29 @@ def get_health_status(db_url: str = None):
         # Last tick
         print("LAST TICK:")
         last_tick = session.query(AOLTickLedger).order_by(
-            AOLTickLedger.tick_timestamp.desc()
+            AOLTickLedger.started_at_utc.desc()
         ).first()
         
         if last_tick:
-            print(f"  Timestamp: {last_tick.tick_timestamp}")
+            print(f"  Timestamp: {last_tick.started_at_utc}")
             print(f"  Status:    {last_tick.status}")
             print(f"  Actions:   {last_tick.actions_attempted} attempted, {last_tick.actions_succeeded} succeeded")
-            print(f"  Duration:  {last_tick.duration_seconds:.2f}s")
-            if last_tick.error_notes:
-                print(f"  Error:     {last_tick.error_notes[:100]}")
+            
+            if last_tick.finished_at_utc and last_tick.started_at_utc:
+                duration = (last_tick.finished_at_utc - last_tick.started_at_utc).total_seconds()
+                print(f"  Duration:  {duration:.2f}s")
+            
+            if last_tick.notes:
+                print(f"  Notes:     {last_tick.notes[:100]}")
             
             # Time since last tick
             now = datetime.now(timezone.utc)
-            delta = now - last_tick.tick_timestamp
+            if last_tick.started_at_utc.tzinfo is None:
+                # Make naive datetime aware
+                last_tick_time = last_tick.started_at_utc.replace(tzinfo=timezone.utc)
+            else:
+                last_tick_time = last_tick.started_at_utc
+            delta = now - last_tick_time
             print(f"  Age:       {delta.total_seconds():.0f}s ago")
         else:
             print("  (No ticks recorded yet)")
@@ -93,14 +102,21 @@ def get_health_status(db_url: str = None):
         lease = session.query(AOLLease).first()
         if lease and lease.owner:
             print(f"  Owner:     {lease.owner}")
-            print(f"  Held at:   {lease.acquired_at}")
-            print(f"  Expires:   {lease.expires_at}")
+            print(f"  Acquired:  {lease.acquired_at_utc}")
+            print(f"  Expires:   {lease.expires_at_utc}")
             
-            if lease.expires_at > datetime.now(timezone.utc):
-                seconds_left = (lease.expires_at - datetime.now(timezone.utc)).total_seconds()
-                print(f"  Time left: {seconds_left:.0f}s")
-            else:
-                print(f"  Status:    EXPIRED (daemon may be stuck)")
+            now = datetime.now(timezone.utc)
+            if lease.expires_at_utc:
+                if lease.expires_at_utc.tzinfo is None:
+                    expires_time = lease.expires_at_utc.replace(tzinfo=timezone.utc)
+                else:
+                    expires_time = lease.expires_at_utc
+                
+                if expires_time > now:
+                    seconds_left = (expires_time - now).total_seconds()
+                    print(f"  Time left: {seconds_left:.0f}s")
+                else:
+                    print(f"  Status:    EXPIRED (daemon may be stuck)")
         else:
             print(f"  Owner:     (no lease held)")
         

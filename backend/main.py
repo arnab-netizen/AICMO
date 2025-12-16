@@ -1,13 +1,37 @@
-"""FastAPI main app: Day-1 intake + Day-2 AICMO operator endpoints."""
+"""DEPRECATED_BACKEND_ENTRYPOINT
 
-from __future__ import annotations
+This file is a legacy monolith (9,600+ lines) from early development.
 
-import json
-import logging
-import os
-import re
-import time
-from datetime import date, timedelta
+**Production deployment must use: backend/app.py**
+
+Rationale:
+- backend/app.py (120 lines) cleanly imports routers from separate modules
+- backend/main.py contains inline endpoint implementations (unmaintainable)
+- RUNBOOK_RENDER_STREAMLIT.md:25 specifies: uvicorn backend.app:app
+
+This file is retained for historical reference only.
+If imported directly, raises RuntimeError to prevent accidental deployment.
+"""
+
+raise RuntimeError(
+    "DEPRECATED_BACKEND_ENTRYPOINT: backend/main.py is legacy code. "
+    "Use 'backend.app:app' for Render deployment. "
+    "See RUNBOOK_RENDER_STREAMLIT.md:25 for details."
+)
+
+# ============================================================================
+# ORIGINAL FILE CONTENT BELOW (archived for reference, not executed)
+# ============================================================================
+# """FastAPI main app: Day-1 intake + Day-2 AICMO operator endpoints."""
+#
+# from __future__ import annotations
+#
+# import json
+# import logging
+# import os
+# import re
+# import time
+# from datetime import date, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Optional, Dict, Any

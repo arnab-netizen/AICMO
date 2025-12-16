@@ -1,19 +1,26 @@
-from fastapi import FastAPI, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from app.db import get_session, db_healthcheck
-from app.models import Site, SiteSection
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-import json
+"""DEPRECATED_BACKEND_ENTRYPOINT
 
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+This file is an orphaned/duplicate FastAPI app from early development.
+
+**Production deployment must use: backend/app.py**
+
+Rationale:
+- app/main.py appears to be a historical artifact or alternative implementation
+- backend/app.py (120 lines) is the canonical production backend
+- RUNBOOK_RENDER_STREAMLIT.md:25 specifies: uvicorn backend.app:app
+
+If imported or run directly, raises RuntimeError to prevent accidental deployment.
+"""
+
+import sys
+
+raise RuntimeError(
+    "DEPRECATED_BACKEND_ENTRYPOINT: app/main.py is legacy code. "
+    "Use 'backend.app:app' for Render deployment. "
+    "See RUNBOOK_RENDER_STREAMLIT.md:25 for details."
 )
+
+sys.exit(1)
 
 
 @app.get("/health/db")

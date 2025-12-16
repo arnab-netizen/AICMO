@@ -1,0 +1,600 @@
+"""
+DEPRECATED_STREAMLIT_ENTRYPOINT: AICMO Ops Shell
+
+This is a diagnostic/testing UI used for internal development and E2E sentinels.
+
+**Production deployment must use: streamlit_pages/aicmo_operator.py**
+
+Rationale:
+- aicmo_ops_shell.py is a diagnostics dashboard (not for end-users)
+- aicmo_operator.py (109 KB) is the production operator UI
+- RUNBOOK_RENDER_STREAMLIT.md:33 specifies: streamlit_pages/aicmo_operator.py
+
+If run directly, raises RuntimeError to prevent accidental deployment.
+"""
+
+import sys
+
+raise RuntimeError(
+    "DEPRECATED_STREAMLIT_ENTRYPOINT: streamlit_pages/aicmo_ops_shell.py is dev-only. "
+    "Use 'streamlit run streamlit_pages/aicmo_operator.py' for production. "
+    "See RUNBOOK_RENDER_STREAMLIT.md:33 for details."
+)
+
+sys.exit(1)
+
+A minimal, stable Streamlit entrypoint for:
+  - E2E sentinels (runtime checks proving subsystems are up/down)
+  - Diagnostics (env, config, health checks)
+  - Admin actions (schema bootstrap, etc.)
+
+Design principles:
+  ✓ No heavy imports at module load time
+  ✓ All expensive operations behind explicit buttons/actions
+  ✓ Lazy imports inside functions (only when user clicks)
+  ✓ Evidence-based checks (command output, file existence)
+  ✓ Clear pass/fail/unknown status with reasons
+  ✓ Masked credentials in display
+
+Entry point:
+  streamlit run streamlit_pages/aicmo_ops_shell.py --server.port 8510
+  or: make ops-ui
+"""
+
+import os
+import sys
+import json
+import time
+import subprocess
+from dataclasses import dataclass
+from typing import List, Dict, Optional, Any
+from datetime import datetime
+
+import streamlit as st
+
+# ═══════════════════════════════════════════════════════════════════════
+# DATA MODELS
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@dataclass
+class SentinelCheck:
+    """Result of a single E2E sentinel check."""
+    
+    name: str
+    status: str  # "PASS", "FAIL", "UNKNOWN"
+    details: str
+    evidence: Optional[str] = None  # command output, file path, etc.
+    error: Optional[str] = None
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# LAZY IMPORT HELPERS
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def _try_import(module_name: str) -> Optional[Any]:
+    """Safely try importing a module, return module or None."""
+    try:
+        return __import__(module_name, fromlist=[''])
+    except Exception as e:
+        return None
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# SENTINEL CHECKS
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def check_python_runtime() -> SentinelCheck:
+    """Check Python runtime version."""
+    try:
+        version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        return SentinelCheck(
+            name="Python Runtime",
+            status="PASS",
+            details=f"Python {version}",
+            evidence=version
+        )
+    except Exception as e:
+        return SentinelCheck(
+            name="Python Runtime",
+            status="UNKNOWN",
+            details=str(e),
+            error=str(e)
+        )
+
+
+def check_aicmo_import() -> SentinelCheck:
+    """Check if aicmo package can be imported."""
+    try:
+        aicmo_module = _try_import('aicmo')
+        if aicmo_module:
+            return SentinelCheck(
+                name="AICMO Package Import",
+                status="PASS",
+                details="aicmo package imports successfully",
+                evidence=str(aicmo_module.__file__)
+            )
+        else:
+            return SentinelCheck(
+                name="AICMO Package Import",
+                status="FAIL",
+                details="Cannot import aicmo package",
+            )
+    except Exception as e:
+        return SentinelCheck(
+            name="AICMO Package Import",
+            status="FAIL",
+            details=f"Import error: {e}",
+            error=str(e)
+        )
+
+
+def check_public_api_imports() -> SentinelCheck:
+    """Check if orchestrator public APIs are importable."""
+    try:
+        from aicmo.cam import run_daily_cam_cycle, CAMCycleConfig
+        from aicmo.creative import generate_creative_directions
+        from aicmo.social import generate_listening_report
+        from aicmo.delivery import DeliveryGate
+        
+        return SentinelCheck(
+            name="Public API Imports",
+            status="PASS",
+            details="All orchestrator APIs importable",
+            evidence="CAM, Creative, Social, Delivery"
+        )
+    except ImportError as e:
+        return SentinelCheck(
+            name="Public API Imports",
+            status="FAIL",
+            details=f"Missing public API: {e}",
+            error=str(e)
+        )
+    except Exception as e:
+        return SentinelCheck(
+            name="Public API Imports",
+            status="UNKNOWN",
+            details=f"Unexpected error: {e}",
+            error=str(e)
+        )
+
+
+def check_database_connectivity() -> SentinelCheck:
+    """Check if database can be connected to."""
+    try:
+        db_url = os.getenv('DATABASE_URL', 'sqlite:///local.db')
+        
+        if 'sqlite' in db_url:
+            # SQLite: just check file exists or can be created
+            path = db_url.replace('sqlite:///', '')
+            file_exists = os.path.exists(path)
+            
+            return SentinelCheck(
+                name="Database Connectivity",
+                status="PASS" if file_exists else "UNKNOWN",
+                details=f"SQLite database: {path}",
+                evidence=f"exists={file_exists}"
+            )
+        else:
+            # PostgreSQL: would need connection attempt
+            return SentinelCheck(
+                name="Database Connectivity",
+                status="UNKNOWN",
+                details="PostgreSQL (not tested in ops shell)",
+                evidence="SQL connection check skipped"
+            )
+    except Exception as e:
+        return SentinelCheck(
+            name="Database Connectivity",
+            status="FAIL",
+            details=f"DB check error: {e}",
+            error=str(e)
+        )
+
+
+def check_database_tables() -> SentinelCheck:
+    """Check if application tables exist in database."""
+    try:
+        db_url = os.getenv('DATABASE_URL', 'sqlite:///local.db')
+        
+        if 'sqlite' not in db_url:
+            return SentinelCheck(
+                name="Database Tables",
+                status="UNKNOWN",
+                details="PostgreSQL (not checked in ops shell)",
+            )
+        
+        import sqlite3
+        
+        path = db_url.replace('sqlite:///', '')
+        if not os.path.exists(path):
+            return SentinelCheck(
+                name="Database Tables",
+                status="FAIL",
+                details=f"SQLite file not found: {path}",
+            )
+        
+        conn = sqlite3.connect(path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        tables = [r[0] for r in cursor.fetchall()]
+        conn.close()
+        
+        if not tables:
+            return SentinelCheck(
+                name="Database Tables",
+                status="FAIL",
+                details="No tables found (schema not deployed)",
+                evidence=f"tables={tables}"
+            )
+        
+        if len(tables) == 1 and tables[0] == 'alembic_version':
+            return SentinelCheck(
+                name="Database Tables",
+                status="FAIL",
+                details="Only alembic_version table found (schema incomplete)",
+                evidence="app tables missing"
+            )
+        
+        return SentinelCheck(
+            name="Database Tables",
+            status="PASS",
+            details=f"Database has {len(tables)} tables",
+            evidence=", ".join(tables[:5]) + ("..." if len(tables) > 5 else "")
+        )
+    
+    except Exception as e:
+        return SentinelCheck(
+            name="Database Tables",
+            status="UNKNOWN",
+            details=f"Check failed: {e}",
+            error=str(e)
+        )
+
+
+def check_alembic_ready() -> SentinelCheck:
+    """Check if alembic is configured for migrations."""
+    try:
+        # Check if alembic.ini exists
+        if not os.path.exists('alembic.ini'):
+            return SentinelCheck(
+                name="Alembic Configuration",
+                status="FAIL",
+                details="alembic.ini not found",
+            )
+        
+        # Check if env.py exists
+        if not os.path.exists('db/alembic/env.py'):
+            return SentinelCheck(
+                name="Alembic Configuration",
+                status="FAIL",
+                details="db/alembic/env.py not found",
+            )
+        
+        # Check if versions directory exists
+        if not os.path.exists('db/alembic/versions'):
+            return SentinelCheck(
+                name="Alembic Configuration",
+                status="FAIL",
+                details="db/alembic/versions directory not found",
+            )
+        
+        return SentinelCheck(
+            name="Alembic Configuration",
+            status="PASS",
+            details="Alembic is configured and ready",
+            evidence="alembic.ini, env.py, versions/ all present"
+        )
+    
+    except Exception as e:
+        return SentinelCheck(
+            name="Alembic Configuration",
+            status="UNKNOWN",
+            details=f"Check error: {e}",
+            error=str(e)
+        )
+
+
+def check_llm_status() -> SentinelCheck:
+    """Check LLM configuration status."""
+    try:
+        from aicmo.core.llm.runtime import safe_llm_status
+        
+        status = safe_llm_status()
+        
+        if status['enabled']:
+            return SentinelCheck(
+                name="LLM Integration",
+                status="PASS",
+                details="OpenAI API configured and ready",
+                evidence=status['reason']
+            )
+        else:
+            return SentinelCheck(
+                name="LLM Integration",
+                status="FAIL",
+                details="LLM disabled (optional feature)",
+                evidence=status['reason']
+            )
+    
+    except Exception as e:
+        return SentinelCheck(
+            name="LLM Integration",
+            status="UNKNOWN",
+            details=f"Cannot determine LLM status: {e}",
+            error=str(e)
+        )
+
+
+def check_canonical_ui_presence() -> SentinelCheck:
+    """Check if canonical UI file exists."""
+    try:
+        ui_path = 'streamlit_pages/aicmo_operator.py'
+        if os.path.exists(ui_path):
+            return SentinelCheck(
+                name="Canonical UI",
+                status="PASS",
+                details=f"Found: {ui_path}",
+                evidence=ui_path
+            )
+        else:
+            return SentinelCheck(
+                name="Canonical UI",
+                status="FAIL",
+                details=f"Not found: {ui_path}",
+            )
+    except Exception as e:
+        return SentinelCheck(
+            name="Canonical UI",
+            status="UNKNOWN",
+            details=f"Check error: {e}",
+            error=str(e)
+        )
+
+
+def check_database_url_validation() -> SentinelCheck:
+    """Check database URL for configuration issues."""
+    try:
+        from aicmo.core.db import validate_database_url
+        
+        result = validate_database_url()
+        
+        if result['valid']:
+            return SentinelCheck(
+                name="Database URL Validation",
+                status="PASS",
+                details=f"{result['db_type']} database configured",
+                evidence=result['database_url']
+            )
+        else:
+            issues = "; ".join(result['issues'])
+            return SentinelCheck(
+                name="Database URL Validation",
+                status="FAIL",
+                details=f"Configuration issues: {issues}",
+                evidence=result['database_url']
+            )
+    
+    except Exception as e:
+        return SentinelCheck(
+            name="Database URL Validation",
+            status="UNKNOWN",
+            details=f"Validation error: {e}",
+            error=str(e)
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# STREAMLIT UI COMPONENTS
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def render_sentinel_check(check: SentinelCheck) -> None:
+    """Render a single sentinel check result."""
+    status_color = {
+        "PASS": "🟢",
+        "FAIL": "🔴",
+        "UNKNOWN": "🟡",
+    }.get(check.status, "⚪")
+    
+    with st.container():
+        col1, col2 = st.columns([1, 10])
+        
+        with col1:
+            st.write(status_color)
+        
+        with col2:
+            st.write(f"**{check.name}** — {check.details}")
+            
+            if check.evidence:
+                st.caption(f"Evidence: `{check.evidence}`")
+            
+            if check.error:
+                st.warning(f"Error: {check.error}")
+
+
+def page_home() -> None:
+    """Home page."""
+    st.write("## AICMO Ops Shell")
+    st.write(
+        "A stable, minimal operations dashboard for diagnostics and system health checks. "
+        "Use this to verify that key AICMO systems are up and running."
+    )
+    
+    st.write("### Quick Navigation")
+    st.write(
+        "- **Sentinels**: E2E checks proving subsystems are operational\n"
+        "- **Diagnostics**: Environment config, health status, recent errors\n"
+        "- **Canonical UI**: Information and launch instructions for the main dashboard"
+    )
+    
+    st.write("### What This Is NOT")
+    st.write(
+        "This is NOT the main operator UI for creating campaigns and managing leads. "
+        "That's at `streamlit_pages/aicmo_operator.py` (see Canonical UI page)."
+    )
+
+
+def page_sentinels() -> None:
+    """E2E Sentinels page."""
+    st.write("## E2E System Sentinels")
+    st.write(
+        "These checks verify that critical AICMO subsystems are present and configured."
+    )
+    
+    if st.button("▶️ Run Sentinels", key="run_sentinels"):
+        st.write("")
+        
+        checks: List[SentinelCheck] = [
+            check_python_runtime(),
+            check_aicmo_import(),
+            check_public_api_imports(),
+            check_canonical_ui_presence(),
+            check_database_url_validation(),
+            check_database_connectivity(),
+            check_database_tables(),
+            check_alembic_ready(),
+            check_llm_status(),
+        ]
+        
+        # Count results
+        passed = sum(1 for c in checks if c.status == "PASS")
+        failed = sum(1 for c in checks if c.status == "FAIL")
+        unknown = sum(1 for c in checks if c.status == "UNKNOWN")
+        
+        st.write(f"**Results**: {passed} passed | {failed} failed | {unknown} unknown")
+        st.write("")
+        
+        for check in checks:
+            render_sentinel_check(check)
+
+
+def page_diagnostics() -> None:
+    """Diagnostics page."""
+    st.write("## Diagnostics")
+    
+    st.write("### Environment & Configuration")
+    
+    # Environment vars
+    col1, col2 = st.columns(2)
+    with col1:
+        db_url = os.getenv('DATABASE_URL', 'NOT SET')
+        st.write(f"**DATABASE_URL** (masked):")
+        
+        # Mask credentials
+        if '://' in db_url and '@' in db_url:
+            scheme, rest = db_url.split('://', 1)
+            creds, host = rest.rsplit('@', 1)
+            user = creds.split(':', 1)[0]
+            masked = f"{scheme}://{user}:***@{host}"
+            st.code(masked)
+        else:
+            st.code(db_url)
+    
+    with col2:
+        has_key = bool(os.getenv('OPENAI_API_KEY', '').strip())
+        use_llm = os.getenv('AICMO_USE_LLM', 'NOT SET')
+        st.write(f"**OPENAI_API_KEY**: {'✓ Set' if has_key else '✗ Not set'}")
+        st.write(f"**AICMO_USE_LLM**: {use_llm}")
+    
+    st.write("### Database Validator")
+    if st.button("Check Database URL"):
+        from aicmo.core.db import validate_database_url
+        
+        result = validate_database_url()
+        
+        st.json({
+            'valid': result['valid'],
+            'db_type': result['db_type'],
+            'is_async': result['is_async'],
+            'issues': result['issues'],
+            'warnings': result['warnings'],
+        })
+    
+    st.write("### Database Schema Bootstrap")
+    if st.button("Bootstrap Database Schema", key="bootstrap"):
+        with st.spinner("Running alembic upgrade..."):
+            try:
+                from scripts.bootstrap_db_schema import bootstrap_db_schema
+                
+                result = bootstrap_db_schema()
+                
+                st.write(f"**Result**: {'✓ Success' if result['success'] else '✗ Failed'}")
+                st.write(f"**Database**: {result['database_url']}")
+                st.write(f"**Tables Before**: {result['tables_before']}")
+                st.write(f"**Tables After**: {result['tables_after']}")
+                
+                if result['error']:
+                    st.error(f"Error: {result['error']}")
+            
+            except Exception as e:
+                st.error(f"Bootstrap failed: {e}")
+
+
+def page_canonical_ui() -> None:
+    """Canonical UI info page."""
+    st.write("## Canonical UI")
+    
+    st.write("### What is this?")
+    st.write(
+        "The **AICMO Operator Dashboard** is the main UI for all workflows:\n"
+        "- Lead discovery and scoring (CAM)\n"
+        "- Creative generation\n"
+        "- Social media analysis\n"
+        "- Delivery and campaign execution\n"
+        "- Quality checks and feedback"
+    )
+    
+    st.write("### How to launch")
+    st.code(
+        """python -m streamlit run streamlit_pages/aicmo_operator.py
+or:
+python run_streamlit.py
+or:
+make ui""",
+        language="bash"
+    )
+    
+    st.write("### File location")
+    st.code("streamlit_pages/aicmo_operator.py")
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PAGE ROUTING
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def main():
+    """Main app."""
+    st.set_page_config(
+        page_title="AICMO Ops Shell",
+        page_icon="⚙️",
+        layout="wide",
+    )
+    
+    # Sidebar navigation
+    page = st.sidebar.radio(
+        "Navigation",
+        ["Home", "Sentinels", "Diagnostics", "Canonical UI"],
+        captions=[
+            "Overview",
+            "E2E checks",
+            "Config & health",
+            "Main UI info",
+        ]
+    )
+    
+    if page == "Home":
+        page_home()
+    elif page == "Sentinels":
+        page_sentinels()
+    elif page == "Diagnostics":
+        page_diagnostics()
+    elif page == "Canonical UI":
+        page_canonical_ui()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,51 @@
+aicmo/crm/models.py:28:    ENGAGED = "engaged"  # Has engagement activity
+aicmo/crm/models.py:165:        if self.status not in (ContactStatus.ENGAGED, ContactStatus.CONVERTED, ContactStatus.DISQUALIFIED):
+aicmo/crm/models.py:166:            self.status = ContactStatus.ENGAGED
+aicmo/cam/api/dtos.py:35:    status: str  # "NEW", "QUALIFIED", "CONTACTED", "ENGAGED", etc.
+aicmo/cam/engine/targets_tracker.py:38:        status_contacted: Count of CONTACTED status leads
+aicmo/cam/engine/targets_tracker.py:72:            f"    CONTACTED: {self.status_contacted}",
+aicmo/cam/engine/targets_tracker.py:135:        status_contacted=status_counts.get(LeadStatus.CONTACTED, 0),
+aicmo/cam/engine/lead_nurture.py:528:            lead_db.status = LeadStatus.CONTACTED.value
+aicmo/cam/engine/lead_nurture.py:530:            logger.info(f"Lead {lead_id} moved to CONTACTED after reply")
+aicmo/cam/engine/state_machine.py:66:    - SENT → CONTACTED
+aicmo/cam/engine/state_machine.py:86:    # If send succeeded, mark as CONTACTED
+aicmo/cam/engine/state_machine.py:93:        return LeadStatus.CONTACTED
+aicmo/cam/engine/state_machine.py:148:    - CONTACTED lead: 3 days later for first followup
+aicmo/cam/engine/state_machine.py:183:        elif lead.status == LeadStatus.CONTACTED:
+aicmo/cam/engine/outreach_engine.py:44:    - Lead status is NEW or ENRICHED or CONTACTED (ready for outreach)
+aicmo/cam/engine/outreach_engine.py:68:                LeadDB.status.in_([LeadStatus.NEW, LeadStatus.ENRICHED, LeadStatus.CONTACTED]),
+aicmo/cam/auto.py:148:                    lead_db.status = LeadStatus.CONTACTED
+aicmo/cam/auto.py:198:       d. Update lead status to CONTACTED
+aicmo/cam/auto.py:272:                lead_db.status = LeadStatus.CONTACTED
+aicmo/cam/auto.py:309:       d. Update lead status to CONTACTED
+aicmo/cam/auto.py:364:                lead_db.status = LeadStatus.CONTACTED
+aicmo/cam/orchestrator/artifacts.py:137:        LeadDB.status == "CONTACTED",
+aicmo/cam/orchestrator/engine.py:277:        - status in [NEW, CONTACTED]
+aicmo/cam/orchestrator/engine.py:287:                    LeadDB.status.in_([LeadStatus.NEW, LeadStatus.CONTACTED]),
+aicmo/cam/orchestrator/engine.py:395:            lead.status = LeadStatus.CONTACTED
+aicmo/cam/domain.py:29:    CONTACTED = "CONTACTED"
+aicmo/cam/pipeline.py:22:    CONTACTED = "CONTACTED"
+aicmo/operator_services.py:61:        LeadDB.status.in_(["CONTACTED", "ENGAGED"])
+backend/tests/test_operator_services.py:50:            stage="CONTACTED",
+backend/tests/test_cam_auto_runner.py:176:    # Verify leads updated to CONTACTED
+backend/tests/test_cam_auto_runner.py:179:        assert lead.status == LeadStatus.CONTACTED
+backend/tests/test_cam_auto_runner.py:239:    # Verify leads updated to CONTACTED
+backend/tests/test_cam_auto_runner.py:242:        assert lead.status == LeadStatus.CONTACTED
+backend/tests/test_cam_auto_runner.py:299:    # Mark all leads as CONTACTED
+backend/tests/test_cam_auto_runner.py:302:        lead.status = LeadStatus.CONTACTED
+backend/tests/test_cam_engine_core.py:141:        """After successful send, should be CONTACTED."""
+backend/tests/test_cam_engine_core.py:148:        assert status == LeadStatus.CONTACTED
+backend/tests/test_cam_engine_core.py:186:            status=LeadStatus.CONTACTED,
+backend/tests/test_cam_engine_core.py:252:            status=LeadStatus.CONTACTED,
+backend/tests/test_cam_pipeline_api.py:163:            LeadDB(campaign_id=sample_campaign, name="Lead3", email="l3@test.com", source=LeadSource.MANUAL, status=LeadStatus.CONTACTED, stage="CONTACTED"),
+backend/tests/test_cam_pipeline_api.py:192:        json={"stage": "CONTACTED"},
+backend/tests/test_cam_pipeline_api.py:198:    assert data["stage"] == "CONTACTED"
+backend/tests/test_cam_pipeline_api.py:204:        assert lead.stage == "CONTACTED"
+backend/tests/test_cam_pipeline_api.py:213:        json={"stage": "CONTACTED"},
+backend/tests/test_cam_pipeline_api.py:221:    stages = ["CONTACTED", "REPLIED", "QUALIFIED", "WON"]
+backend/tests/test_cam_pipeline_api.py:461:    # Update to CONTACTED
+backend/tests/test_cam_pipeline_api.py:462:    response = client.post(f"/api/cam/leads/{lead_id}/stage", json={"stage": "CONTACTED"})
+backend/tests/test_cam_phase10_reply_engine.py:54:        status=LeadStatus.CONTACTED,
+backend/tests/test_cam_phase11_simulation.py:266:            LeadStatus.CONTACTED,
+backend/tests/test_cam_phase11_simulation.py:298:            LeadStatus.CONTACTED,
+backend/schemas_cam.py:94:    stage: str  # NEW/CONTACTED/REPLIED/QUALIFIED/WON/LOST

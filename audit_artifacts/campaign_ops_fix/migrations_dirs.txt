@@ -1,0 +1,4 @@
+./db/alembic
+./db/migrations
+./backend/alembic
+./backend/migrations

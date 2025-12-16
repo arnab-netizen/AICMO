@@ -1,0 +1,12 @@
+=== AOL TABLES ===
+  - aol_actions
+  - aol_control_flags
+  - aol_execution_logs
+  - aol_lease
+  - aol_tick_ledger
+
+=== CAM TABLES ===
+CAM error: Foreign key associated with column 'cam_leads.venture_id' could not find table 'ventures' with which to generate a foreign key to target column 'id'
+
+=== BACKEND TABLES ===
+Backend error: Foreign key associated with column 'cam_leads.venture_id' could not find table 'ventures' with which to generate a foreign key to target column 'id'

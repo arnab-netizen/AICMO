@@ -1,0 +1,16 @@
+=== SYNTAX ERRORS FOUND ===
+
+File: aicmo/cam/auto.py
+Line 22: Missing "def" keyword
+  
+    multichannel_batch(
+        db: Session,
+        ...
+    
+  Should be: def multichannel_batch(...)
+
+Status: AUDIT BLOCKER (prevents collection/import)
+Severity: CRITICAL (if this module is needed for campaign layer)
+
+=== OTHER POTENTIAL ISSUES ===
+Running full compile check to find all syntax errors...

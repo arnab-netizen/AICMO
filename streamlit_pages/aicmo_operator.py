@@ -1,3 +1,12 @@
+"""
+AICMO Operator Dashboard — Premium Edition
+Canonical Streamlit entrypoint for AICMO operator UI.
+
+Build: AICMO_DASH_V2_2025_12_16
+File: streamlit_pages/aicmo_operator.py
+Launch: python -m streamlit run streamlit_pages/aicmo_operator.py
+"""
+
 import io
 import json
 import os
@@ -6,6 +15,13 @@ import sys
 import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+
+# ============================================================================
+# BUILD MARKER & RUNNING FILE SENTINEL (PHASE 1)
+# ============================================================================
+BUILD_MARKER = "AICMO_DASH_V2_2025_12_16"
+RUNNING_FILE = __file__
+RUNNING_CWD = os.getcwd()
 
 # Load .env early
 from dotenv import load_dotenv
@@ -388,6 +404,40 @@ def _directions_to_markdown(directions: List[Any]) -> str:
         lines.append("---")
         lines.append("")
     return "\n".join(lines)
+
+
+# PHASE 3: SAFE DATABASE CALL WRAPPER
+def safe_db_call(fn, default=None, label: str = "DB operation"):
+    """
+    Safely execute a database function, catching and logging all errors.
+    
+    The UI must never crash due to DB issues. This wrapper ensures:
+    - All DB errors are caught and logged
+    - A sensible default is returned
+    - Error details are available for debugging
+    
+    Args:
+        fn: Callable that takes (db_session) and returns a value
+        default: Value to return if fn fails (default: None)
+        label: Human-readable label for error messages
+        
+    Returns:
+        Result of fn(session) or default value
+    """
+    if not get_session or not OPERATOR_SERVICES_AVAILABLE:
+        # DB not available; return default
+        st.warning(f"⚠️ Database unavailable for {label}")
+        return default
+    
+    try:
+        with get_session() as session:
+            return fn(session)
+    except Exception as e:
+        import traceback
+        st.error(f"❌ Error during {label}: {type(e).__name__}")
+        with st.expander("Debug details"):
+            st.code(f"{str(e)}\n\n{traceback.format_exc()}", language="python")
+        return default
 
 
 def _report_with_creative_directions(report_obj: Any) -> Any:
@@ -906,17 +956,21 @@ def _get_attention_metrics() -> Dict[str, int]:
     """Compute the top-row 'blocking money' metrics."""
     if not OPERATOR_SERVICES_AVAILABLE or get_session is None:
         # Fallback to mock data if services unavailable
+        # Mark these as mock so UI can display badge
         return {
             "leads": 12,
             "high_intent": 3,
             "approvals_pending": 4,
             "execution_success": 98,
             "failed_last_24h": 2,
+            "_is_mock": True,  # Flag to indicate mock data
         }
     
     try:
         with get_session() as db:
-            return operator_services.get_attention_metrics(db)
+            metrics = operator_services.get_attention_metrics(db)
+            metrics["_is_mock"] = False  # Real data
+            return metrics
     except Exception as e:
         st.error(f"Failed to load metrics: {e}")
         return {
@@ -925,6 +979,7 @@ def _get_attention_metrics() -> Dict[str, int]:
             "approvals_pending": 0,
             "execution_success": 0,
             "failed_last_24h": 0,
+            "_is_mock": True,  # Error fallback, still mock
         }
 
 
@@ -955,153 +1010,194 @@ def _render_autonomy_tab() -> None:
     - Control flags (pause/resume/kill buttons)
     - Action queue (pending/retry/DLQ counts)
     - Recent execution logs
+    
+    SAFETY: Prefers backend HTTP endpoint (/health/aol) over direct DB access.
     """
+    
+    # Try backend endpoint first (preferred - no DB credentials needed in UI)
+    backend_url = os.getenv('AICMO_BACKEND_URL', 'http://localhost:8000')
+    aol_health = None
+    
     try:
-        # Lazy import to avoid cold-start blockers
-        from aicmo.orchestration.models import (
-            AOLControlFlags, AOLTickLedger, AOLLease, AOLAction, AOLExecutionLog
-        )
-        from aicmo.orchestration.queue import ActionQueue
-        
-        if not get_session or not OPERATOR_SERVICES_AVAILABLE:
-            st.warning("⚠️ Autonomy features require database connection")
+        response = requests.get(f"{backend_url}/health/aol", timeout=5)
+        if response.status_code == 200:
+            aol_health = response.json()
+            st.success("✓ AOL status from backend endpoint")
+        else:
+            st.warning(f"Backend /health/aol returned {response.status_code}")
+    except Exception as e:
+        st.warning(f"⚠️ Cannot reach backend endpoint: {e}")
+    
+    # Fallback to direct DB if backend unavailable (only if dangerous mode enabled)
+    if not aol_health:
+        if not AICMO_ENABLE_DANGEROUS_UI_OPS:
+            st.error(
+                "❌ Backend health endpoint unavailable and direct DB access is disabled. "
+                "Set AICMO_ENABLE_DANGEROUS_UI_OPS=1 to enable direct DB fallback (dev only)."
+            )
             return
         
-        session = get_session()
+        st.warning("⚠️ Using direct DB access (fallback mode - requires DANGER MODE)")
         
-        # Read current state
-        from sqlalchemy import select, desc, func
-        
-        # 1. Lease status
-        lease_stmt = select(AOLLease).limit(1)
-        lease = session.execute(lease_stmt).scalar_one_or_none()
-        
-        # 2. Control flags
-        flags_stmt = select(AOLControlFlags).limit(1)
-        flags = session.execute(flags_stmt).scalar_one_or_none()
-        
-        if not flags:
-            flags = AOLControlFlags()
-            session.add(flags)
-            session.commit()
-        
-        # 3. Last tick
-        last_tick_stmt = select(AOLTickLedger).order_by(desc(AOLTickLedger.id)).limit(1)
-        last_tick = session.execute(last_tick_stmt).scalar_one_or_none()
-        
-        # 4. Action counts
-        pending_count = session.query(func.count(AOLAction.id)).filter(
-            AOLAction.status.in_(["PENDING", "READY"])
-        ).scalar() or 0
-        
-        retry_count = session.query(func.count(AOLAction.id)).filter(
-            AOLAction.status == "RETRY"
-        ).scalar() or 0
-        
-        dlq_count = session.query(func.count(AOLAction.id)).filter(
-            AOLAction.status == "DLQ"
-        ).scalar() or 0
-        
-        session.close()
-        
-        # === DISPLAY ===
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("📋 Pending Actions", pending_count)
-        
-        with col2:
-            st.metric("🔄 Retry Queue", retry_count)
-        
-        with col3:
-            st.metric("💀 Dead Letter", dlq_count)
-        
-        with col4:
-            mode = "🎯 PROOF" if flags.proof_mode else "🔴 REAL"
-            st.metric("Mode", mode)
-        
-        # Daemon status
-        st.markdown("### Daemon Status")
-        
-        if lease:
-            lease_col1, lease_col2 = st.columns(2)
-            with lease_col1:
-                st.text_input("Lease Owner", lease.owner, disabled=True)
-            with lease_col2:
-                expires_in = (lease.expires_at_utc - datetime.datetime.utcnow()).total_seconds() if lease.expires_at_utc else 0
-                status_color = "🟢" if expires_in > 0 else "🔴"
-                st.metric("Lease TTL (s)", f"{status_color} {max(0, int(expires_in))}")
-        else:
-            st.info("✓ No daemon lease (idle or not running)")
-        
-        # Last tick
-        if last_tick:
-            st.markdown("### Last Tick Summary")
-            tick_col1, tick_col2, tick_col3 = st.columns(3)
+        try:
+            # Lazy import to avoid cold-start blockers
+            from aicmo.orchestration.models import (
+                AOLControlFlags, AOLTickLedger, AOLLease, AOLAction, AOLExecutionLog
+            )
             
-            with tick_col1:
-                status_emoji = {"SUCCESS": "✓", "PARTIAL": "⚠️", "FAIL": "❌"}.get(last_tick.status, "?")
-                st.metric("Status", f"{status_emoji} {last_tick.status}")
+            if not get_session or not OPERATOR_SERVICES_AVAILABLE:
+                st.error("⚠️ Database session unavailable")
+                return
             
-            with tick_col2:
-                duration = (last_tick.finished_at_utc - last_tick.started_at_utc).total_seconds() \
-                    if last_tick.finished_at_utc else 0
-                st.metric("Duration (s)", f"{duration:.2f}")
-            
-            with tick_col3:
-                st.metric(
-                    "Actions",
-                    f"{last_tick.actions_succeeded}/{last_tick.actions_attempted}"
-                )
-            
-            if last_tick.notes:
-                st.caption(f"Notes: {last_tick.notes}")
-        else:
-            st.info("ℹ️ No ticks recorded yet")
+            # DASH_FIX_START - Fix #2: Wrap session in context manager
+            # get_session() returns a context manager; must use "with" block
+            with get_session() as session:
+                # Read current state
+                from sqlalchemy import select, desc, func
+                
+                # 1. Lease status
+                lease_stmt = select(AOLLease).limit(1)
+                lease = session.execute(lease_stmt).scalar_one_or_none()
+                
+                # 2. Control flags
+                flags_stmt = select(AOLControlFlags).limit(1)
+                flags_row = session.execute(flags_stmt).scalar_one_or_none()
+                
+                # 3. Last tick
+                last_tick_stmt = select(AOLTickLedger).order_by(desc(AOLTickLedger.id)).limit(1)
+                last_tick = session.execute(last_tick_stmt).scalar_one_or_none()
+                
+                # 4. Action counts
+                pending_count = session.query(func.count(AOLAction.id)).filter(
+                    AOLAction.status.in_(["PENDING", "READY"])
+                ).scalar() or 0
+                
+                retry_count = session.query(func.count(AOLAction.id)).filter(
+                    AOLAction.status == "RETRY"
+                ).scalar() or 0
+                
+                dlq_count = session.query(func.count(AOLAction.id)).filter(
+                    AOLAction.status == "DLQ"
+                ).scalar() or 0
+                
+                # Convert to health format for unified display
+                aol_health = {
+                    "last_tick_at": last_tick.started_at_utc.isoformat() if last_tick and last_tick.started_at_utc else None,
+                    "last_tick_status": last_tick.status if last_tick else None,
+                    "lease_owner": lease.owner if lease else None,
+                    "flags": {
+                        "paused": flags_row.paused if flags_row else False,
+                        "killed": flags_row.killed if flags_row else False,
+                        "proof_mode": flags_row.proof_mode if flags_row else True,
+                    },
+                    "queue_counts": {
+                        "pending": pending_count,
+                        "retry": retry_count,
+                        "dlq": dlq_count,
+                    },
+                }
+            # DASH_FIX_END
+        except Exception as e:
+            st.error(f"Failed to query AOL state directly: {e}")
+            return
+    
+    # === UNIFIED DISPLAY (works with both backend endpoint and direct DB) ===
+    if not aol_health:
+        st.error("No AOL health data available")
+        return
+    
+    flags = aol_health.get("flags", {})
+    queue_counts = aol_health.get("queue_counts", {})
+    flags = aol_health.get("flags", {})
+    queue_counts = aol_health.get("queue_counts", {})
+    
+    # Display metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("📋 Pending Actions", queue_counts.get("pending", 0))
+    
+    with col2:
+        st.metric("🔄 Retry Queue", queue_counts.get("retry", 0))
+    
+    with col3:
+        st.metric("💀 Dead Letter", queue_counts.get("dlq", 0))
+    
+    with col4:
+        mode = "🎯 PROOF" if flags.get("proof_mode", True) else "🔴 REAL"
+        st.metric("Mode", mode)
+    
+    # Daemon status
+    st.markdown("### Daemon Status")
+    
+    lease_owner = aol_health.get("lease_owner")
+    if lease_owner:
+        st.text_input("Lease Owner", lease_owner, disabled=True)
+        st.info("✓ Daemon is active and holding lease")
+    else:
+        st.info("✓ No daemon lease (idle or not running)")
+    
+    # Last tick
+    last_tick_at = aol_health.get("last_tick_at")
+    last_tick_status = aol_health.get("last_tick_status")
+    
+    if last_tick_at and last_tick_status:
+        st.markdown("### Last Tick Summary")
+        tick_col1, tick_col2 = st.columns(2)
         
-        # Control flags
-        st.markdown("### Control Flags")
-        control_col1, control_col2, control_col3 = st.columns(3)
+        with tick_col1:
+            status_emoji = {"SUCCESS": "✓", "PARTIAL": "⚠️", "FAIL": "❌"}.get(last_tick_status, "?")
+            st.metric("Status", f"{status_emoji} {last_tick_status}")
+        
+        with tick_col2:
+            st.text_input("Last Tick Time", last_tick_at, disabled=True)
+    else:
+        st.info("ℹ️ No ticks recorded yet")
+    
+    # Control flags (read-only by default unless DANGER MODE)
+    st.markdown("### Control Flags")
+    
+    if flags.get("paused"):
+        st.warning("⏸️ Daemon is PAUSED")
+    else:
+        st.success("▶️ Daemon is RUNNING")
+    
+    if flags.get("killed"):
+        st.error("🛑 Kill flag SET - daemon will exit")
+    
+    # Only allow control actions in DANGER MODE
+    if AICMO_ENABLE_DANGEROUS_UI_OPS:
+        st.warning("⚠️ DANGER MODE: Control actions enabled")
+        control_col1, control_col2 = st.columns(2)
         
         with control_col1:
-            if st.button("⏸️ Pause Daemon" if not flags.paused else "▶️ Resume Daemon"):
-                session = get_session()
-                flags.paused = not flags.paused
-                session.merge(flags)
-                session.commit()
-                session.close()
-                st.rerun()
+            if st.button("⏸️ Toggle Pause"):
+                st.warning("Control actions require direct DB access - use backend API or scripts/aol_health_cli.py")
         
         with control_col2:
-            if st.button("🗑️ Clear DLQ"):
-                session = get_session()
-                session.query(AOLAction).filter(AOLAction.status == "DLQ").update(
-                    {AOLAction.status: "CANCELLED"}
-                )
-                session.commit()
-                session.close()
-                st.success("DLQ cleared")
-                st.rerun()
-        
-        with control_col3:
-            if st.button("🛑 Kill Daemon"):
-                session = get_session()
-                flags.killed = True
-                session.merge(flags)
-                session.commit()
-                session.close()
-                st.warning("Kill flag set - daemon will exit on next tick")
-        
-        # Enqueue test action section
-        st.markdown("### Enqueue Test Action (PROOF mode only)")
+            if st.button("🛑 Set Kill Flag"):
+                st.warning("Control actions require direct DB access - use backend API or scripts/aol_health_cli.py")
+    else:
+        st.info("ℹ️ Control actions disabled (read-only mode). Use backend API or CLI tools to modify flags.")
+    
+    # Display backend health info
+    server_time = aol_health.get("server_time_utc")
+    if server_time:
+        st.caption(f"Backend server time: {server_time}")
+    
+    # Enqueue test action section (DANGER MODE only)
+    if AICMO_ENABLE_DANGEROUS_UI_OPS:
+        st.markdown("### Enqueue Test Action (DANGER MODE + PROOF mode only)")
         
         enqueue_col1, enqueue_col2 = st.columns([1, 1])
+        
+        proof_mode = flags.get("proof_mode", True)
         
         with enqueue_col1:
             action_type = st.selectbox(
                 "Action Type",
                 ["POST_SOCIAL"],
-                disabled=not flags.proof_mode,
+                disabled=not proof_mode,
                 help="Only PROOF mode actions supported via UI"
             )
         
@@ -1110,73 +1206,53 @@ def _render_autonomy_tab() -> None:
                 "Payload (JSON)",
                 '{"platform": "twitter", "message": "Test"}',
                 height=60,
-                disabled=not flags.proof_mode,
+                disabled=not proof_mode,
             )
         
-        if st.button("📤 Enqueue Action", disabled=not flags.proof_mode):
-            if not flags.proof_mode:
+        if st.button("📤 Enqueue Action", disabled=not proof_mode):
+            if not proof_mode:
                 st.error("Cannot enqueue: PROOF mode is disabled")
             else:
-                try:
-                    import json
-                    import uuid
-                    from aicmo.orchestration.queue import ActionQueue
-                    
-                    # Validate JSON
-                    payload = json.loads(payload_json)
-                    
-                    # Create unique idempotency key
-                    idempotency_key = f"ui_test_{uuid.uuid4().hex[:8]}"
-                    
-                    session = get_session()
-                    ActionQueue.enqueue_action(
-                        session=session,
-                        action_type=action_type,
-                        payload_json=json.dumps(payload),
-                        idempotency_key=idempotency_key,
-                    )
-                    session.commit()
-                    session.close()
-                    
-                    st.success(f"✓ Action enqueued: {idempotency_key}")
-                    st.rerun()
-                    
-                except json.JSONDecodeError as e:
-                    st.error(f"Invalid JSON: {e}")
-                except Exception as e:
-                    st.error(f"Failed to enqueue action: {e}")
+                st.warning("Action enqueue requires direct DB access - use backend API or CLI tools")
         
-        if not flags.proof_mode:
+        if not proof_mode:
             st.info("💡 Enable PROOF mode to enqueue test actions")
-        st.markdown("### Recent Execution Logs")
-        
-        session = get_session()
-        log_stmt = select(AOLExecutionLog).order_by(
-            desc(AOLExecutionLog.ts_utc)
-        ).limit(10)
-        logs = session.execute(log_stmt).scalars().all()
-        session.close()
-        
-        if logs:
-            log_data = []
-            for log in logs:
-                log_data.append({
-                    "Time": log.ts_utc.isoformat() if log.ts_utc else "N/A",
-                    "Level": log.level,
-                    "Action ID": log.action_id,
-                    "Message": log.message or "",
-                    "Artifact": log.artifact_ref or ""
-                })
+    
+    # Recent execution logs (read-only display, safe)
+    st.markdown("### Recent Execution Logs")
+    
+    if AICMO_ENABLE_DANGEROUS_UI_OPS and get_session and OPERATOR_SERVICES_AVAILABLE:
+        try:
+            from aicmo.orchestration.models import AOLExecutionLog
+            from sqlalchemy import select, desc
             
-            st.dataframe(log_data, use_container_width=True)
-        else:
-            st.info("ℹ️ No execution logs yet")
-        
-    except Exception as e:
-        st.error(f"Autonomy tab error: {str(e)}")
-        import traceback
-        with st.expander("Debug Info"):
-            st.code(traceback.format_exc())
+            # DASH_FIX_START - Fix #2: Wrap session in context manager
+            with get_session() as session:
+                log_stmt = select(AOLExecutionLog).order_by(
+                    desc(AOLExecutionLog.ts_utc)
+                ).limit(10)
+                logs = session.execute(log_stmt).scalars().all()
+            # DASH_FIX_END
+            
+            if logs:
+                log_data = []
+                for log in logs:
+                    log_data.append({
+                        "Time": log.ts_utc.isoformat() if log.ts_utc else "N/A",
+                        "Level": log.level,
+                        "Action ID": log.action_id,
+                        "Message": log.message or "",
+                        "Artifact": log.artifact_ref or ""
+                    })
+                
+                st.dataframe(log_data, use_container_width=True)
+            else:
+                st.info("ℹ️ No execution logs yet")
+        except Exception as e:
+            st.warning(f"Cannot load execution logs: {e}")
+    else:
+        st.info("ℹ️ Execution logs require DANGER MODE enabled")
+
 
 
 def _render_gateway_ticker(status_map: Dict[str, str]) -> None:
@@ -1460,6 +1536,15 @@ def render_header() -> None:
     st.caption(
         "Attach client briefs → choose a package → generate agency-grade reports → refine → export."
     )
+    
+    # PHASE 4: MOCK DATA MODE BANNER
+    # Show clear indication when running with mocked services
+    if not OPERATOR_SERVICES_AVAILABLE:
+        st.warning(
+            "⚠️ **MOCK DATA MODE** — operator_services unavailable. "
+            "All metrics and campaign data shown are simulated. "
+            "Real data requires database connection and backend services."
+        )
 
 
 def render_command_center_tab() -> None:
@@ -1485,69 +1570,94 @@ def render_command_center_tab() -> None:
         _render_gateway_ticker(gateway_status)
 
     # Nested views inside Command Center
-    cmd_tab, projects_tab, warroom_tab, gallery_tab, pm_tab, analytics_tab, autonomy_tab, control_tab = st.tabs(
-        ["Command", "Projects", "War Room", "Gallery", "PM Dashboard", "Analytics", "Autonomy", "Control Tower"]
-    )
+    # AICMO_CAMPAIGN_OPS_WIRING_START
+    from aicmo.campaign_ops.wiring import AICMO_CAMPAIGN_OPS_ENABLED
+    
+    tab_list = ["Command", "Projects", "War Room", "Gallery", "PM Dashboard", "Analytics", "Autonomy", "Control Tower"]
+    if AICMO_CAMPAIGN_OPS_ENABLED:
+        tab_list.append("Campaign Ops")
+    
+    tabs = st.tabs(tab_list)
+    
+    # Unpack tabs dynamically
+    if AICMO_CAMPAIGN_OPS_ENABLED:
+        cmd_tab, projects_tab, warroom_tab, gallery_tab, pm_tab, analytics_tab, autonomy_tab, control_tab, campaign_ops_tab = tabs
+    else:
+        cmd_tab, projects_tab, warroom_tab, gallery_tab, pm_tab, analytics_tab, autonomy_tab, control_tab = tabs
+        campaign_ops_tab = None
+    # AICMO_CAMPAIGN_OPS_WIRING_END
 
     # 1) COMMAND VIEW – "What's blocking money right now?"
+    # DASH_FIX_START - Fix #4: Add panel isolation to prevent tab crashes
     with cmd_tab:
-        metrics = _get_attention_metrics()
-        col1, col2, col3 = st.columns([1.1, 1.1, 1])
+        try:
+            metrics = _get_attention_metrics()
+            
+            # PHASE 4: Show MOCK badge if data is simulated
+            if metrics.get("_is_mock"):
+                st.info("🎭 MOCK DATA — Real metrics unavailable")
+            
+            col1, col2, col3 = st.columns([1.1, 1.1, 1])
 
-        with col1:
-            st.markdown('<div class="cc-card">', unsafe_allow_html=True)
-            st.markdown("<h3>Triage Needed</h3>", unsafe_allow_html=True)
-            st.markdown(
-                f'<div class="cc-metric">{metrics["leads"]}</div>',
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                f'<div class="cc-subtext">{metrics["high_intent"]} high-intent (job changes detected).</div>',
-                unsafe_allow_html=True,
-            )
-            st.button("Review Queue", key="cmd_triage_review", use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        with col2:
-            st.markdown('<div class="cc-card">', unsafe_allow_html=True)
-            st.markdown("<h3>Approvals Pending</h3>", unsafe_allow_html=True)
-            st.markdown(
-                f'<div class="cc-metric">{metrics["approvals_pending"]}</div>',
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                '<div class="cc-subtext">Strategy & creative drafts awaiting review.</div>',
-                unsafe_allow_html=True,
-            )
-            st.button("Enter War Room", key="cmd_enter_war_room", use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        with col3:
-            st.markdown('<div class="cc-card">', unsafe_allow_html=True)
-            st.markdown("<h3>Execution Health</h3>", unsafe_allow_html=True)
-            st.markdown(
-                f'<div class="cc-metric">{metrics["execution_success"]}%</div>',
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                '<div class="cc-subtext">Success rate last 24h.</div>',
-                unsafe_allow_html=True,
-            )
-            if metrics["failed_last_24h"] > 0:
+            with col1:
+                st.markdown('<div class="cc-card">', unsafe_allow_html=True)
+                st.markdown("<h3>Triage Needed</h3>", unsafe_allow_html=True)
                 st.markdown(
-                    f'<div class="cc-alert">{metrics["failed_last_24h"]} failed posts in last 24h.</div>',
+                    f'<div class="cc-metric">{metrics["leads"]}</div>',
                     unsafe_allow_html=True,
                 )
-            st.button(
-                "Investigate Failures",
-                key="cmd_execution_failures",
-                use_container_width=True,
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="cc-subtext">{metrics["high_intent"]} high-intent (job changes detected).</div>',
+                    unsafe_allow_html=True,
+                )
+                st.button("Review Queue", key="cmd_triage_review", use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("")
-        st.markdown("#### Activity Feed")
-        _render_activity_feed()
+            with col2:
+                st.markdown('<div class="cc-card">', unsafe_allow_html=True)
+                st.markdown("<h3>Approvals Pending</h3>", unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="cc-metric">{metrics["approvals_pending"]}</div>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    '<div class="cc-subtext">Strategy & creative drafts awaiting review.</div>',
+                    unsafe_allow_html=True,
+                )
+                st.button("Enter War Room", key="cmd_enter_war_room", use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            with col3:
+                st.markdown('<div class="cc-card">', unsafe_allow_html=True)
+                st.markdown("<h3>Execution Health</h3>", unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="cc-metric">{metrics["execution_success"]}%</div>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    '<div class="cc-subtext">Success rate last 24h.</div>',
+                    unsafe_allow_html=True,
+                )
+                if metrics["failed_last_24h"] > 0:
+                    st.markdown(
+                        f'<div class="cc-alert">{metrics["failed_last_24h"]} failed posts in last 24h.</div>',
+                        unsafe_allow_html=True,
+                    )
+                st.button(
+                    "Investigate Failures",
+                    key="cmd_execution_failures",
+                    use_container_width=True,
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown("")
+            st.markdown("#### Activity Feed")
+            _render_activity_feed()
+        except Exception as e:
+            st.error(f"❌ Error rendering Command tab: {e}")
+            with st.expander("Debug Info"):
+                st.code(f"{type(e).__name__}: {str(e)}")
+    # DASH_FIX_END
 
     # 2) PROJECTS VIEW – Kanban state machine
     with projects_tab:
@@ -1807,8 +1917,15 @@ def render_command_center_tab() -> None:
                 st.error(f"Failed to load gallery: {e}")
 
     # 6) AUTONOMY TAB – Orchestration Layer monitoring
+    # DASH_FIX_START - Fix #4: Isolate Autonomy tab to prevent crashes
     with autonomy_tab:
-        _render_autonomy_tab()
+        try:
+            _render_autonomy_tab()
+        except Exception as e:
+            st.error(f"❌ Error rendering Autonomy tab: {e}")
+            with st.expander("Debug Info"):
+                st.code(f"{type(e).__name__}: {str(e)}")
+    # DASH_FIX_END
 
     # 7) CONTROL TOWER – Execution & gateways
     with control_tab:
@@ -2009,6 +2126,24 @@ def render_command_center_tab() -> None:
                         
             except Exception as e:
                 st.error(f"Failed to load analytics: {e}")
+    
+    # AICMO_CAMPAIGN_OPS_WIRING_START
+    # Campaign Ops Tab - Operator Command Center
+    if campaign_ops_tab is not None:
+        with campaign_ops_tab:
+            try:
+                from aicmo.campaign_ops.ui import render_campaign_ops_dashboard
+                # CAMPAIGN_OPS_FIX_START - Display DB diagnostics
+                from aicmo.core.db_diagnostics import format_db_identity
+                with st.expander("ℹ️ Database Info"):
+                    st.code(f"Database: {format_db_identity()}")
+                # CAMPAIGN_OPS_FIX_END
+                render_campaign_ops_dashboard()
+            except ImportError as e:
+                st.error(f"❌ Campaign Ops module not available: {e}")
+            except Exception as e:
+                st.error(f"❌ Error rendering Campaign Ops dashboard: {e}")
+    # AICMO_CAMPAIGN_OPS_WIRING_END
 
 
 def render_client_input_tab() -> None:
@@ -2755,9 +2890,44 @@ def main() -> None:
     init_session_state()
     render_header()
 
-    # 🛡️ OPERATOR MODE TOGGLE (sidebar)
+    # 🛡️ PHASE 1: BUILD MARKER & RUNNING FILE SENTINEL (sidebar diagnostics)
     with st.sidebar:
+        # Display diagnostic header
+        st.markdown("### 📋 Diagnostics")
+        with st.expander("Dashboard Info", expanded=False):
+            st.code(f"Build: {BUILD_MARKER}", language="text")
+            st.code(f"File: {RUNNING_FILE}", language="text")
+            st.code(f"CWD: {RUNNING_CWD}", language="text")
+            
+            # Key environment variables
+            st.markdown("**Key Environment Variables:**")
+            env_vars = {
+                "AICMO_E2E_MODE": os.getenv('AICMO_E2E_MODE', '(not set)'),
+                "AICMO_ENABLE_DANGEROUS_UI_OPS": os.getenv('AICMO_ENABLE_DANGEROUS_UI_OPS', '(not set)'),
+                "DATABASE_URL": "SET" if os.getenv('DATABASE_URL') else "(not set)",
+                "DB_URL": "SET" if os.getenv('DB_URL') else "(not set)",
+                "AICMO_BACKEND_URL": os.getenv('AICMO_BACKEND_URL', '(not set)'),
+            }
+            for key, val in env_vars.items():
+                st.caption(f"`{key}`: {val}")
+            
+            # Service availability flags
+            st.markdown("**Service Availability:**")
+            st.caption(f"✅ Operator Services: {OPERATOR_SERVICES_AVAILABLE}")
+            if get_session:
+                st.caption("✅ Database Session: Available")
+            else:
+                st.caption("❌ Database Session: Unavailable")
+            
+            # Campaign Ops import status
+            try:
+                import aicmo.campaign_ops
+                st.caption("✅ Campaign Ops: Importable")
+            except ImportError:
+                st.caption("❌ Campaign Ops: Not available")
+        
         st.markdown("---")
+        # 🛡️ OPERATOR MODE TOGGLE (sidebar)
         operator_mode = st.toggle("🛡️ Operator Mode (QC)", value=False)
         if operator_mode:
             st.caption("✅ Internal QA tools enabled")

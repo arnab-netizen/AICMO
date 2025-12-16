@@ -1,23 +1,28 @@
 #!/usr/bin/env python3
+"""DEPRECATED_AOL_RUNNER
+
+This is a dev/integration testing runner for the AOL (Autonomy Orchestration Layer) daemon.
+
+**Production deployment must use: scripts/run_aol_worker.py**
+
+Rationale:
+- run_aol_daemon.py has --ticks flag (not suitable for production)
+- run_aol_daemon.py is used for integration testing only
+- RUNBOOK_RENDER_STREAMLIT.md:74 specifies: python scripts/run_aol_worker.py
+
+This file is retained for historical reference only.
+If run directly, raises RuntimeError to prevent accidental deployment.
 """
-AICMO Autonomy Orchestration Layer Daemon Runner.
 
-Usage:
-  python scripts/run_aol_daemon.py           # Run forever
-  python scripts/run_aol_daemon.py --ticks 5 # Run 5 ticks then exit
-  python scripts/run_aol_daemon.py --proof   # Run in PROOF mode
-
-Environment:
-  DATABASE_URL: Database connection string (defaults to sqlite:////tmp/aol.db)
-  AOL_PROOF_MODE: Set to '1' to force PROOF mode on startup
-"""
-
-import argparse
-import os
 import sys
-from pathlib import Path
 
-# Add workspace to path
+raise RuntimeError(
+    "DEPRECATED_AOL_RUNNER: scripts/run_aol_daemon.py is dev-only code. "
+    "Use 'python scripts/run_aol_worker.py' for production. "
+    "See RUNBOOK_RENDER_STREAMLIT.md:74 for details."
+)
+
+sys.exit(1)
 workspace_root = Path(__file__).parent.parent
 sys.path.insert(0, str(workspace_root))
 

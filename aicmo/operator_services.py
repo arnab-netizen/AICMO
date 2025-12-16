@@ -56,10 +56,14 @@ def get_attention_metrics(db: Session) -> Dict[str, int]:
     # Total leads
     total_leads = db.query(LeadDB).count()
     
+    # DASH_FIX_START - Fix #3: Remove invalid enum value "ENGAGED"
+    # LeadStatus enum only has: NEW, ENRICHED, CONTACTED, REPLIED, QUALIFIED, ROUTED, LOST, MANUAL_REVIEW
+    # "ENGAGED" is not a valid lead status; use only CONTACTED
     # High-intent leads (using status or stage as proxy)
     high_intent_leads = db.query(LeadDB).filter(
-        LeadDB.status.in_(["CONTACTED", "ENGAGED"])
+        LeadDB.status.in_(["CONTACTED"])
     ).count()
+    # DASH_FIX_END
     
     # Approvals pending - count projects in DRAFT states
     # TODO: Wire to Project table when available in DB

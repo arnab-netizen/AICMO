@@ -1,0 +1,525 @@
+"""
+DEPRECATED_STREAMLIT_ENTRYPOINT: CAM Engine UI
+
+This is a CAM (Client Acquisition Module)-specific UI for testing the autonomous engine.
+
+**Production deployment must use: streamlit_pages/aicmo_operator.py**
+
+Rationale:
+- cam_engine_ui.py is CAM-specific only (not general-purpose)
+- aicmo_operator.py (109 KB) is the production operator UI (supports all modules)
+- RUNBOOK_RENDER_STREAMLIT.md:33 specifies: streamlit_pages/aicmo_operator.py
+
+If run directly, raises RuntimeError to prevent accidental deployment.
+"""
+
+import sys
+
+raise RuntimeError(
+    "DEPRECATED_STREAMLIT_ENTRYPOINT: streamlit_pages/cam_engine_ui.py is CAM-specific dev UI. "
+    "Use 'streamlit run streamlit_pages/aicmo_operator.py' for production. "
+    "See RUNBOOK_RENDER_STREAMLIT.md:33 for details."
+)
+
+sys.exit(1)
+
+Provides operator interface for managing autonomous lead acquisition campaigns.
+Allows creating campaigns, monitoring progress, and manually triggering cycles.
+"""
+
+import streamlit as st
+from datetime import datetime
+from typing import List, Dict
+
+import requests
+import json
+
+# ═══════════════════════════════════════════════════════════════════════
+# UI COMPONENTS
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def display_status_badge(status: str, count: int = None) -> None:
+    """Display a status badge with optional count."""
+    colors = {
+        "active": "#00D98E",
+        "paused": "#FF9D3D",
+        "completed": "#5B5BFF",
+        "new": "#999999",
+    }
+    
+    color = colors.get(status.lower(), "#999999")
+    count_text = f" ({count})" if count else ""
+    
+    st.markdown(
+        f'<span style="background-color:{color}; color:white; padding:4px 8px; '
+        f'border-radius:4px; font-size:12px; margin:2px;">{status.upper()}{count_text}</span>',
+        unsafe_allow_html=True,
+    )
+
+
+def display_metric_card(label: str, value, unit: str = "") -> None:
+    """Display a single metric card."""
+    st.markdown(
+        f"""
+        <div style="background-color:#f0f0f0; padding:12px; border-radius:6px; margin:8px 0;">
+            <div style="color:#666; font-size:12px;">{label}</div>
+            <div style="font-size:24px; font-weight:bold; color:#333;">{value}{unit}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# API INTEGRATION
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def call_api(endpoint: str, method: str = "GET", data: dict = None, params: dict = None) -> dict:
+    """Call CAM backend API."""
+    try:
+        base_url = st.secrets.get("api_base_url", "http://localhost:8000")
+        url = f"{base_url}{endpoint}"
+        
+        if method == "GET":
+            response = requests.get(url, params=params, timeout=10)
+        elif method == "POST":
+            response = requests.post(url, json=data, params=params, timeout=10)
+        elif method == "PUT":
+            response = requests.put(url, json=data, params=params, timeout=10)
+        else:
+            return {"error": f"Unsupported method: {method}"}
+        
+        if response.status_code in (200, 201):
+            return response.json()
+        else:
+            return {"error": f"API error: {response.status_code} - {response.text}"}
+    
+    except Exception as e:
+        return {"error": f"API call failed: {str(e)}"}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# MAIN TAB RENDERER
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def render_tab_cam_engine(tab) -> None:
+    """
+    Render the CAM Engine tab for autonomous client acquisition.
+    
+    Features:
+    - Campaign management (create, pause, resume)
+    - Real-time metrics dashboard
+    - Manual cycle execution
+    - Lead funnel visualization
+    - Safety limits configuration
+    """
+    
+    with tab:
+        # Header
+        st.markdown(
+            '<div class="workflow-header">🚀 Autonomous Client Acquisition Engine</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div class="workflow-help">Autonomous lead discovery, enrichment, and outreach '
+            'system. Manage campaigns and monitor acquisition progress in real-time.</div>',
+            unsafe_allow_html=True,
+        )
+        
+        # Tabs for different views
+        subtabs = st.tabs(["Dashboard", "Campaigns", "Create New", "Manual Run"])
+        
+        # ═══════════════════════════════════════════════════════════════
+        # TAB: DASHBOARD
+        # ═══════════════════════════════════════════════════════════════
+        
+        with subtabs[0]:
+            st.subheader("📊 Dashboard")
+            
+            # Load all campaigns
+            campaigns_resp = call_api("/api/cam/campaigns")
+            if "error" in campaigns_resp:
+                st.error(f"Failed to load campaigns: {campaigns_resp['error']}")
+            else:
+                campaigns = campaigns_resp
+                
+                if not campaigns:
+                    st.info("No campaigns yet. Create your first campaign in the 'Create New' tab.")
+                else:
+                    # Summary metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    total_leads = sum(c["current_leads"] for c in campaigns)
+                    total_qualified = sum(c["qualified_leads"] for c in campaigns)
+                    total_campaigns = len(campaigns)
+                    active_campaigns = sum(1 for c in campaigns if c["active"])
+                    
+                    with col1:
+                        display_metric_card("Total Campaigns", total_campaigns)
+                    
+                    with col2:
+                        display_metric_card("Active Campaigns", active_campaigns)
+                    
+                    with col3:
+                        display_metric_card("Total Leads", total_leads)
+                    
+                    with col4:
+                        display_metric_card("Qualified Leads", total_qualified)
+                    
+                    # Campaign list
+                    st.subheader("Campaigns Summary")
+                    
+                    for campaign in campaigns:
+                        col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
+                        
+                        with col1:
+                            st.write(f"**{campaign['name']}**")
+                            st.caption(f"{campaign['target_niche'] or 'General'} | {campaign['service_key'] or 'TBD'}")
+                        
+                        with col2:
+                            display_status_badge("active" if campaign["active"] else "paused")
+                        
+                        with col3:
+                            st.write(f"{campaign['current_leads']} leads")
+                        
+                        with col4:
+                            qualified = campaign["qualified_leads"]
+                            target = campaign["target_clients"]
+                            progress = f"{qualified}/{target}" if target else str(qualified)
+                            st.write(f"✓ {progress}")
+                        
+                        with col5:
+                            if st.button("Details", key=f"details_{campaign['id']}"):
+                                st.session_state["selected_campaign"] = campaign["id"]
+                                st.rerun()
+        
+        # ═══════════════════════════════════════════════════════════════
+        # TAB: CAMPAIGNS DETAIL
+        # ═══════════════════════════════════════════════════════════════
+        
+        with subtabs[1]:
+            st.subheader("Campaign Details")
+            
+            # Campaign selector
+            campaigns_resp = call_api("/api/cam/campaigns")
+            if "error" not in campaigns_resp and campaigns_resp:
+                campaign_names = {c["id"]: c["name"] for c in campaigns_resp}
+                campaign_id = st.selectbox(
+                    "Select Campaign",
+                    options=list(campaign_names.keys()),
+                    format_func=lambda x: campaign_names[x],
+                )
+                
+                # Load campaign details
+                details_resp = call_api(f"/api/cam/campaigns/{campaign_id}")
+                
+                if "error" in details_resp:
+                    st.error(f"Failed to load campaign: {details_resp['error']}")
+                else:
+                    details = details_resp
+                    
+                    # Campaign info
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write("**Campaign Name:**", details["name"])
+                        st.write("**Description:**", details.get("description", "N/A"))
+                        st.write("**Target Niche:**", details.get("target_niche", "N/A"))
+                        st.write("**Service:**", details.get("service_key", "N/A"))
+                    
+                    with col2:
+                        st.write("**Status:**")
+                        display_status_badge("active" if details["active"] else "paused")
+                        st.write("**Target Clients:**", details.get("target_clients", "Unlimited"))
+                        st.write("**Target MRR:**", f"${details.get('target_mrr', 0):,.0f}")
+                        st.write("**Channels:**", ", ".join(details.get("channels_enabled", [])))
+                    
+                    # Lead funnel
+                    st.subheader("📈 Lead Funnel")
+                    
+                    metrics = details.get("metrics", {})
+                    leads_by_status = metrics.get("leads_by_status", {})
+                    
+                    col1, col2, col3, col4, col5, col6 = st.columns(6)
+                    
+                    with col1:
+                        st.metric("New", leads_by_status.get("new", 0))
+                    with col2:
+                        st.metric("Enriched", leads_by_status.get("enriched", 0))
+                    with col3:
+                        st.metric("Contacted", leads_by_status.get("contacted", 0))
+                    with col4:
+                        st.metric("Replied", leads_by_status.get("replied", 0))
+                    with col5:
+                        st.metric("Qualified", leads_by_status.get("qualified", 0))
+                    with col6:
+                        st.metric("Lost", leads_by_status.get("lost", 0))
+                    
+                    # Goal progress
+                    goal_progress = metrics.get("goal_progress", 0)
+                    conversion_rate = metrics.get("conversion_rate", 0)
+                    
+                    st.progress(min(goal_progress, 1.0), text=f"Goal Progress: {goal_progress*100:.1f}%")
+                    st.write(f"Conversion Rate: {conversion_rate*100:.1f}%")
+                    
+                    # Today's outreach
+                    st.subheader("📧 Today's Outreach")
+                    
+                    outreach = details.get("today_outreach", {})
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("Total", outreach.get("total", 0))
+                    with col2:
+                        st.metric("Sent", outreach.get("sent", 0))
+                    with col3:
+                        st.metric("Failed", outreach.get("failed", 0))
+                    with col4:
+                        st.metric("Skipped", outreach.get("skipped", 0))
+                    
+                    # Campaign controls
+                    st.subheader("Campaign Controls")
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        if details["active"]:
+                            if st.button("⏸️ Pause Campaign"):
+                                pause_resp = call_api(f"/api/cam/campaigns/{campaign_id}/pause", method="PUT")
+                                if "error" in pause_resp:
+                                    st.error(f"Failed to pause: {pause_resp['error']}")
+                                else:
+                                    st.success(pause_resp.get("message", "Campaign paused"))
+                                    st.rerun()
+                        else:
+                            if st.button("▶️ Resume Campaign"):
+                                resume_resp = call_api(f"/api/cam/campaigns/{campaign_id}/resume", method="PUT")
+                                if "error" in resume_resp:
+                                    st.error(f"Failed to resume: {resume_resp['error']}")
+                                else:
+                                    st.success(resume_resp.get("message", "Campaign resumed"))
+                                    st.rerun()
+                    
+                    with col2:
+                        if st.button("🔄 Run CAM Cycle Now"):
+                            with st.spinner("Running campaign cycle..."):
+                                cycle_resp = call_api(
+                                    f"/api/cam/campaigns/{campaign_id}/run-cycle",
+                                    method="POST",
+                                    params={"dry_run": False},
+                                )
+                                if "error" in cycle_resp:
+                                    st.error(f"Cycle failed: {cycle_resp['error']}")
+                                else:
+                                    st.success("✓ Campaign cycle completed!")
+                                    st.json(cycle_resp)
+        
+        # ═══════════════════════════════════════════════════════════════
+        # TAB: CREATE NEW CAMPAIGN
+        # ═══════════════════════════════════════════════════════════════
+        
+        with subtabs[2]:
+            st.subheader("Create New Campaign")
+            
+            with st.form("create_campaign_form"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    campaign_name = st.text_input(
+                        "Campaign Name",
+                        placeholder="e.g., Web Design Q1 2025",
+                        help="Unique name for this acquisition campaign",
+                    )
+                    
+                    target_niche = st.text_input(
+                        "Target Niche",
+                        placeholder="e.g., B2B SaaS Startups",
+                        help="Target audience or market segment",
+                    )
+                    
+                    service_key = st.selectbox(
+                        "Service",
+                        options=["web_design", "seo", "social_media", "content", "branding", "other"],
+                        help="Service type being offered",
+                    )
+                    
+                    target_clients = st.number_input(
+                        "Target Number of Clients",
+                        min_value=1,
+                        max_value=1000,
+                        value=10,
+                        help="Goal number of qualified leads to acquire",
+                    )
+                
+                with col2:
+                    description = st.text_area(
+                        "Campaign Description",
+                        placeholder="Describe the campaign goals and context...",
+                        height=100,
+                    )
+                    
+                    target_mrr = st.number_input(
+                        "Target Monthly Recurring Revenue ($)",
+                        min_value=0,
+                        value=5000,
+                        step=1000,
+                        help="Target revenue from this campaign",
+                    )
+                    
+                    channels_enabled = st.multiselect(
+                        "Enabled Channels",
+                        options=["email", "linkedin", "phone"],
+                        default=["email"],
+                        help="Which channels to use for outreach",
+                    )
+                    
+                    max_emails_per_day = st.number_input(
+                        "Max Emails Per Day",
+                        min_value=1,
+                        max_value=500,
+                        value=20,
+                        help="Safety limit for daily email sends",
+                    )
+                
+                submitted = st.form_submit_button("✅ Create Campaign")
+                
+                if submitted:
+                    if not campaign_name:
+                        st.error("Campaign name is required")
+                    else:
+                        create_resp = call_api(
+                            "/api/cam/campaigns",
+                            method="POST",
+                            data={
+                                "name": campaign_name,
+                                "description": description,
+                                "target_niche": target_niche,
+                                "service_key": service_key,
+                                "target_clients": int(target_clients),
+                                "target_mrr": float(target_mrr),
+                                "channels_enabled": channels_enabled,
+                                "max_emails_per_day": int(max_emails_per_day),
+                            },
+                        )
+                        
+                        if "error" in create_resp:
+                            st.error(f"Failed to create campaign: {create_resp['error']}")
+                        else:
+                            st.success(f"✓ {create_resp.get('message', 'Campaign created!')}")
+                            st.rerun()
+        
+        # ═══════════════════════════════════════════════════════════════
+        # TAB: MANUAL RUN
+        # ═══════════════════════════════════════════════════════════════
+        
+        with subtabs[3]:
+            st.subheader("Manual Cycle Execution")
+            
+            st.write("""
+            Manually trigger CAM cycles for testing and monitoring.
+            Use **Dry Run** to preview changes without sending emails.
+            """)
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                campaigns_resp = call_api("/api/cam/campaigns")
+                if "error" not in campaigns_resp and campaigns_resp:
+                    campaign_names = {c["id"]: c["name"] for c in campaigns_resp}
+                    selected_campaign_id = st.selectbox(
+                        "Select Campaign",
+                        options=list(campaign_names.keys()),
+                        format_func=lambda x: campaign_names[x],
+                        key="manual_run_campaign",
+                    )
+                else:
+                    st.warning("No campaigns available")
+                    selected_campaign_id = None
+            
+            with col2:
+                dry_run = st.checkbox(
+                    "Dry Run (no emails sent)",
+                    value=True,
+                    help="Preview the cycle without actually sending emails",
+                )
+            
+            if st.button("🚀 Execute CAM Cycle", disabled=not selected_campaign_id):
+                with st.spinner("Executing CAM cycle..."):
+                    cycle_resp = call_api(
+                        f"/api/cam/campaigns/{selected_campaign_id}/run-cycle",
+                        method="POST",
+                        params={"dry_run": dry_run},
+                    )
+                
+                if "error" in cycle_resp:
+                    st.error(f"Cycle execution failed: {cycle_resp['error']}")
+                else:
+                    st.success("✓ CAM cycle completed!")
+                    
+                    # Display results
+                    col1, col2, col3, col4, col5 = st.columns(5)
+                    
+                    with col1:
+                        st.metric(
+                            "Leads Discovered",
+                            cycle_resp.get("leads_discovered", 0),
+                        )
+                    
+                    with col2:
+                        st.metric(
+                            "Leads Enriched",
+                            cycle_resp.get("leads_enriched", 0),
+                        )
+                    
+                    with col3:
+                        st.metric(
+                            "Outreach Sent",
+                            cycle_resp.get("outreach_sent", 0),
+                        )
+                    
+                    with col4:
+                        st.metric(
+                            "Failed",
+                            cycle_resp.get("outreach_failed", 0),
+                        )
+                    
+                    with col5:
+                        st.metric(
+                            "Skipped",
+                            cycle_resp.get("outreach_skipped", 0),
+                        )
+                    
+                    # Show errors if any
+                    errors = cycle_resp.get("errors", [])
+                    if errors:
+                        st.subheader("⚠️ Warnings/Errors")
+                        for error in errors:
+                            st.warning(error)
+            
+            # Information box
+            st.info("""
+            **How it works:**
+            1. **Discovery** - Fetch new leads from configured sources (Apollo, etc.)
+            2. **Enrichment** - Enrich leads with company data and score relevance
+            3. **Outreach** - Execute personalized outreach to due leads
+            4. **Tracking** - Log all attempts and update lead status
+            
+            **Safety Features:**
+            - Daily email caps per campaign
+            - Do-not-contact lists
+            - Automatic campaign pausing when goals met
+            - Full audit trail of all actions
+            """)
+
+
+if __name__ == "__main__":
+    # For testing when run standalone
+    st.set_page_config(page_title="CAM Engine", layout="wide")
+    
+    with st.container():
+        st.title("🚀 Autonomous Client Acquisition Engine")
+        
+        tab = st.container()
+        render_tab_cam_engine(tab)

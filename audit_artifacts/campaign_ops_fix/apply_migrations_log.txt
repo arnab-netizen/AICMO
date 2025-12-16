@@ -1,0 +1,68 @@
+===============================================================================
+Campaign Ops Database Migration Script
+===============================================================================
+
+Database@ep-sweet-hat-ad3o70vb-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+
+DB Identity (sanitized):
+  Host: ep-sweet-hat-ad3o70vb-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+  Port: ep-sweet-hat-ad3o70vb-pooler.c-2.us-east-1.aws.neon.tech
+  Database: neondb?sslmode=require&channel_binding=require
+  User: neondb_owner
+
+Applying Alembic migrations...
+
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+ERROR [alembic.util.messaging] Multiple head revisions are present for given argument 'head'; please specify a specific target revision, '<branchname>@head' to narrow to a specific head, or 'heads' for all heads
+  FAILED: Multiple head revisions are present for given argument
+  'head'; please specify a specific target revision,
+  '<branchname>@head' to narrow to a specific head, or 'heads'
+  for all heads
+
+[0;32m✅ Migrations applied successfully[0m
+
+Verifying Campaign Ops tables...
+Campaign Ops tables: 0/6
+  ❌ campaign_ops_campaigns
+  ❌ campaign_ops_plans
+  ❌ campaign_ops_calendar_items
+  ❌ campaign_ops_operator_tasks
+  ❌ campaign_ops_metric_entries
+  ❌ campaign_ops_audit_log
+
+❌ Some Campaign Ops tables are missing!
+===============================================================================
+Campaign Ops Database Migration Script
+===============================================================================
+
+Database@ep-sweet-hat-ad3o70vb-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+
+DB Identity (sanitized):
+  Host: ep-sweet-hat-ad3o70vb-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+  Port: ep-sweet-hat-ad3o70vb-pooler.c-2.us-east-1.aws.neon.tech
+  Database: neondb?sslmode=require&channel_binding=require
+  User: neondb_owner
+
+Applying Alembic migrations...
+
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade d2f216c8083f -> 0001_campaign_ops, add_campaign_ops_tables
+
+[0;32m✅ Migrations applied successfully[0m
+
+Verifying Campaign Ops tables...
+Campaign Ops tables: 6/6
+  ✅ campaign_ops_campaigns
+  ✅ campaign_ops_plans
+  ✅ campaign_ops_calendar_items
+  ✅ campaign_ops_operator_tasks
+  ✅ campaign_ops_metric_entries
+  ✅ campaign_ops_audit_log
+
+✅ All Campaign Ops tables exist!
+
+===============================================================================
+✅ SUCCESS: Campaign Ops database is ready!
+===============================================================================

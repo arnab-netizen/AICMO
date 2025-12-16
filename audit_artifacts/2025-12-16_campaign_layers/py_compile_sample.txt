@@ -1,0 +1,4 @@
+  File "aicmo/cam/auto.py", line 22
+    db: Session,
+      ^
+SyntaxError: invalid syntax

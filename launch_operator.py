@@ -2,33 +2,34 @@
 """
 AICMO Canonical Operator Dashboard — Streamlit Application.
 
-THIS IS THE CANONICAL UI ENTRYPOINT FOR ALL AICMO OPERATIONS.
+⚠️  LEGACY SHIM (DO NOT USE IN NEW DEPLOYMENTS):
 
-This file is executed directly by Streamlit (not imported).
-It bootstraps the complete dashboard from streamlit_pages/aicmo_operator.py
+THIS FILE IS DEPRECATED. Use the canonical launch script instead:
 
-Usage:
-  streamlit run operator.py
-  streamlit run operator.py --server.port 8501
+  scripts/launch_operator_ui.sh
+  OR
+  python -m streamlit run streamlit_pages/aicmo_operator.py
 
-Design Notes:
-- Minimal wrapper to avoid import/naming collisions
-- All UI logic in streamlit_pages/aicmo_operator.py (modular)
-- Streamlit loads this file directly, NOT as an importable module
+Historical note:
+- This file was used before scripts/launch_operator_ui.sh was created
+- It attempted to be a minimal wrapper but added unnecessary indirection
+- All new deployments should use scripts/launch_operator_ui.sh
 """
-
-# ===== CRITICAL SECTION =====
-# When Streamlit executes "streamlit run operator.py", it:
-# 1. Executes this file as __main__
-# 2. Does NOT import it as a module (no module namespace pollution)
-# 3. Allows us to import operators module safely
-# 
-# This approach avoids the name collision issue where operator.py
-# would shadow Python's built-in operator module if imported.
-# ===========================
 
 import sys
 import os
+
+# PHASE 2: DEPRECATED LAUNCHER GUARD
+if os.getenv('AICMO_ALLOW_DEPRECATED_LAUNCHER', '').lower() != '1':
+    sys.stderr.write(
+        "ERROR: launch_operator.py is deprecated.\n"
+        "Use: scripts/launch_operator_ui.sh\n"
+        "     OR: python -m streamlit run streamlit_pages/aicmo_operator.py\n"
+        "\n"
+        "To override (dev only): export AICMO_ALLOW_DEPRECATED_LAUNCHER=1\n"
+    )
+    sys.stderr.flush()
+    sys.exit(1)
 
 # Setup path (avoid using pathlib here to prevent circular import with operator module)
 _operator_file_dir = os.path.dirname(os.path.abspath(__file__))

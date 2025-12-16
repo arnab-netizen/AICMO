@@ -1,0 +1,99 @@
+streamlit_pages/aicmo_operator.py:1508:    # AICMO_CAMPAIGN_OPS_WIRING_START
+streamlit_pages/aicmo_operator.py:1509:    from aicmo.campaign_ops.wiring import AICMO_CAMPAIGN_OPS_ENABLED
+streamlit_pages/aicmo_operator.py:1512:    if AICMO_CAMPAIGN_OPS_ENABLED:
+streamlit_pages/aicmo_operator.py:1513:        tab_list.append("Campaign Ops")
+streamlit_pages/aicmo_operator.py:1518:    if AICMO_CAMPAIGN_OPS_ENABLED:
+streamlit_pages/aicmo_operator.py:1519:        cmd_tab, projects_tab, warroom_tab, gallery_tab, pm_tab, analytics_tab, autonomy_tab, control_tab, campaign_ops_tab = tabs
+streamlit_pages/aicmo_operator.py:1522:        campaign_ops_tab = None
+streamlit_pages/aicmo_operator.py:1523:    # AICMO_CAMPAIGN_OPS_WIRING_END
+streamlit_pages/aicmo_operator.py:2046:    # AICMO_CAMPAIGN_OPS_WIRING_START
+streamlit_pages/aicmo_operator.py:2047:    # Campaign Ops Tab - Operator Command Center
+streamlit_pages/aicmo_operator.py:2048:    if campaign_ops_tab is not None:
+streamlit_pages/aicmo_operator.py:2049:        with campaign_ops_tab:
+streamlit_pages/aicmo_operator.py:2051:                from aicmo.campaign_ops.ui import render_campaign_ops_dashboard
+streamlit_pages/aicmo_operator.py:2057:                render_campaign_ops_dashboard()
+streamlit_pages/aicmo_operator.py:2059:                st.error(f"❌ Campaign Ops module not available: {e}")
+streamlit_pages/aicmo_operator.py:2061:                st.error(f"❌ Error rendering Campaign Ops dashboard: {e}")
+streamlit_pages/aicmo_operator.py:2062:    # AICMO_CAMPAIGN_OPS_WIRING_END
+aicmo/campaign_ops/actions.py:18:from aicmo.campaign_ops import repo
+aicmo/campaign_ops/actions.py:19:from aicmo.campaign_ops.service import CampaignOpsService
+aicmo/campaign_ops/actions.py:60:        from aicmo.campaign_ops.models import OperatorTask, TaskStatus
+aicmo/campaign_ops/actions.py:140:        from aicmo.campaign_ops.models import OperatorTask, TaskStatus, TaskType
+aicmo/campaign_ops/actions.py:267:        from aicmo.campaign_ops.models import TaskType, TaskStatus
+aicmo/campaign_ops/models.py:5:- campaign_ops_campaigns: Campaign metadata
+aicmo/campaign_ops/models.py:6:- campaign_ops_plans: Generated strategy/angles
+aicmo/campaign_ops/models.py:7:- campaign_ops_calendar_items: Scheduled posts per platform
+aicmo/campaign_ops/models.py:8:- campaign_ops_operator_tasks: Operator action items (posts, engagement, follow-ups)
+aicmo/campaign_ops/models.py:9:- campaign_ops_metric_entries: Manual metric logging
+aicmo/campaign_ops/models.py:10:- campaign_ops_audit_log: Accountability log
+aicmo/campaign_ops/models.py:84:    __tablename__ = "campaign_ops_campaigns"
+aicmo/campaign_ops/models.py:108:        Index("ix_campaign_ops_campaigns_status_created", "status", "created_at"),
+aicmo/campaign_ops/models.py:114:    __tablename__ = "campaign_ops_plans"
+aicmo/campaign_ops/models.py:117:    campaign_id = Column(Integer, ForeignKey("campaign_ops_campaigns.id", ondelete="CASCADE"), nullable=False, index=True)
+aicmo/campaign_ops/models.py:135:        Index("ix_campaign_ops_plans_campaign_version", "campaign_id", "version"),
+aicmo/campaign_ops/models.py:141:    __tablename__ = "campaign_ops_calendar_items"
+aicmo/campaign_ops/models.py:144:    campaign_id = Column(Integer, ForeignKey("campaign_ops_campaigns.id", ondelete="CASCADE"), nullable=False, index=True)
+aicmo/campaign_ops/models.py:165:        Index("ix_campaign_ops_calendar_items_campaign_scheduled", "campaign_id", "scheduled_at"),
+aicmo/campaign_ops/models.py:166:        Index("ix_campaign_ops_calendar_items_platform_status", "platform", "status"),
+aicmo/campaign_ops/models.py:172:    __tablename__ = "campaign_ops_operator_tasks"
+aicmo/campaign_ops/models.py:175:    campaign_id = Column(Integer, ForeignKey("campaign_ops_campaigns.id", ondelete="CASCADE"), nullable=False, index=True)
+aicmo/campaign_ops/models.py:176:    calendar_item_id = Column(Integer, ForeignKey("campaign_ops_calendar_items.id", ondelete="SET NULL"), nullable=True)
+aicmo/campaign_ops/models.py:205:        Index("ix_campaign_ops_operator_tasks_campaign_due", "campaign_id", "due_at"),
+aicmo/campaign_ops/models.py:206:        Index("ix_campaign_ops_operator_tasks_platform_status", "platform", "status"),
+aicmo/campaign_ops/models.py:207:        Index("ix_campaign_ops_operator_tasks_status_due", "status", "due_at"),
+aicmo/campaign_ops/models.py:213:    __tablename__ = "campaign_ops_metric_entries"
+aicmo/campaign_ops/models.py:216:    campaign_id = Column(Integer, ForeignKey("campaign_ops_campaigns.id", ondelete="CASCADE"), nullable=False, index=True)
+aicmo/campaign_ops/models.py:232:        Index("ix_campaign_ops_metric_entries_campaign_date", "campaign_id", "date"),
+aicmo/campaign_ops/models.py:233:        Index("ix_campaign_ops_metric_entries_platform_metric", "platform", "metric_name"),
+aicmo/campaign_ops/models.py:239:    __tablename__ = "campaign_ops_audit_log"
+aicmo/campaign_ops/models.py:258:        Index("ix_campaign_ops_audit_log_actor_created", "actor", "created_at"),
+aicmo/campaign_ops/models.py:259:        Index("ix_campaign_ops_audit_log_entity", "entity_type", "entity_id"),
+aicmo/campaign_ops/repo.py:12:from aicmo.campaign_ops.models import (
+aicmo/campaign_ops/repo.py:26:    Verify all Campaign Ops tables exist in the database.
+aicmo/campaign_ops/repo.py:37:        'campaign_ops_campaigns',
+aicmo/campaign_ops/repo.py:38:        'campaign_ops_plans',
+aicmo/campaign_ops/repo.py:39:        'campaign_ops_calendar_items',
+aicmo/campaign_ops/repo.py:40:        'campaign_ops_operator_tasks',
+aicmo/campaign_ops/repo.py:41:        'campaign_ops_metric_entries',
+aicmo/campaign_ops/repo.py:42:        'campaign_ops_audit_log',
+aicmo/campaign_ops/repo.py:50:            f"Campaign Ops tables missing from database.\n"
+aicmo/campaign_ops/repo.py:53:            f"Fix: Run 'bash scripts/apply_campaign_ops_migrations.sh'\n"
+aicmo/campaign_ops/service.py:13:from aicmo.campaign_ops import repo
+aicmo/campaign_ops/service.py:14:from aicmo.campaign_ops.models import (
+aicmo/campaign_ops/service.py:22:from aicmo.campaign_ops.schemas import (
+aicmo/campaign_ops/service.py:236:        from aicmo.campaign_ops.instructions import get_platform_sop
+aicmo/campaign_ops/ui.py:12:from aicmo.campaign_ops.service import CampaignOpsService
+aicmo/campaign_ops/ui.py:13:from aicmo.campaign_ops.schemas import CampaignCreate
+aicmo/campaign_ops/ui.py:14:from aicmo.campaign_ops.wiring import get_session_for_campaign_ops
+aicmo/campaign_ops/ui.py:17:def render_campaign_ops_dashboard():
+aicmo/campaign_ops/ui.py:18:    """Main Campaign Ops dashboard renderer."""
+aicmo/campaign_ops/ui.py:20:    session = get_session_for_campaign_ops()
+aicmo/campaign_ops/ui.py:22:        st.error("❌ Database connection failed. Campaign Ops unavailable.")
+aicmo/campaign_ops/ui.py:251:                        from aicmo.campaign_ops.schemas import MetricEntryCreate
+aicmo/campaign_ops/ui.py:252:                        from aicmo.campaign_ops import repo
+aicmo/campaign_ops/ui.py:312:        st.subheader("⚙️ Campaign Ops Settings")
+aicmo/campaign_ops/ui.py:329:Campaign Ops can optionally integrate with AOL (Autonomy Orchestration Layer) for:
+aicmo/campaign_ops/ui.py:336:AICMO_CAMPAIGN_OPS_ENABLED=true
+aicmo/campaign_ops/ui.py:342:- `campaign_ops_campaigns` - Campaign metadata
+aicmo/campaign_ops/ui.py:343:- `campaign_ops_plans` - Strategy/angles
+aicmo/campaign_ops/ui.py:344:- `campaign_ops_calendar_items` - Scheduled posts
+aicmo/campaign_ops/ui.py:345:- `campaign_ops_operator_tasks` - Operator task items
+aicmo/campaign_ops/ui.py:346:- `campaign_ops_metric_entries` - Manual metrics
+aicmo/campaign_ops/ui.py:347:- `campaign_ops_audit_log` - Accountability log
+aicmo/campaign_ops/wiring.py:16:AICMO_CAMPAIGN_OPS_ENABLED = os.getenv("AICMO_CAMPAIGN_OPS_ENABLED", "true").lower() == "true"
+aicmo/campaign_ops/wiring.py:22:def register_campaign_ops_handlers():
+aicmo/campaign_ops/wiring.py:24:    Register Campaign Ops action handlers with AOL daemon.
+aicmo/campaign_ops/wiring.py:29:    if not AICMO_CAMPAIGN_OPS_ENABLED:
+aicmo/campaign_ops/wiring.py:33:        from aicmo.campaign_ops.actions import (
+aicmo/campaign_ops/wiring.py:45:        print(f"Warning: Could not import Campaign Ops handlers: {e}")
+aicmo/campaign_ops/wiring.py:53:def get_session_for_campaign_ops():
+aicmo/campaign_ops/wiring.py:55:    Get database session for Campaign Ops operations.
+aicmo/campaign_ops/wiring.py:68:def render_campaign_ops_ui():
+aicmo/campaign_ops/wiring.py:70:    Render Campaign Ops Streamlit UI.
+aicmo/campaign_ops/wiring.py:72:    This is called from streamlit_pages/aicmo_operator.py in the Campaign Ops tab.
+aicmo/campaign_ops/wiring.py:74:    if not AICMO_CAMPAIGN_OPS_ENABLED:
+aicmo/campaign_ops/wiring.py:76:        st.error("Campaign Ops feature is not enabled. Set AICMO_CAMPAIGN_OPS_ENABLED=true")
+aicmo/campaign_ops/wiring.py:80:        from aicmo.campaign_ops.ui import render_campaign_ops_dashboard
+aicmo/campaign_ops/wiring.py:81:        render_campaign_ops_dashboard()
+aicmo/campaign_ops/wiring.py:84:        st.error(f"Could not load Campaign Ops UI: {e}")
+aicmo/campaign_ops/wiring.py:87:        st.error(f"Error rendering Campaign Ops UI: {e}")

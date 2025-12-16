@@ -25,8 +25,24 @@ import time
 import hashlib
 from typing import Any, Dict, Optional
 
-import requests
+# PHASE 2: DEPRECATED UI GUARD
+# This file is legacy and should not be run directly via Streamlit
 import streamlit as st
+if os.getenv('AICMO_ALLOW_DEPRECATED_UI', '').lower() != '1':
+    st.error("❌ DEPRECATED: streamlit_app.py is legacy code")
+    st.markdown("""
+Use the canonical dashboard instead:
+```bash
+python -m streamlit run streamlit_pages/aicmo_operator.py
+```
+
+To override (dev only): `export AICMO_ALLOW_DEPRECATED_UI=1`
+    """)
+    st.stop()
+
+# Continue with legacy imports only if override is set
+requests = __import__('requests')
+
 
 # Import AICMO API client
 from backend.client.aicmo_api_client import call_generate_report

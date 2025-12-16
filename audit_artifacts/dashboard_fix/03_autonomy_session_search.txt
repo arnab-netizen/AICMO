@@ -1,0 +1,7 @@
+948:def _render_autonomy_tab() -> None:
+1003:            lease_stmt = select(AOLLease).limit(1)
+1004:            lease = session.execute(lease_stmt).scalar_one_or_none()
+1008:            flags_row = session.execute(flags_stmt).scalar_one_or_none()
+1012:            last_tick = session.execute(last_tick_stmt).scalar_one_or_none()
+1178:            logs = session.execute(log_stmt).scalars().all()
+1844:        _render_autonomy_tab()

@@ -11,6 +11,7 @@ import sys
 import pytest
 
 
+@pytest.mark.smoke
 def test_streamlit_ui_safe_by_default():
     """Test that dangerous ops are disabled by default."""
     env = os.environ.copy()
@@ -27,6 +28,7 @@ def test_streamlit_ui_safe_by_default():
     assert result.returncode == 0, f"UI compile failed: {result.stderr}"
 
 
+@pytest.mark.smoke
 def test_streamlit_ui_danger_mode_env_check():
     """Test that danger mode can be enabled via env var."""
     # Read the UI source
@@ -41,6 +43,7 @@ def test_streamlit_ui_danger_mode_env_check():
         "Safety gate not reading environment variable"
 
 
+@pytest.mark.smoke
 def test_streamlit_ui_imports_without_llm_key():
     """Test that UI imports successfully without OpenAI API key."""
     env = os.environ.copy()
@@ -72,6 +75,7 @@ def test_streamlit_ui_has_safety_gate():
         "DANGER MODE warning not found"
 
 
+@pytest.mark.smoke
 def test_streamlit_no_hardcoded_dangerous_enabled():
     """Test that dangerous mode is not hardcoded to True."""
     with open('streamlit_pages/aicmo_operator.py', 'r') as f:

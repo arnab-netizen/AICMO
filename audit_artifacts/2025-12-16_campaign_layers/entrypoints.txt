@@ -1,0 +1,71 @@
+=== ROOT PYTHON FILES ===
+-rw-rw-rw- 1 vscode root  12K Dec 16 10:47 HUMANIZATION_USAGE_EXAMPLES.py
+-rw-rw-rw- 1 vscode root 8.2K Dec 16 10:47 PACKAGE_PRESETS_QUICK_REFERENCE.py
+-rw-rw-rw- 1 vscode root  14K Dec 16 12:01 app.py
+-rw-rw-rw- 1 vscode root  14K Dec 16 10:47 audit_script.py
+-rw-rw-rw- 1 vscode root 1.4K Dec 16 10:47 check_existing_fields.py
+-rw-rw-rw- 1 vscode root 4.2K Dec 16 10:47 debug_quick_social.py
+-rw-rw-rw- 1 vscode root 3.6K Dec 16 10:47 diagnose_sections.py
+-rw-rw-rw- 1 vscode root  18K Dec 16 10:47 e2e_ui_section.py
+-rw-rw-rw- 1 vscode root  11K Dec 16 10:47 export_section_clean.py
+-rw-rw-rw- 1 vscode root 2.0K Dec 16 10:47 launch_operator.py
+-rw-rw-rw- 1 vscode root  617 Dec 16 10:47 run_streamlit.py
+-rw-rw-rw- 1 vscode root  12K Dec 16 10:47 sanity_tests_pdf_export.py
+-rw-rw-rw- 1 vscode root  93K Dec 16 10:47 streamlit_app.py
+-rw-rw-rw- 1 vscode root 2.7K Dec 16 10:47 test_agency_pdf_export.py
+-rw-rw-rw- 1 vscode root 2.4K Dec 16 10:47 test_agency_pdf_integration.py
+-rwxrwxrwx 1 vscode root 9.6K Dec 16 10:47 test_all_quick_social_sections.py
+-rw-rw-rw- 1 vscode root 3.5K Dec 16 10:47 test_backend_length.py
+-rw-rw-rw- 1 vscode root 3.7K Dec 16 10:47 test_delivery_failure.py
+-rw-rw-rw- 1 vscode root 5.0K Dec 16 10:47 test_draft_mode_benchmark_failure.py
+-rw-rw-rw- 1 vscode root 5.9K Dec 16 10:47 test_full_funnel_draft_mode.py
+-rw-rw-rw- 1 vscode root 6.7K Dec 16 10:47 test_full_pack_real_generators.py
+-rw-rw-rw- 1 vscode root 4.9K Dec 16 10:47 test_full_pack_validation.py
+-rw-rw-rw- 1 vscode root 3.4K Dec 16 10:47 test_generic_brand_output.py
+-rw-rw-rw- 1 vscode root 2.9K Dec 16 10:47 test_hard_delete.py
+-rw-rw-rw- 1 vscode root 5.7K Dec 16 10:47 test_hashtag_validation.py
+-rw-rw-rw- 1 vscode root 1.7K Dec 16 10:47 test_humanization.py
+-rw-rw-rw- 1 vscode root 8.6K Dec 16 10:47 test_launch_gtm_pack.py
+-rw-rw-rw- 1 vscode root 6.7K Dec 16 10:47 test_neon_integration.py
+-rw-rw-rw- 1 vscode root 9.5K Dec 16 10:47 test_pdf_system.py
+-rw-rw-rw- 1 vscode root 4.8K Dec 16 10:47 test_phase5_all_packs.py
+-rw-rw-rw- 1 vscode root  10K Dec 16 10:47 test_phase5_complete.py
+-rw-rw-rw- 1 vscode root 3.8K Dec 16 10:47 test_platform_autodetect.py
+-rw-rw-rw- 1 vscode root  12K Dec 16 10:47 test_retention_crm_booster.py
+-rw-rw-rw- 1 vscode root 2.6K Dec 16 10:47 test_section_mapping.py
+-rw-rw-rw- 1 vscode root 9.6K Dec 16 10:47 test_strategy_campaign_standard.py
+-rw-rw-rw- 1 vscode root 2.7K Dec 16 10:47 test_validation_fix.py
+-rw-rw-rw- 1 vscode root 8.5K Dec 16 10:47 test_wow_integration.py
+-rw-rw-rw- 1 vscode root 6.8K Dec 16 10:47 verify_humanization.py
+-rw-rw-rw- 1 vscode root 1.8K Dec 16 10:47 verify_marketing_engine.py
+
+=== BACKEND ENTRYPOINT ===
+5:from fastapi import FastAPI
+32:log = logging.getLogger("uvicorn.error")
+36:async def lifespan(app: FastAPI):
+54:app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
+92:@app.exception_handler(RuntimeError)
+
+=== STREAMLIT ENTRYPOINT ===
+-rw-rw-rw- 1 vscode root 109K Dec 16 11:13 streamlit_pages/aicmo_operator.py
+import io
+import json
+import os
+import re
+import sys
+import datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from dotenv import load_dotenv
+# Ensure project root is in PYTHONPATH for imports
+
+=== CAM RUNNER ===
+-rw-rw-rw- 1 vscode root 4.5K Dec 16 10:47 aicmo/cam/orchestrator/run.py
+import sys
+import time
+import argparse
+from datetime import datetime
+from backend.db.session import get_session
+from aicmo.cam.orchestrator.engine import CampaignOrchestrator
+from aicmo.cam.orchestrator.artifacts import generate_artifacts
+def main():

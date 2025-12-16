@@ -1,0 +1,15 @@
+aicmo/llm/brief_parser.py:    api_key = os.getenv("OPENAI_API_KEY", "")
+aicmo/llm/brief_parser.py:        raise ValueError("OPENAI_API_KEY environment variable not set")
+aicmo/llm/brief_parser.py:    response = client.messages.create(
+aicmo/llm/client.py:    api_key = os.getenv("ANTHROPIC_API_KEY")
+aicmo/llm/client.py:    api_key = os.getenv("OPENAI_API_KEY")
+aicmo/llm/client.py:            response = client.messages.create(
+aicmo/llm/client.py:            response = client.chat.completions.create(
+aicmo/llm/client.py:    Default: Claude Sonnet 4 (via ANTHROPIC_API_KEY)
+aicmo/llm/client.py:    Fallback: OpenAI (via OPENAI_API_KEY and AICMO_OPENAI_MODEL)
+aicmo/llm/adapters/mistral_llm.py:        # 3. Call client.chat.complete(model="mistral-small", messages=[...])
+aicmo/self_test/external_integrations_health.py:    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+aicmo/self_test/external_integrations_health.py:    openai_configured = bool(os.getenv("OPENAI_API_KEY", "").strip())
+aicmo/core/llm/runtime.py:      - OPENAI_API_KEY environment variable is set (non-empty)
+aicmo/core/llm/runtime.py:    api_key = os.getenv('OPENAI_API_KEY', '').strip()
+aicmo/core/llm/runtime.py:     export OPENAI_API_KEY="sk-..."

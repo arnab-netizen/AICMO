@@ -1,12 +1,27 @@
-"""
-⚠️  DEPRECATED: Simple example dashboard only.
+"""DEPRECATED_STREAMLIT_ENTRYPOINT
 
-FOR PRODUCTION USE: streamlit_pages/aicmo_operator.py
-This file is retained for demonstrations and simple use cases only.
+This file is a deprecated Streamlit dashboard from early development.
 
-To run the canonical AICMO UI:
-  python -m streamlit run streamlit_pages/aicmo_operator.py --server.port 8501
+**Production deployment must use: streamlit_pages/aicmo_operator.py**
+
+Rationale:
+- This is a simple example dashboard
+- aicmo_operator.py (109 KB) is the production operator UI
+- RUNBOOK_RENDER_STREAMLIT.md:33 specifies: streamlit_pages/aicmo_operator.py
+
+If imported or run directly, raises RuntimeError to prevent accidental deployment.
 """
+
+import sys
+
+# Block direct execution or import as FastAPI app
+raise RuntimeError(
+    "DEPRECATED_STREAMLIT_ENTRYPOINT: app.py is legacy code. "
+    "Use 'streamlit run streamlit_pages/aicmo_operator.py' for Streamlit UI. "
+    "See RUNBOOK_RENDER_STREAMLIT.md:33 for details."
+)
+
+sys.exit(1)
 
 import os
 import time
