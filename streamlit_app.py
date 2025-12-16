@@ -1,3 +1,8 @@
+# 🛡️ RUNTIME GUARD: This file is deprecated
+import streamlit as st
+st.error("This dashboard is deprecated. Use: streamlit run streamlit_pages/aicmo_operator.py")
+st.stop()
+
 """AICMO Operator Dashboard – Complete Streamlit Application.
 
 ⚠️  DEPRECATED FOR NEW USE:

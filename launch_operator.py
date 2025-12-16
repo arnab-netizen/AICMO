@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+
+# 🛡️ RUNTIME GUARD: This file is deprecated
+import sys
+sys.exit(
+    "This file is deprecated. "
+    "Use: streamlit run streamlit_pages/aicmo_operator.py"
+)
+
 """
 AICMO Canonical Operator Dashboard — Streamlit Application.
 
@@ -16,7 +24,6 @@ Historical note:
 - All new deployments should use scripts/launch_operator_ui.sh
 """
 
-import sys
 import os
 
 # PHASE 2: DEPRECATED LAUNCHER GUARD
