@@ -1,0 +1,37 @@
+{
+  "document_id": "client_output_pdf_1765819514",
+  "document_type": "client_output_pdf",
+  "generation_timestamp": "2025-12-15T17:25:14.468425",
+  "total_word_count": 30,
+  "total_section_count": 3,
+  "sections": [
+    {
+      "section_id": "executive_summary_1",
+      "section_title": "Executive Summary",
+      "word_count": 10,
+      "character_count": 60,
+      "content_hash": "9f8aaf817a5b3bc4",
+      "section_order": 1,
+      "subsections": []
+    },
+    {
+      "section_id": "market_analysis_2",
+      "section_title": "Market Analysis",
+      "word_count": 9,
+      "character_count": 61,
+      "content_hash": "219849ffe8801791",
+      "section_order": 2,
+      "subsections": []
+    },
+    {
+      "section_id": "strategy_overview_3",
+      "section_title": "Strategy Overview",
+      "word_count": 11,
+      "character_count": 67,
+      "content_hash": "04baead0b0d9020f",
+      "section_order": 3,
+      "subsections": []
+    }
+  ],
+  "metadata": {}
+}

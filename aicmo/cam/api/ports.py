@@ -102,12 +102,37 @@ class CamQueryPort(ABC):
         pass
 
 
+class CampaignCommandPort(ABC):
+    """Campaign command operations."""
+    
+    @abstractmethod
+    def create_campaign(self, create_dto) -> "CampaignDTO":
+        """Create a new campaign."""
+        pass
+
+
+class CampaignQueryPort(ABC):
+    """Campaign query operations."""
+    
+    @abstractmethod
+    def get_campaign(self, campaign_id: CampaignId) -> Optional["CampaignDTO"]:
+        """Get campaign by ID."""
+        pass
+    
+    @abstractmethod
+    def get_status(self, campaign_id: CampaignId) -> "CampaignStatusDTO":
+        """Get campaign status summary."""
+        pass
+
+
 __all__ = [
     # Command ports
     "LeadIngestPort",
     "LeadQualifyPort",
     "OutreachPlanPort",
     "DealClosePort",
+    "CampaignCommandPort",
     # Query ports
     "CamQueryPort",
+    "CampaignQueryPort",
 ]

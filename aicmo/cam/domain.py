@@ -251,6 +251,7 @@ class AttemptStatus(str, Enum):
     SENT = "SENT"
     FAILED = "FAILED"
     SKIPPED = "SKIPPED"
+    PROOF_SENT = "PROOF_SENT"  # E2E proof-run mode (no real send)
 
 
 class OutreachAttempt(AicmoBaseModel):

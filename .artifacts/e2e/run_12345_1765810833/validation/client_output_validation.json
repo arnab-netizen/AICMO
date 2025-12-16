@@ -1,0 +1,79 @@
+{
+  "validation_version": "1.0.0",
+  "run_id": "run_12345_1765810833",
+  "timestamp": "2025-12-15T15:05:46.037527",
+  "global_status": "PASS",
+  "artifacts": [
+    {
+      "artifact_id": "client_output_pdf",
+      "status": "PASS",
+      "structural_checks": {
+        "valid": true,
+        "errors": [],
+        "warnings": [
+          "PyPDF2 not installed, skipping PDF validation"
+        ]
+      },
+      "safety_checks": {
+        "valid": true,
+        "errors": [],
+        "warnings": [
+          "No text extracted from PDF"
+        ]
+      },
+      "content_checks": {
+        "section_count": 3,
+        "total_word_count": 30,
+        "min_word_count": 50,
+        "word_count_valid": false
+      },
+      "section_validations": [
+        {
+          "section_id": "executive_summary_1",
+          "title": "Executive Summary",
+          "word_count": 10,
+          "word_count_valid": true,
+          "word_count_expected_min": 0,
+          "placeholder_scan": "PASS",
+          "forbidden_phrase_scan": "PASS",
+          "issues": []
+        },
+        {
+          "section_id": "market_analysis_2",
+          "title": "Market Analysis",
+          "word_count": 9,
+          "word_count_valid": true,
+          "word_count_expected_min": 0,
+          "placeholder_scan": "PASS",
+          "forbidden_phrase_scan": "PASS",
+          "issues": []
+        },
+        {
+          "section_id": "strategy_overview_3",
+          "title": "Strategy Overview",
+          "word_count": 11,
+          "word_count_valid": true,
+          "word_count_expected_min": 0,
+          "placeholder_scan": "PASS",
+          "forbidden_phrase_scan": "PASS",
+          "issues": []
+        }
+      ],
+      "issues": []
+    }
+  ],
+  "proof_run_checks": {
+    "no_external_sends": true,
+    "no_unexpected_egress": true
+  },
+  "determinism_checks": {
+    "stable_manifest": true,
+    "no_duplicate_deliveries": true
+  },
+  "metadata": {
+    "contract_version": "1.0.0",
+    "total_artifacts": 1,
+    "passed_artifacts": 1,
+    "failed_artifacts": 0
+  }
+}

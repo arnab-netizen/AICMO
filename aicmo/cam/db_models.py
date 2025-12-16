@@ -192,10 +192,18 @@ class LeadDB(Base):
     email_valid = Column(Boolean, nullable=True)  # Is email valid/deliverable
     intent_signals = Column(JSON, nullable=True)  # Intent signal data
     
-    # Phase 5: Lead Routing
-    routing_sequence = Column(String, nullable=True)  # ContentSequenceType (aggressive_close, regular_nurture, etc.)
-    sequence_start_at = Column(DateTime(timezone=True), nullable=True)  # When sequence began
-    engagement_notes = Column(Text, nullable=True)  # Engagement tracking notes
+    # MODULE 1: Identity resolution and consent (Revenue Marketing Engine)
+    venture_id = Column(String, ForeignKey("ventures.id"), nullable=True)
+    identity_hash = Column(String, nullable=True)  # For deduplication
+    consent_status = Column(String, nullable=False, default="UNKNOWN")  # UNKNOWN, CONSENTED, DNC
+    consent_date = Column(DateTime(timezone=True), nullable=True)
+    source_channel = Column(String, nullable=True)  # Where did they come from?
+    source_ref = Column(String, nullable=True)  # Reference ID from source
+    utm_campaign = Column(String, nullable=True)
+    utm_content = Column(String, nullable=True)
+    first_touch_at = Column(DateTime(timezone=True), nullable=True)  # First interaction
+    last_touch_at = Column(DateTime(timezone=True), nullable=True)  # Most recent interaction
+    value_estimate = Column(Float, nullable=True)  # Estimated value of this lead
 
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(

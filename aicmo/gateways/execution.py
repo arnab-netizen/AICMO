@@ -182,13 +182,13 @@ def queue_social_posts_for_campaign(
     Returns:
         List of created job IDs
     """
-    from aicmo.cam.db_models import ExecutionJobDB
+    from aicmo.delivery.api import DeliveryJobDB
     from aicmo.domain.execution_job import ExecutionJob
     
     job_ids = []
     for content in content_items:
         job = ExecutionJob.from_content_item(content, campaign_id, creative_id)
-        db_job = ExecutionJobDB()
+        db_job = DeliveryJobDB()
         job.apply_to_db(db_job)
         session.add(db_job)
         session.flush()  # Get ID
@@ -218,11 +218,11 @@ async def run_execution_jobs(
     Returns:
         Dict with counts: {"processed": n, "succeeded": n, "failed": n}
     """
-    from aicmo.cam.db_models import ExecutionJobDB
+    from aicmo.delivery.api import DeliveryJobDB
     from aicmo.domain.execution_job import ExecutionJob
     
     # Query QUEUED jobs
-    query = session.query(ExecutionJobDB).filter_by(
+    query = session.query(DeliveryJobDB).filter_by(
         campaign_id=campaign_id,
         status="QUEUED"
     )

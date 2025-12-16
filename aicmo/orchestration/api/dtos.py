@@ -1,7 +1,7 @@
 """Orchestration - DTOs."""
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
-from aicmo.shared.ids import WorkflowId, SagaId
+from aicmo.shared.ids import WorkflowId, SagaId, ClientId, BriefId
 
 class WorkflowStepDTO(BaseModel):
     step_name: str
@@ -13,6 +13,12 @@ class WorkflowContextDTO(BaseModel):
     workflow_id: WorkflowId
     context_data: Dict[str, Any]
     current_step: Optional[str] = None
+
+class WorkflowInputDTO(BaseModel):
+    """Input for client-to-delivery workflow."""
+    client_id: ClientId
+    brief_id: BriefId
+    force_qc_fail: bool = False  # For testing compensation
 
 class SagaStepDTO(BaseModel):
     step_name: str
@@ -26,4 +32,4 @@ class SagaResultDTO(BaseModel):
     completed_steps: list[str]
     compensated_steps: list[str] = []
 
-__all__ = ["WorkflowStepDTO", "WorkflowContextDTO", "SagaStepDTO", "SagaResultDTO"]
+__all__ = ["WorkflowStepDTO", "WorkflowContextDTO", "WorkflowInputDTO", "SagaStepDTO", "SagaResultDTO"]

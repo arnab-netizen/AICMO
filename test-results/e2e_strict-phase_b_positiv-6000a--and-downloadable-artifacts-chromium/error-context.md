@@ -1,0 +1,152 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e7]:
+      - button "Deploy" [ref=e9] [cursor=pointer]:
+        - generic [ref=e11]: Deploy
+      - button [ref=e13] [cursor=pointer]:
+        - img [ref=e14]
+  - generic [ref=e19]:
+    - heading "AI-CMO — Simple Dashboard" [level=1] [ref=e24]: AI-CMO — Simple Dashboard
+    - paragraph [ref=e30]: Paste client info, pick a feature, click Run. Supports CopyHook (Day 1) and VisualGen (Day 2).
+    - group [ref=e33]:
+      - generic "keyboard_arrow_down Setup (edit once, then reuse)" [ref=e34] [cursor=pointer]:
+        - generic [ref=e35]:
+          - generic [ref=e37]: keyboard_arrow_down
+          - paragraph [ref=e40]: Setup (edit once, then reuse)
+      - generic [ref=e44]:
+        - generic [ref=e46]:
+          - generic [ref=e48]:
+            - generic [ref=e49]:
+              - paragraph [ref=e51]: API Base URL
+              - img [ref=e55]
+            - textbox "API Base URL" [ref=e60]:
+              - /placeholder: ""
+              - text: https://YOUR_SERVICE_HOST
+          - generic [ref=e62]:
+            - generic [ref=e63]:
+              - paragraph [ref=e65]: API Key (X-API-Key header)
+              - img [ref=e69]
+            - generic [ref=e73]:
+              - textbox "API Key (X-API-Key header)" [ref=e74]:
+                - /placeholder: ""
+              - button "Show password text" [ref=e75] [cursor=pointer]:
+                - img "Show password text" [ref=e76]
+          - generic [ref=e79]:
+            - generic [ref=e80]:
+              - paragraph [ref=e82]: Max wait (seconds)
+              - img [ref=e86]
+            - generic [ref=e89]:
+              - spinbutton "Max wait (seconds)" [ref=e92]: "25"
+              - generic [ref=e93]:
+                - button [ref=e94] [cursor=pointer]:
+                  - img [ref=e95]
+                - button [ref=e97] [cursor=pointer]:
+                  - img [ref=e98]
+        - generic [ref=e101]:
+          - generic [ref=e103]:
+            - generic [ref=e104]:
+              - paragraph [ref=e106]: CopyHook route prefix
+              - img [ref=e110]
+            - textbox "CopyHook route prefix" [ref=e115]:
+              - /placeholder: ""
+              - text: /api/copyhook
+          - generic [ref=e117]:
+            - generic [ref=e118]:
+              - paragraph [ref=e120]: VisualGen route prefix
+              - img [ref=e124]
+            - textbox "VisualGen route prefix" [ref=e129]:
+              - /placeholder: ""
+              - text: /api/visualgen
+          - generic [ref=e132] [cursor=pointer]:
+            - checkbox "Verify HTTPS certificates" [checked]
+            - paragraph [ref=e137]: Verify HTTPS certificates
+    - heading "Client details" [level=3] [ref=e143]: Client details
+    - generic [ref=e147]:
+      - generic [ref=e149]:
+        - generic [ref=e151]:
+          - generic [ref=e153]:
+            - paragraph [ref=e156]: Client ID (anything unique)
+            - textbox "Client ID (anything unique)" [ref=e159]:
+              - /placeholder: ""
+              - text: 00000000-0000-0000-0000-000000000001
+          - generic [ref=e161]:
+            - paragraph [ref=e164]: Brand name
+            - textbox "Brand name" [ref=e167]:
+              - /placeholder: ""
+              - text: Acme
+          - generic [ref=e169]:
+            - paragraph [ref=e172]: Tone (comma separated)
+            - textbox "Tone (comma separated)" [ref=e175]:
+              - /placeholder: ""
+              - text: confident, simple
+          - generic [ref=e177]:
+            - paragraph [ref=e180]: Website (optional)
+            - textbox "Website (optional)" [ref=e183]:
+              - /placeholder: ""
+              - text: https://example.com
+          - generic [ref=e185]:
+            - paragraph [ref=e188]: Main CTA
+            - textbox "Main CTA" [ref=e191]:
+              - /placeholder: ""
+              - text: Book a demo
+        - generic [ref=e193]:
+          - generic [ref=e195]:
+            - paragraph [ref=e198]: Audience (one line)
+            - textbox "Audience (one line)" [ref=e201]:
+              - /placeholder: ""
+              - text: B2B founders, seed to Series A
+          - generic [ref=e203]:
+            - paragraph [ref=e206]: Top 3 benefits (bullets or comma separated)
+            - textbox "Top 3 benefits (bullets or comma separated)" [ref=e209]:
+              - /placeholder: ""
+              - text: Ship faster, Reduce ops cost, Centralize workflows
+          - generic [ref=e211]:
+            - paragraph [ref=e214]: Must-use phrases (comma separated)
+            - textbox "Must-use phrases (comma separated)" [ref=e217]:
+              - /placeholder: ""
+          - generic [ref=e219]:
+            - paragraph [ref=e222]: Must-avoid phrases (comma separated)
+            - textbox "Must-avoid phrases (comma separated)" [ref=e225]:
+              - /placeholder: ""
+              - text: free forever, guaranteed ROI
+      - heading "Choose feature & options" [level=3] [ref=e231]: Choose feature & options
+      - generic [ref=e234]:
+        - paragraph [ref=e237]: Feature to run
+        - generic [ref=e239]:
+          - generic [ref=e240]:
+            - generic [ref=e241]: CopyHook (Headlines/CTAs/Ads)
+            - combobox "Selected CopyHook (Headlines/CTAs/Ads). Feature to run" [ref=e243]
+          - img "open" [ref=e245]
+      - generic [ref=e248]:
+        - generic [ref=e250]:
+          - generic [ref=e252]:
+            - paragraph [ref=e255]: VisualGen size (e.g., 1200x628)
+            - textbox "VisualGen size (e.g., 1200x628)" [ref=e258]:
+              - /placeholder: ""
+              - text: 1200x628
+          - generic [ref=e260]:
+            - paragraph [ref=e263]: How many variants?
+            - generic [ref=e264]:
+              - spinbutton "How many variants?" [ref=e267]: "3"
+              - generic [ref=e268]:
+                - button [ref=e269] [cursor=pointer]:
+                  - img [ref=e270]
+                - button [ref=e272] [cursor=pointer]:
+                  - img [ref=e273]
+        - generic [ref=e276]:
+          - generic [ref=e278]:
+            - paragraph [ref=e281]: Aspect ratio (e.g., 1.91:1)
+            - textbox "Aspect ratio (e.g., 1.91:1)" [ref=e284]:
+              - /placeholder: ""
+              - text: 1.91:1
+          - generic [ref=e286]:
+            - paragraph [ref=e289]: Template tag (optional)
+            - textbox "Template tag (optional)" [ref=e292]:
+              - /placeholder: ""
+              - text: universal
+      - button "Run" [ref=e296] [cursor=pointer]:
+        - paragraph [ref=e300]: Run
+```

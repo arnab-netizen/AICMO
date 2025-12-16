@@ -74,14 +74,9 @@ test:
 
 .PHONY: ui
 ui:
-	python -m venv .venv && . .venv/bin/activate && \
+	. .venv/bin/activate >/dev/null 2>&1 || python -m venv .venv && . .venv/bin/activate && \
 	pip install -r requirements-streamlit.txt && \
-	streamlit run app.py
-
-.PHONY: ui api dev
-ui:
-	. .venv/bin/activate >/dev/null 2>&1 || python -m venv .venv && . .venv/bin/activate && pip install streamlit httpx
-	API_BASE?=http://localhost:8000 streamlit run streamlit_app.py
+	streamlit run streamlit_pages/aicmo_operator.py
 
 api:
 	uvicorn backend.app:app --port 8000 --reload

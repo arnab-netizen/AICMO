@@ -1,0 +1,21 @@
+{
+  "manifest_version": "1.0.0",
+  "run_id": "run_12345_1765812507",
+  "client_id": "E2E Test Brand",
+  "project_id": "export_project",
+  "timestamp": "2025-12-15T15:28:28.505168",
+  "artifacts": [
+    {
+      "artifact_id": "client_output_pdf",
+      "filename": "E2E Test Brand.pdf",
+      "path": "/workspaces/AICMO/.artifacts/e2e/run_12345_1765812507/downloads/E2E Test Brand.pdf",
+      "size_bytes": 1600,
+      "checksum_sha256": "9815d261a22a92a847903c7d56ba587ba1a0e803d9527f17d730124ee4b8d5ce",
+      "schema_version": "1.0.0",
+      "format": "pdf",
+      "section_map_path": "/workspaces/AICMO/.artifacts/e2e/run_12345_1765812507/validation/section_map.json",
+      "validation_report_path": null
+    }
+  ],
+  "metadata": {}
+}

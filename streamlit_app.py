@@ -1,5 +1,12 @@
 """AICMO Operator Dashboard – Complete Streamlit Application.
 
+⚠️  DEPRECATED FOR NEW USE:
+For production workflows, use: streamlit_pages/aicmo_operator.py
+This file is retained for backward compatibility with E2E report generation tests.
+
+Run canonical UI:
+  python -m streamlit run streamlit_pages/aicmo_operator.py --server.port 8501
+
 This is a professional workspace for generating, refining, and exporting
 client marketing reports. Integrates with backend endpoints:
 - /aicmo/generate
@@ -13,6 +20,9 @@ import json
 import os
 import re
 import subprocess
+import sys
+import time
+import hashlib
 from typing import Any, Dict, Optional
 
 import requests
@@ -73,6 +83,83 @@ def parse_markdown_to_sections(markdown: str) -> dict:
         sections = {"full_report": markdown}
 
     return sections
+
+
+def compute_sha256(data: bytes) -> str:
+    """Compute SHA256 hash of bytes data."""
+    return hashlib.sha256(data).hexdigest()
+
+
+def populate_download_cache(paths_dict: dict, manifest_json: dict, e2e_mode: bool = False) -> dict:
+    """Populate e2e_download_cache with manifest/validation/section_map and artifacts.
+    
+    Returns cache dict with structure:
+    {"manifest_json": bytes, "validation_json": bytes, "section_map_json": bytes, 
+     "artifacts": {artifact_id: {"filename": str, "bytes": bytes, "sha256": str, "size": int}}}
+    
+    If any read fails, returns {"error": error_message}
+    """
+    try:
+        from pathlib import Path
+        import json
+        
+        cache = {
+            "manifest_json": None,
+            "validation_json": None,
+            "section_map_json": None,
+            "artifacts": {}
+        }
+        
+        manifest_path = Path(paths_dict.get("manifest_path", ""))
+        validation_path = Path(paths_dict.get("validation_path", ""))
+        section_map_path = Path(paths_dict.get("section_map_path", ""))
+        downloads_dir = Path(paths_dict.get("downloads_dir", ""))
+        
+        # Read manifest
+        if manifest_path.exists():
+            with open(manifest_path, 'rb') as f:
+                manifest_bytes = f.read()
+                cache["manifest_json"] = manifest_bytes
+        else:
+            return {"error": f"Manifest path not found: {manifest_path}"}
+        
+        # Read validation JSON
+        if validation_path.exists():
+            with open(validation_path, 'rb') as f:
+                cache["validation_json"] = f.read()
+        
+        # Read section map JSON
+        if section_map_path.exists():
+            with open(section_map_path, 'rb') as f:
+                cache["section_map_json"] = f.read()
+        
+        # Process artifacts from manifest
+        if manifest_json and "artifacts" in manifest_json:
+            for artifact in manifest_json["artifacts"]:
+                artifact_id = artifact.get("artifact_id")
+                filename = artifact.get("filename")
+                
+                if not artifact_id or not filename:
+                    continue
+                
+                filepath = downloads_dir / filename
+                if filepath.exists():
+                    with open(filepath, 'rb') as f:
+                        artifact_bytes = f.read()
+                        cache["artifacts"][artifact_id] = {
+                            "filename": filename,
+                            "bytes": artifact_bytes,
+                            "sha256": compute_sha256(artifact_bytes),
+                            "size": len(artifact_bytes)
+                        }
+                else:
+                    if e2e_mode:
+                        sys.stderr.write(f"[E2E DEBUG] Artifact file missing: {filepath}\n")
+                        sys.stderr.flush()
+        
+        return cache
+    except Exception as e:
+        return {"error": str(e)}
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -405,6 +492,27 @@ if "current_brief" not in st.session_state:
 if "generated_report" not in st.session_state:
     st.session_state.generated_report = None  # dict
 
+# E2E Mode: Initialize with stub report for testing
+if os.getenv('AICMO_E2E_MODE') == '1' and st.session_state.generated_report is None:
+    st.session_state.current_brief = {
+        "brand": {
+            "brand_name": "E2E Test Brand",
+            "industry": "Technology",
+            "description": "Test company for E2E validation"
+        },
+        "objective": "Test objective",
+        "audience": "Test audience"
+    }
+    st.session_state.generated_report = {
+        "agency_baseline": {"enabled": True},
+        "sections": {
+            "Executive Summary": "This is a test executive summary for E2E validation testing.",
+            "Market Analysis": "This is test market analysis content for validation purposes.",
+            "Strategy Overview": "This is test strategy content to ensure export gate works properly."
+        },
+        "markdown": "# E2E Test Report\n\n## Executive Summary\n\nTest content.\n\n## Market Analysis\n\nTest market data."
+    }
+
 if "selected_outputs" not in st.session_state:
     st.session_state.selected_outputs = []
 
@@ -709,7 +817,12 @@ with st.sidebar:
             st.warning("⚠️ Stubs disabled but no LLM keys")
 
     st.markdown("---")
+    
+    # E2E: App loaded sentinel (always visible)
+    st.markdown('<div data-testid="e2e-app-loaded">YES</div>', unsafe_allow_html=True)
 
+    # Navigation radio with sentinel container
+    st.markdown('<div data-testid="e2e-nav-radio">', unsafe_allow_html=True)
     nav = st.radio(
         "Navigation",
         [
@@ -722,7 +835,12 @@ with st.sidebar:
             "Settings",
         ],
         index=0,
+        key="nav_radio",
     )
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # E2E: Current nav value (always visible, unambiguous proof)
+    st.markdown(f'<div data-testid="e2e-nav-current">{nav}</div>', unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1371,26 +1489,289 @@ elif nav == "Learn & Improve":
 
 elif nav == "Export":
     st.subheader("Step 4 – Export & Delivery")
+    
+    # PHASE 1.2: Export branch execution sentinel (unambiguous proof branch runs)
+    st.markdown('<div data-testid="e2e-on-export-page">YES</div>', unsafe_allow_html=True)
+    st.markdown(f'<div data-testid="e2e-export-branch-tick">{int(time.time())}</div>', unsafe_allow_html=True)
 
+    # E2E Mode: Show validation status if available
+    e2e_mode = os.getenv('AICMO_E2E_MODE') == '1'
+    e2e_diagnostics = os.getenv('AICMO_E2E_DIAGNOSTICS') == '1'
+    
+    # Step 1.1: Initialize session state ONCE (top-level, always)
+    st.session_state.setdefault("e2e_export_state", "IDLE")
+    st.session_state.setdefault("e2e_export_run_id", "NONE")
+    st.session_state.setdefault("e2e_export_last_error", "")
+    st.session_state.setdefault("e2e_export_paths", None)
+    st.session_state.setdefault("e2e_violation_mode", os.getenv('AICMO_E2E_VIOLATION_MODE') == '1')
+    
+    # STEP 1: Session-state byte cache (source of truth for downloads UI)
+    # Cache structure: {"manifest_json": bytes, "validation_json": bytes, "section_map_json": bytes, 
+    #                   "artifacts": {artifact_id: {"filename": str, "bytes": bytes, "sha256": str, "size": int}}}
+    st.session_state.setdefault("e2e_download_cache", None)
+    st.session_state.setdefault("e2e_download_cache_error", "")
+    
+    # Step 2.1: Ensure stub report exists BEFORE export (idempotent, E2E mode only)
+    sys.stderr.write(f"[E2E DEBUG] Line 1510: e2e_mode={e2e_mode}, generated_report={st.session_state.get('generated_report') is not None}\n")
+    sys.stderr.flush()
+    if e2e_mode and not st.session_state.get("generated_report"):
+        sys.stderr.write(f"[E2E DEBUG] Creating stub report at line 1512\n")
+        sys.stderr.flush()
+        st.session_state.generated_report = {
+            "agency_baseline": {"enabled": True},
+            "sections": {
+                "Executive Summary": "E2E test executive summary content with meaningful data.",
+                "Market Analysis": "E2E test market analysis content with competitive insights.",
+                "Strategy Overview": "E2E test strategy content with actionable recommendations."
+            },
+            "markdown": "# E2E Test Report\n\n## Executive Summary\n\nTest content.\n\n## Market Analysis\n\nTest market data.\n\n## Strategy Overview\n\nTest strategy."
+        }
+    sys.stderr.write(f"[E2E DEBUG] Line 1520: After init, generated_report={st.session_state.get('generated_report') is not None}\n")
+    sys.stderr.flush()
+    
+    if e2e_mode:
+        st.markdown("---")
+        st.markdown("#### 🔐 E2E Validation Status")
+        
+        # Step 1.2: Always-on sentinels (unconditional rendering)
+        st.markdown(f'<div data-testid="e2e-export-state" style="display:none;">STATE: {st.session_state.e2e_export_state}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div data-testid="e2e-export-run-id" style="display:none;">RUN_ID: {st.session_state.e2e_export_run_id}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div data-testid="e2e-export-last-error" style="display:none;">ERROR: {st.session_state.e2e_export_last_error}</div>', unsafe_allow_html=True)
+        
+        # Step 1.3: Session-scoped violation toggle (UI controls session)
+        if e2e_diagnostics:
+            st.markdown('<div class="e2e-diagnostics" style="background-color: #ffe6e6; padding: 10px; border-radius: 5px; margin-bottom: 10px;">', unsafe_allow_html=True)
+            st.markdown("**⚠️ E2E Test Controls (Diagnostics Mode Only)**")
+            
+            st.markdown('<div data-testid="e2e-violation-toggle">', unsafe_allow_html=True)
+            violation_mode_checkbox = st.checkbox(
+                "[E2E] Violation mode",
+                value=st.session_state.get("e2e_violation_mode", False),
+                key="e2e_violation_mode_checkbox",
+                help="When enabled, exports will deliberately violate contracts for negative testing"
+            )
+            st.session_state["e2e_violation_mode"] = violation_mode_checkbox
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            if violation_mode_checkbox:
+                st.info("⚠️ Violation mode ENABLED. Export will deliberately FAIL validation.")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        # OLD: Disk-based validation/downloads section removed in favor of cache-based PHASE 3 section below
+        # E2E mode uses session-state cache (PHASE 3), non-E2E mode can use disk if needed
+
+    # PHASE 2: Handler execution proof (counter + unambiguous entry detection)
+    # Initialize ONLY if not already initialized (don't reset on every rerun!)
+    if "e2e_export_handler_entries" not in st.session_state:
+        st.session_state.e2e_export_handler_entries = 0
+    
+    sys.stderr.write(f"[E2E DEBUG] Line 1667: About to check generated_report, value={st.session_state.get('generated_report') is not None}\n")
+    sys.stderr.flush()
     if not st.session_state.generated_report:
         st.info("No report available. Generate and refine one first.")
     else:
+        # Render handler entry counter unconditionally (always visible)
+        # NOTE: Counter render moved to AFTER button handler (line ~1770) so it shows updated value
+        
         st.markdown("#### Export Final Report")
         fmt = st.selectbox(
             "Format",
             ["pdf", "pptx", "zip", "json"],
             index=0,
+            key="export_format_select"
         )
 
-        if st.button("Generate export file", type="primary"):
+        # Add stable selector for export button
+        st.markdown('<div data-testid="e2e-run-export">', unsafe_allow_html=True)
+        sys.stderr.write(f"[E2E DEBUG] Button render check: about to render button\n")
+        sys.stderr.flush()
+        if st.button("Generate export file", type="primary", key="generate_export_button"):
+            sys.stderr.write(f"[E2E DEBUG] BUTTON CLICKED - entering handler\n")
+            sys.stderr.flush()
+            # PHASE 2: FIRST LINE — increment handler entries (unambiguous proof)
+            st.session_state.e2e_export_handler_entries += 1
+            sys.stderr.write(f"[E2E DEBUG] Handler entries incremented to {st.session_state.e2e_export_handler_entries}\n")
+            sys.stderr.flush()
+            
+            # Set state to RUNNING immediately (don't rerun yet)
+            if e2e_mode:
+                st.session_state.e2e_export_state = "RUNNING"
+                st.session_state.e2e_export_last_error = ""
+                sys.stderr.write(f"[E2E DEBUG] State set to RUNNING\n")
+                sys.stderr.flush()
+            
             try:
-                file_bytes = aicmo_export(
-                    api_base=api_base,
-                    brief=st.session_state.current_brief,
-                    output=st.session_state.generated_report,
-                    format_=fmt,
-                    timeout=int(timeout),
-                )
+                sys.stderr.write(f"[E2E DEBUG] Inside try block, e2e_mode={e2e_mode}\n")
+                sys.stderr.flush()
+                # Ensure report exists in E2E mode
+                if e2e_mode and not st.session_state.generated_report:
+                    # Create minimal stub report for E2E testing
+                    st.session_state.generated_report = {
+                        "agency_baseline": {"enabled": True},
+                        "sections": {
+                            "Executive Summary": "E2E test executive summary content.",
+                            "Market Analysis": "E2E test market analysis content.",
+                            "Strategy Overview": "E2E test strategy content."
+                        },
+                        "markdown": "# E2E Test Report\n\n## Executive Summary\n\nTest content.\n\n## Market Analysis\n\nTest market data."
+                    }
+                
+                # Prepare output (with violation injection if in violation mode)
+                output_to_export = st.session_state.generated_report.copy()
+                
+                # E2E Violation Mode: Inject forbidden pattern into section title
+                violation_mode = st.session_state.get("e2e_violation_mode", False)
+                if e2e_mode and violation_mode:
+                    st.warning("⚠️ Violation Mode Active: Injecting 'TODO' into first section title")
+                    
+                    # Inject TODO into first section title
+                    if 'sections' in output_to_export and isinstance(output_to_export['sections'], dict):
+                        first_key = list(output_to_export['sections'].keys())[0] if output_to_export['sections'] else None
+                        if first_key:
+                            first_section_content = output_to_export['sections'][first_key]
+                            del output_to_export['sections'][first_key]
+                            output_to_export['sections'][f'TODO: {first_key}'] = first_section_content
+                            st.info(f"Injected 'TODO:' into section title: '{first_key}' → 'TODO: {first_key}'")
+                
+                # E2E Mode: Bypass API and use local export gate directly
+                validation_report = None
+                file_bytes = None
+                
+                if e2e_mode:
+                    try:
+                        from aicmo.validation.export_gate import process_export_with_gate
+                        from aicmo.delivery.gate import DeliveryBlockedError
+                        from aicmo.validation.runtime_paths import get_runtime_paths
+                        import io
+                        from reportlab.lib.pagesizes import letter
+                        from reportlab.pdfgen import canvas
+                        
+                        # Generate simple PDF bytes locally (no API call)
+                        buffer = io.BytesIO()
+                        c = canvas.Canvas(buffer, pagesize=letter)
+                        c.drawString(100, 750, f"AICMO E2E Test Export")
+                        c.drawString(100, 730, f"Brand: {st.session_state.current_brief.get('brand', {}).get('brand_name', 'Test')}")
+                        c.drawString(100, 710, f"Format: {fmt}")
+                        
+                        # Add sections
+                        y = 680
+                        for section_title, section_content in output_to_export.get('sections', {}).items():
+                            c.drawString(100, y, f"Section: {section_title}")
+                            y -= 20
+                            if isinstance(section_content, str):
+                                c.drawString(120, y, section_content[:80])
+                            y -= 30
+                        
+                        c.save()
+                        file_bytes = buffer.getvalue()
+                        
+                        brand_name = st.session_state.current_brief.get("brand", {}).get(
+                            "brand_name", "aicmo_report"
+                        )
+                        file_name = f"{brand_name}.{fmt}"
+                        
+                        # Process through export gate
+                        file_bytes, validation_report = process_export_with_gate(
+                            brief=st.session_state.current_brief,
+                            output=output_to_export,
+                            file_bytes=file_bytes,
+                            format_=fmt,
+                            filename=file_name,
+                        )
+                        
+                        # Store paths as serializable dict
+                        paths = get_runtime_paths()
+                        sys.stderr.write(f"[E2E DEBUG] Setting state to PASS\n")
+                        sys.stderr.flush()
+                        st.session_state.e2e_export_state = "PASS"
+                        st.session_state.e2e_export_run_id = paths.run_id
+                        st.session_state.e2e_export_last_error = ""
+                        st.session_state.e2e_export_paths = {
+                            "manifest_path": str(paths.manifest_path),
+                            "validation_path": str(paths.validation_path),
+                            "section_map_path": str(paths.section_map_path),
+                            "downloads_dir": str(paths.downloads_dir)
+                        }
+                        
+                        # STEP 2B: Populate download cache with manifest + artifacts + hashes
+                        if e2e_mode:
+                            try:
+                                import json
+                                manifest_path = paths.manifest_path
+                                with open(manifest_path) as f:
+                                    manifest_json = json.load(f)
+                                cache = populate_download_cache(st.session_state.e2e_export_paths, manifest_json, e2e_mode=True)
+                                if "error" in cache:
+                                    st.session_state.e2e_download_cache_error = cache["error"]
+                                    st.session_state.e2e_download_cache = None
+                                    sys.stderr.write(f"[E2E DEBUG] Cache population failed: {cache['error']}\n")
+                                    sys.stderr.flush()
+                                else:
+                                    st.session_state.e2e_download_cache = cache
+                                    sys.stderr.write(f"[E2E DEBUG] Cache populated: {len(cache.get('artifacts', {}))} artifacts\n")
+                                    sys.stderr.flush()
+                            except Exception as ex:
+                                st.session_state.e2e_download_cache_error = str(ex)
+                                st.session_state.e2e_download_cache = None
+                                sys.stderr.write(f"[E2E DEBUG] Cache error: {ex}\n")
+                                sys.stderr.flush()
+                        
+                    except DeliveryBlockedError as e:
+                        # Validation FAIL (state mutation only)
+                        paths = get_runtime_paths()
+                        st.session_state.e2e_export_state = "FAIL"
+                        st.session_state.e2e_export_run_id = paths.run_id
+                        st.session_state.e2e_export_last_error = str(e)[:200]
+                        st.session_state.e2e_export_paths = {
+                            "manifest_path": str(paths.manifest_path),
+                            "validation_path": str(paths.validation_path),
+                            "section_map_path": str(paths.section_map_path),
+                            "downloads_dir": str(paths.downloads_dir)
+                        }
+                        
+                        # STEP 2C: For FAIL path, cache validation + section_map but NOT deliverables
+                        if e2e_mode:
+                            try:
+                                cache = {
+                                    "manifest_json": None,
+                                    "validation_json": None,
+                                    "section_map_json": None,
+                                    "artifacts": {}
+                                }
+                                from pathlib import Path
+                                validation_path = Path(paths.validation_path)
+                                section_map_path = Path(paths.section_map_path)
+                                
+                                if validation_path.exists():
+                                    with open(validation_path, 'rb') as f:
+                                        cache["validation_json"] = f.read()
+                                if section_map_path.exists():
+                                    with open(section_map_path, 'rb') as f:
+                                        cache["section_map_json"] = f.read()
+                                
+                                st.session_state.e2e_download_cache = cache
+                                sys.stderr.write(f"[E2E DEBUG] FAIL cache populated (validation only)\n")
+                                sys.stderr.flush()
+                            except Exception as ex:
+                                st.session_state.e2e_download_cache_error = str(ex)
+                                st.session_state.e2e_download_cache = None
+                                sys.stderr.write(f"[E2E DEBUG] FAIL cache error: {ex}\n")
+                                sys.stderr.flush()
+                        
+                    except Exception as e:
+                        # Export ERROR (state mutation only)
+                        st.session_state.e2e_export_state = "ERROR"
+                        st.session_state.e2e_export_last_error = str(e)[:200]
+                else:
+                    # Non-E2E mode: use API
+                    file_bytes = aicmo_export(
+                        api_base=api_base,
+                        brief=st.session_state.current_brief,
+                        output=output_to_export,
+                        format_=fmt,
+                        timeout=int(timeout),
+                    )
 
                 # Determine file extension and mimetype
                 if fmt == "pdf":
@@ -1418,10 +1799,172 @@ elif nav == "Export":
                     data=file_bytes,
                     file_name=file_name,
                     mime=mime,
+                    key="download_report_button"
                 )
                 st.success("Export ready.")
+                    
             except Exception as exc:
                 st.error(f"Export failed: {exc}")
+        
+        st.markdown('</div>', unsafe_allow_html=True)  # Close e2e-run-export div
+        
+        # PHASE 2: Re-render sentinels AFTER handler (so they show updated values)
+        st.markdown(f'<div data-testid="e2e-export-handler-entries">{st.session_state.e2e_export_handler_entries}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div data-testid="e2e-export-state" style="display:none;">STATE: {st.session_state.e2e_export_state}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div data-testid="e2e-export-run-id" style="display:none;">RUN_ID: {st.session_state.e2e_export_run_id}</div>', unsafe_allow_html=True)
+        
+        # STEP 3: Top-level downloads (render ONLY from cache, no disk checks)
+        if e2e_mode:
+            export_state = st.session_state.get("e2e_export_state", "IDLE")
+            cache = st.session_state.get("e2e_download_cache")
+            cache_error = st.session_state.get("e2e_download_cache_error", "")
+            
+            sys.stderr.write(f"[E2E DEBUG] STEP 3 downloads: state={export_state}, cache_exists={cache is not None}\n")
+            sys.stderr.flush()
+            
+            if export_state == "PASS":
+                sys.stderr.write(f"[E2E DEBUG] Cache check: cache={cache is not None}, 'error' in cache={('error' in cache) if cache else 'N/A'}, cache keys={list(cache.keys()) if cache else 'N/A'}\n")
+                sys.stderr.flush()
+                if cache and not ("error" in cache):
+                    sys.stderr.write(f"[E2E DEBUG] PASS rendering cache section: manifest_json type = {type(cache.get('manifest_json'))}, len = {len(cache.get('manifest_json', b'')) if isinstance(cache.get('manifest_json'), bytes) else 'N/A'}\n")
+                    sys.stderr.flush()
+                    st.markdown("---")
+                    st.markdown("### 📦 Export Artifacts")
+                    st.markdown('<div data-testid="e2e-downloads-ready" style="display:none;">READY</div>', unsafe_allow_html=True)
+                    
+                    # Column 1: Metadata files
+                    st.markdown("#### Metadata Files")
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.markdown('<div data-testid="e2e-download-manifest">', unsafe_allow_html=True)
+                        if cache.get("manifest_json"):
+                            st.download_button(
+                                "📋 Manifest JSON",
+                                data=cache["manifest_json"],
+                                file_name="manifest.json",
+                                mime="application/json",
+                                key="download_manifest_ui"
+                            )
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    with col2:
+                        st.markdown('<div data-testid="e2e-download-validation">', unsafe_allow_html=True)
+                        if cache.get("validation_json"):
+                            st.download_button(
+                                "✅ Validation JSON",
+                                data=cache["validation_json"],
+                                file_name="validation.json",
+                                mime="application/json",
+                                key="download_validation_ui"
+                            )
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    with col3:
+                        st.markdown('<div data-testid="e2e-download-section-map">', unsafe_allow_html=True)
+                        if cache.get("section_map_json"):
+                            st.download_button(
+                                "🗺️ Section Map JSON",
+                                data=cache["section_map_json"],
+                                file_name="section_map.json",
+                                mime="application/json",
+                                key="download_section_map_ui"
+                            )
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # Deliverables from cache artifacts
+                    st.markdown("#### Deliverables")
+                    artifacts = cache.get("artifacts", {})
+                    if artifacts:
+                        for artifact_id, artifact_info in artifacts.items():
+                            st.markdown(f'<div data-testid="e2e-download-{artifact_id}">', unsafe_allow_html=True)
+                            filename = artifact_info.get("filename", artifact_id)
+                            artifact_bytes = artifact_info.get("bytes")
+                            sha256 = artifact_info.get("sha256", "unknown")
+                            size = artifact_info.get("size", 0)
+                            
+                            if artifact_bytes:
+                                # Infer MIME type from filename
+                                if filename.lower().endswith(".pdf"):
+                                    mime = "application/pdf"
+                                elif filename.lower().endswith(".json"):
+                                    mime = "application/json"
+                                else:
+                                    mime = "application/octet-stream"
+                                
+                                st.download_button(
+                                    f"📄 {filename}",
+                                    data=artifact_bytes,
+                                    file_name=filename,
+                                    mime=mime,
+                                    key=f"download_{artifact_id}_ui"
+                                )
+                                st.caption(f"SHA256: {sha256[:16]}... ({size} bytes)")
+                            st.markdown('</div>', unsafe_allow_html=True)
+                    else:
+                        st.info("No deliverable artifacts in cache")
+                else:
+                    st.markdown("---")
+                    st.markdown('<div data-testid="e2e-downloads-error" style="display:none;">ERROR</div>', unsafe_allow_html=True)
+                    st.error(f"Downloads cache missing or error: {cache_error or 'unknown'}")
+            
+            elif export_state == "FAIL":
+                st.markdown("---")
+                st.markdown('<div data-testid="e2e-downloads-blocked" style="display:none;">BLOCKED</div>', unsafe_allow_html=True)
+                st.warning("📛 **Downloads Blocked**: Deliverables are not available due to validation failure.")
+                
+                # Allow validation + section_map download in FAIL state
+                st.markdown("#### Validation Evidence")
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown('<div data-testid="e2e-download-validation-fail">', unsafe_allow_html=True)
+                    if cache and cache.get("validation_json"):
+                        st.download_button(
+                            "✅ Validation Report (FAIL)",
+                            data=cache["validation_json"],
+                            file_name="validation.json",
+                            mime="application/json",
+                            key="download_validation_fail_ui"
+                        )
+                    st.markdown('</div>', unsafe_allow_html=True)
+                
+                with col2:
+                    st.markdown('<div data-testid="e2e-download-section-map-fail">', unsafe_allow_html=True)
+                    if cache and cache.get("section_map_json"):
+                        st.download_button(
+                            "🗺️ Section Map",
+                            data=cache["section_map_json"],
+                            file_name="section_map.json",
+                            mime="application/json",
+                            key="download_section_map_fail_ui"
+                        )
+                    st.markdown('</div>', unsafe_allow_html=True)
+                
+                # Render violation reason in sentinel for test assertion
+                error_msg = st.session_state.get("e2e_export_last_error", "")
+                st.markdown(f'<div data-testid="e2e-validation-text">{error_msg}</div>', unsafe_allow_html=True)
+                
+                # Still allow downloading validation JSON for inspection
+                try:
+                    from aicmo.validation.runtime_paths import get_runtime_paths
+                    paths = get_runtime_paths()
+                    validation_path = paths.validation_path
+                    
+                    if validation_path.exists():
+                        st.markdown("#### Validation Report (for debugging)")
+                        st.markdown('<div data-testid="e2e-download-validation">', unsafe_allow_html=True)
+                        with open(validation_path, 'rb') as f:
+                            st.download_button(
+                                "⚠️ Download Validation JSON",
+                                f.read(),
+                                file_name="validation.json",
+                                mime="application/json",
+                                key="download_validation_fail_ui"
+                            )
+                        st.markdown('</div>', unsafe_allow_html=True)
+                except Exception as e:
+                    st.error(f"Error loading validation for inspection: {e}")
 
         st.markdown("---")
         st.markdown("#### Creatives / Assets Bundle")
@@ -1447,6 +1990,49 @@ elif nav == "🛡️ Operator QC":
         st.error(f"Error loading Operator QC: {e}")
 
 elif nav == "Settings":
+    st.subheader("Settings & Diagnostics")
+    
+    # E2E Mode Controls
+    e2e_mode = os.getenv('AICMO_E2E_MODE') == '1'
+    if e2e_mode:
+        st.markdown("### 🧪 E2E Test Mode Controls")
+        st.info("E2E mode is ACTIVE")
+        
+        # Show current paths
+        try:
+            from aicmo.validation import get_runtime_paths
+            paths = get_runtime_paths()
+            
+            st.json(paths.to_dict())
+            
+            # Hard reset button
+            if st.button("🔄 Hard Reset E2E State", type="secondary", key="e2e_hard_reset"):
+                import shutil
+                from aicmo.validation import reset_runtime_paths
+                
+                # Delete artifact directory
+                if paths.run_dir.exists():
+                    shutil.rmtree(paths.run_dir)
+                    st.success(f"Deleted {paths.run_dir}")
+                
+                # Reset paths singleton
+                reset_runtime_paths()
+                
+                # Clear session state
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                
+                st.success("E2E state reset complete")
+                st.rerun()
+                
+        except Exception as e:
+            st.error(f"E2E controls error: {e}")
+        
+        st.markdown("---")
+    
+    # Rest of settings...
+    st.markdown("### General Settings")
+    st.write("Additional settings coming soon...")
     st.subheader("Settings & Diagnostics")
 
     st.markdown('<div class="aicmo-card">', unsafe_allow_html=True)

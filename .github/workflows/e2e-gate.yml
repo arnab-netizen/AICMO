@@ -1,0 +1,143 @@
+name: E2E Client Output Gate
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  e2e-gate:
+    name: E2E Strict Client Output Gate
+    runs-on: ubuntu-latest
+    
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pypdf2 python-pptx python-docx
+      
+      - name: Install Node dependencies
+        run: npm ci
+      
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      
+      - name: Run E2E Gate
+        id: e2e_gate
+        run: |
+          ./scripts/ci_e2e_gate.sh
+        env:
+          AICMO_E2E_ARTIFACT_DIR: ${{ github.workspace }}/artifacts/e2e
+          AICMO_CONTRACTS_PATH: ${{ github.workspace }}/tests/e2e/specs/client_outputs.contract.json
+      
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-validation-report
+          path: |
+            artifacts/e2e/validation_report.json
+            artifacts/e2e/manifest.json
+            artifacts/e2e/proof_run_ledger.json
+          retention-days: 7
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+      
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failed-artifacts
+          path: artifacts/e2e/
+          retention-days: 7
+      
+      - name: Check gate status
+        if: always()
+        run: |
+          if [ -f artifacts/e2e/validation_report.json ]; then
+            echo "## E2E Gate Status" >> $GITHUB_STEP_SUMMARY
+            
+            GLOBAL_STATUS=$(jq -r '.global_status' artifacts/e2e/validation_report.json)
+            
+            if [ "$GLOBAL_STATUS" == "PASS" ]; then
+              echo "✅ **GREEN** - All validation checks passed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ **RED** - Validation failed" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### Failures:" >> $GITHUB_STEP_SUMMARY
+              jq -r '.artifacts[] | select(.status == "FAIL") | "- **\(.artifact_id)**: \(.issues | join(", "))"' artifacts/e2e/validation_report.json >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Artifact Summary:" >> $GITHUB_STEP_SUMMARY
+            jq -r '.artifacts[] | "- \(.artifact_id): \(.status)"' artifacts/e2e/validation_report.json >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Validation report not found" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Block merge on failure
+        if: failure()
+        run: |
+          echo "❌ E2E Gate is RED - blocking merge"
+          echo ""
+          echo "Client-facing outputs failed validation."
+          echo "Review the validation report and fix issues before merging."
+          exit 1
+
+  # Optional: Run additional validation checks
+  validation-extras:
+    name: Additional Validation Checks
+    runs-on: ubuntu-latest
+    needs: e2e-gate
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download validation report
+        uses: actions/download-artifact@v4
+        with:
+          name: e2e-validation-report
+          path: artifacts/e2e/
+      
+      - name: Check determinism
+        run: |
+          echo "TODO: Run determinism checks"
+          # Compare checksums across multiple runs
+      
+      - name: Check performance budgets
+        run: |
+          echo "TODO: Check generation time < budgets"
+          # Verify all generation times are under thresholds
+      
+      - name: Security scan
+        run: |
+          echo "TODO: Run security scan on outputs"
+          # Check for sensitive data leakage

@@ -106,6 +106,35 @@ class LeadStatusDTO(BaseModel):
     next_action: Optional[str] = None
 
 
+class CampaignCreateDTO(BaseModel):
+    """Input for creating a campaign."""
+    
+    client_id: ClientId
+    name: str
+    config: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CampaignDTO(BaseModel):
+    """Campaign details."""
+    
+    campaign_id: CampaignId
+    client_id: ClientId
+    name: str
+    status: str  # "ACTIVE", "PAUSED", "COMPLETED"
+    created_at: datetime
+    config: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CampaignStatusDTO(BaseModel):
+    """Campaign status summary."""
+    
+    campaign_id: CampaignId
+    status: str
+    total_leads: int
+    active_leads: int
+    last_updated: datetime
+
+
 __all__ = [
     "RawLeadDTO",
     "LeadDTO",
@@ -116,4 +145,7 @@ __all__ = [
     "SignedClientDTO",
     "LeadSummaryDTO",
     "LeadStatusDTO",
+    "CampaignCreateDTO",
+    "CampaignDTO",
+    "CampaignStatusDTO",
 ]

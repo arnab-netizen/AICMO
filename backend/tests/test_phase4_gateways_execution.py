@@ -378,13 +378,14 @@ class TestPhase4ExecutionPersistence:
         """ExecutionJob can be persisted and loaded from database."""
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
-        from aicmo.cam.db_models import CampaignDB, ExecutionJobDB
+        from aicmo.cam.db_models import CampaignDB
+        from aicmo.delivery.api import DeliveryJobDB
         from aicmo.domain.execution_job import ExecutionJob
         
         # Create in-memory database
         engine = create_engine("sqlite:///:memory:")
         CampaignDB.__table__.create(engine, checkfirst=True)
-        ExecutionJobDB.__table__.create(engine, checkfirst=True)
+        DeliveryJobDB.__table__.create(engine, checkfirst=True)
         Session = sessionmaker(bind=engine)
         session = Session()
         
@@ -402,13 +403,13 @@ class TestPhase4ExecutionPersistence:
         )
         
         job = ExecutionJob.from_content_item(content, campaign_id=campaign.id)
-        db_job = ExecutionJobDB()
+        db_job = DeliveryJobDB()
         job.apply_to_db(db_job)
         session.add(db_job)
         session.commit()
         
         # Load from database
-        loaded_db_job = session.query(ExecutionJobDB).filter_by(campaign_id=campaign.id).first()
+        loaded_db_job = session.query(DeliveryJobDB).filter_by(campaign_id=campaign.id).first()
         assert loaded_db_job is not None
         
         loaded_job = ExecutionJob.from_db(loaded_db_job)
@@ -433,13 +434,14 @@ class TestPhase4ExecutionPersistence:
         """queue_social_posts_for_campaign creates ExecutionJobDB records."""
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
-        from aicmo.cam.db_models import CampaignDB, ExecutionJobDB
+        from aicmo.cam.db_models import CampaignDB
+        from aicmo.delivery.api import DeliveryJobDB
         from aicmo.gateways.execution import queue_social_posts_for_campaign
         
         # Create in-memory database
         engine = create_engine("sqlite:///:memory:")
         CampaignDB.__table__.create(engine, checkfirst=True)
-        ExecutionJobDB.__table__.create(engine, checkfirst=True)
+        DeliveryJobDB.__table__.create(engine, checkfirst=True)
         Session = sessionmaker(bind=engine)
         session = Session()
         
@@ -462,7 +464,7 @@ class TestPhase4ExecutionPersistence:
         # Verify jobs created
         assert len(job_ids) == 3
         
-        db_jobs = session.query(ExecutionJobDB).filter_by(campaign_id=campaign.id).all()
+        db_jobs = session.query(DeliveryJobDB).filter_by(campaign_id=campaign.id).all()
         assert len(db_jobs) == 3
         
         # Verify all are QUEUED
@@ -481,14 +483,15 @@ class TestPhase4ExecutionPersistence:
         """run_execution_jobs processes QUEUED jobs and updates status."""
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
-        from aicmo.cam.db_models import CampaignDB, ExecutionJobDB
+        from aicmo.cam.db_models import CampaignDB
+        from aicmo.delivery.api import DeliveryJobDB
         from aicmo.gateways.execution import queue_social_posts_for_campaign, run_execution_jobs
         from aicmo.gateways.echo import EchoSocialPoster
         
         # Create in-memory database
         engine = create_engine("sqlite:///:memory:")
         CampaignDB.__table__.create(engine, checkfirst=True)
-        ExecutionJobDB.__table__.create(engine, checkfirst=True)
+        DeliveryJobDB.__table__.create(engine, checkfirst=True)
         Session = sessionmaker(bind=engine)
         session = Session()
         
@@ -506,7 +509,7 @@ class TestPhase4ExecutionPersistence:
         session.commit()
         
         # Verify QUEUED
-        queued_jobs = session.query(ExecutionJobDB).filter_by(status="QUEUED").all()
+        queued_jobs = session.query(DeliveryJobDB).filter_by(status="QUEUED").all()
         assert len(queued_jobs) == 2
         
         # Set up execution service with echo adapters
@@ -526,7 +529,7 @@ class TestPhase4ExecutionPersistence:
         assert stats["failed"] == 0
         
         # Verify all jobs are DONE
-        done_jobs = session.query(ExecutionJobDB).filter_by(status="DONE").all()
+        done_jobs = session.query(DeliveryJobDB).filter_by(status="DONE").all()
         assert len(done_jobs) == 2
         
         # Verify external_id set
@@ -543,13 +546,14 @@ class TestPhase4ExecutionPersistence:
         """run_execution_jobs handles failures with retry logic."""
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
-        from aicmo.cam.db_models import CampaignDB, ExecutionJobDB
+        from aicmo.cam.db_models import CampaignDB
+        from aicmo.delivery.api import DeliveryJobDB
         from aicmo.gateways.execution import queue_social_posts_for_campaign, run_execution_jobs
         
         # Create in-memory database
         engine = create_engine("sqlite:///:memory:")
         CampaignDB.__table__.create(engine, checkfirst=True)
-        ExecutionJobDB.__table__.create(engine, checkfirst=True)
+        DeliveryJobDB.__table__.create(engine, checkfirst=True)
         Session = sessionmaker(bind=engine)
         session = Session()
         
@@ -574,7 +578,7 @@ class TestPhase4ExecutionPersistence:
         assert stats["failed"] == 0  # Not failed yet, queued for retry
         
         # Verify job still QUEUED (retry)
-        job = session.query(ExecutionJobDB).first()
+        job = session.query(DeliveryJobDB).first()
         assert job.status == "QUEUED"
         assert job.retries == 1
         assert job.last_error is not None
@@ -584,7 +588,7 @@ class TestPhase4ExecutionPersistence:
         await run_execution_jobs(campaign.id, session, execution_service)
         
         # Now should be FAILED
-        job = session.query(ExecutionJobDB).first()
+        job = session.query(DeliveryJobDB).first()
         assert job.status == "FAILED"
         assert job.retries == 3
         

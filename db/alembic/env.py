@@ -32,6 +32,23 @@ import backend.models  # noqa
 import backend.modules.sitegen.db_models  # noqa
 import app.models  # noqa
 
+# Phase 4 Lane B: AICMO business module models
+import aicmo.cam.db_models  # noqa (30+ CAM tables - must import to prevent drops)
+import aicmo.onboarding.internal.models  # noqa
+import aicmo.strategy.internal.models  # noqa
+import aicmo.production.internal.models  # noqa
+import aicmo.delivery.internal.models  # noqa
+
+# Fast Revenue Marketing Engine (venture module)
+import aicmo.venture.models  # noqa
+import aicmo.venture.distribution_models  # noqa
+import aicmo.venture.audit  # noqa
+
+# Campaign Orchestrator (Phase 2)
+import aicmo.cam.orchestrator.models  # noqa
+
+# TODO: Add qc, delivery models as they're implemented
+
 # --- END DEFINITIVE FIX ---
 
 

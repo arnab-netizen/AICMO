@@ -1,13 +1,29 @@
+"""
+⚠️  DEPRECATED: Simple example dashboard only.
+
+FOR PRODUCTION USE: streamlit_pages/aicmo_operator.py
+This file is retained for demonstrations and simple use cases only.
+
+To run the canonical AICMO UI:
+  python -m streamlit run streamlit_pages/aicmo_operator.py --server.port 8501
+"""
+
 import os
 import time
 import json
 import requests
 import streamlit as st
 
+# Show deprecation warning to users
+st.warning(
+    "⚠️ **DEPRECATED**: This is a simple example dashboard. "
+    "Use `streamlit_pages/aicmo_operator.py` for production workflows."
+)
+
 # ------------------------------
 # Basic page setup
 # ------------------------------
-st.set_page_config(page_title="AI-CMO Dashboard", layout="centered")
+st.set_page_config(page_title="AI-CMO Dashboard (DEPRECATED)", layout="centered")
 
 st.title("AI-CMO — Simple Dashboard")
 st.caption(

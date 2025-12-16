@@ -1,0 +1,292 @@
+{
+  "schema_version": "1.0.0",
+  "contract_version": "1.0.0",
+  "last_updated": "2025-12-15",
+  "outputs": [
+    {
+      "id": "marketing_strategy_report_pdf",
+      "schema_version": "1.0.0",
+      "format": "pdf",
+      "required_sections": [
+        "Executive Summary",
+        "Market Analysis",
+        "Competitive Landscape",
+        "Target Audience Insights",
+        "Strategic Recommendations",
+        "Budget Allocation",
+        "Implementation Timeline",
+        "KPI Framework"
+      ],
+      "required_strings": [
+        "Prepared for: {{client_name}}",
+        "Date: {{generation_date}}",
+        "Confidential"
+      ],
+      "forbidden_patterns": [
+        "\\[\\[.*?\\]\\]",
+        "\\{\\{(?!client_name|generation_date|campaign_name).*?\\}\\}",
+        "TODO",
+        "FIXME",
+        "XXX",
+        "PLACEHOLDER",
+        "<insert.*?>",
+        "Lorem ipsum",
+        "test@test.com",
+        "example\\.com"
+      ],
+      "min_word_count_total": 2500,
+      "min_word_count_by_section": {
+        "Executive Summary": 250,
+        "Market Analysis": 400,
+        "Competitive Landscape": 300,
+        "Target Audience Insights": 300,
+        "Strategic Recommendations": 500,
+        "Budget Allocation": 200,
+        "Implementation Timeline": 250,
+        "KPI Framework": 300
+      },
+      "min_pages": 12,
+      "max_pages": 50,
+      "required_metadata": {
+        "title": true,
+        "author": true,
+        "creation_date": true
+      },
+      "dynamic_allowlist_patterns": [
+        "{{client_name}}",
+        "{{generation_date}}",
+        "{{campaign_name}}"
+      ],
+      "max_file_size_bytes": 10485760,
+      "validation_required": true
+    },
+    {
+      "id": "campaign_report_txt",
+      "schema_version": "1.0.0",
+      "format": "txt",
+      "required_sections": [
+        "Executive Summary",
+        "Campaign Performance",
+        "Lead Attribution Analysis",
+        "Revenue Impact",
+        "Next Actions"
+      ],
+      "required_strings": [
+        "Campaign Report",
+        "Generated:"
+      ],
+      "forbidden_patterns": [
+        "\\[\\[.*?\\]\\]",
+        "\\{\\{.*?\\}\\}",
+        "TODO",
+        "PLACEHOLDER"
+      ],
+      "min_word_count_total": 500,
+      "min_word_count_by_section": {
+        "Executive Summary": 100,
+        "Campaign Performance": 150,
+        "Lead Attribution Analysis": 100,
+        "Revenue Impact": 100,
+        "Next Actions": 50
+      },
+      "required_metadata": {},
+      "dynamic_allowlist_patterns": [],
+      "max_file_size_bytes": 1048576,
+      "validation_required": true
+    },
+    {
+      "id": "marketing_strategy_pptx",
+      "schema_version": "1.0.0",
+      "format": "pptx",
+      "required_sections": [
+        "Title",
+        "Executive Summary",
+        "Market Overview",
+        "Strategy",
+        "Implementation Roadmap",
+        "Budget Breakdown",
+        "Next Steps"
+      ],
+      "required_strings": [
+        "{{client_name}}"
+      ],
+      "forbidden_patterns": [
+        "\\[\\[.*?\\]\\]",
+        "\\{\\{(?!client_name|generation_date).*?\\}\\}",
+        "TODO",
+        "PLACEHOLDER",
+        "Lorem ipsum"
+      ],
+      "min_slides": 10,
+      "max_slides": 30,
+      "required_metadata": {
+        "title": true,
+        "author": true
+      },
+      "speaker_notes_required": true,
+      "min_speaker_notes_per_slide": 50,
+      "dynamic_allowlist_patterns": [
+        "{{client_name}}",
+        "{{generation_date}}"
+      ],
+      "max_file_size_bytes": 20971520,
+      "validation_required": true
+    },
+    {
+      "id": "marketing_brief_docx",
+      "schema_version": "1.0.0",
+      "format": "docx",
+      "required_sections": [
+        "Client Overview",
+        "Business Objectives",
+        "Target Market",
+        "Competitive Context",
+        "Brand Guidelines",
+        "Campaign Requirements"
+      ],
+      "required_strings": [
+        "{{client_name}}",
+        "Marketing Brief"
+      ],
+      "forbidden_patterns": [
+        "\\[\\[.*?\\]\\]",
+        "\\{\\{(?!client_name).*?\\}\\}",
+        "TODO",
+        "PLACEHOLDER"
+      ],
+      "min_word_count_total": 1000,
+      "min_word_count_by_section": {
+        "Client Overview": 150,
+        "Business Objectives": 200,
+        "Target Market": 200,
+        "Competitive Context": 200,
+        "Brand Guidelines": 150,
+        "Campaign Requirements": 100
+      },
+      "required_metadata": {
+        "title": true,
+        "author": true
+      },
+      "dynamic_allowlist_patterns": [
+        "{{client_name}}"
+      ],
+      "max_file_size_bytes": 5242880,
+      "validation_required": true
+    },
+    {
+      "id": "lead_export_csv",
+      "schema_version": "1.0.0",
+      "format": "csv",
+      "required_columns": [
+        "email",
+        "name",
+        "status",
+        "source_channel",
+        "campaign_id",
+        "consent_status",
+        "created_at"
+      ],
+      "forbidden_patterns": [
+        "PLACEHOLDER",
+        "test@test\\.com",
+        "example\\.com"
+      ],
+      "min_rows": 1,
+      "max_rows": 100000,
+      "required_metadata": {},
+      "dynamic_allowlist_patterns": [],
+      "max_file_size_bytes": 10485760,
+      "validation_required": true
+    },
+    {
+      "id": "outreach_email_preview",
+      "schema_version": "1.0.0",
+      "format": "html",
+      "required_elements": [
+        "subject",
+        "greeting",
+        "body",
+        "cta",
+        "footer"
+      ],
+      "required_strings": [
+        "{{recipient_name}}",
+        "Unsubscribe"
+      ],
+      "forbidden_patterns": [
+        "\\[\\[.*?\\]\\]",
+        "\\{\\{(?!recipient_name|campaign_name).*?\\}\\}",
+        "TODO",
+        "PLACEHOLDER"
+      ],
+      "min_character_count": 100,
+      "max_character_count": 5000,
+      "required_metadata": {},
+      "dynamic_allowlist_patterns": [
+        "{{recipient_name}}",
+        "{{campaign_name}}"
+      ],
+      "validation_required": true
+    },
+    {
+      "id": "complete_deliverable_zip",
+      "schema_version": "1.0.0",
+      "format": "zip",
+      "required_contents": [
+        "marketing_strategy_report.pdf",
+        "marketing_strategy_deck.pptx",
+        "marketing_brief.docx",
+        "README.txt"
+      ],
+      "allowed_extensions": [
+        ".pdf",
+        ".pptx",
+        ".docx",
+        ".txt",
+        ".csv",
+        ".json",
+        ".md"
+      ],
+      "forbidden_patterns": [
+        "\\.\\./",
+        "^/",
+        "^[A-Z]:",
+        "\\.exe$",
+        "\\.sh$",
+        "\\.bat$"
+      ],
+      "max_uncompressed_size_bytes": 104857600,
+      "max_file_size_bytes": 52428800,
+      "recursive_validation": true,
+      "validation_required": true
+    },
+    {
+      "id": "client_output_pdf",
+      "schema_version": "1.0.0",
+      "format": "pdf",
+      "required_sections": [],
+      "required_strings": [],
+      "forbidden_patterns": [
+        "\\[\\[.*?\\]\\]",
+        "\\{\\{(?!client_name|brand_name|generation_date|campaign_name).*?\\}\\}",
+        "TODO",
+        "FIXME"
+      ],
+      "min_word_count_total": 50,
+      "min_word_count_by_section": {},
+      "min_pages": 1,
+      "max_pages": 100,
+      "max_file_size_bytes": 10485760,
+      "required_metadata": {},
+      "description": "Phase A minimal contract for export gate proof"
+    }
+  ],
+  "global_rules": {
+    "proof_run_required": true,
+    "network_egress_denied": true,
+    "validation_report_required": true,
+    "manifest_required": true,
+    "deterministic_output": true,
+    "tenant_isolation_required": true
+  }
+}

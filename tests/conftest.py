@@ -20,6 +20,10 @@ if str(ROOT) not in sys.path:
 from aicmo.core.db import Base
 # Import db_models to register tables with Base.metadata
 from aicmo.cam import db_models as _  # noqa: F401
+# Import venture models for new tables
+from aicmo.venture import models as _venture_models  # noqa: F401
+from aicmo.venture import audit as _venture_audit  # noqa: F401
+from aicmo.venture import distribution_models as _venture_dist  # noqa: F401
 
 # Import shared testing fixtures from Phase 1 harness
 pytest_plugins = ["aicmo.shared.testing"]

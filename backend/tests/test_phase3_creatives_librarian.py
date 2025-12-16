@@ -323,13 +323,14 @@ class TestPhase3CreativesPersistence:
         """CreativeAsset can be persisted and loaded from database."""
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
-        from aicmo.cam.db_models import CampaignDB, CreativeAssetDB
+        from aicmo.cam.db_models import CampaignDB
+        from aicmo.production.api import ProductionAssetDB
         from aicmo.domain.creative import CreativeAsset
         
         # Create in-memory database
         engine = create_engine("sqlite:///:memory:")
         CampaignDB.__table__.create(engine, checkfirst=True)
-        CreativeAssetDB.__table__.create(engine, checkfirst=True)
+        ProductionAssetDB.__table__.create(engine, checkfirst=True)
         Session = sessionmaker(bind=engine)
         session = Session()
         
@@ -349,13 +350,13 @@ class TestPhase3CreativesPersistence:
         )
         
         asset = CreativeAsset.from_variant(variant, campaign_id=campaign.id)
-        db_asset = CreativeAssetDB()
+        db_asset = ProductionAssetDB()
         asset.apply_to_db(db_asset)
         session.add(db_asset)
         session.commit()
         
         # Load from database
-        loaded_db_asset = session.query(CreativeAssetDB).filter_by(campaign_id=campaign.id).first()
+        loaded_db_asset = session.query(ProductionAssetDB).filter_by(campaign_id=campaign.id).first()
         assert loaded_db_asset is not None
         
         loaded_asset = CreativeAsset.from_db(loaded_db_asset)
@@ -378,12 +379,13 @@ class TestPhase3CreativesPersistence:
         """generate_creatives persists assets when campaign_id and session provided."""
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
-        from aicmo.cam.db_models import CampaignDB, CreativeAssetDB
+        from aicmo.cam.db_models import CampaignDB
+        from aicmo.production.api import ProductionAssetDB
         
         # Create in-memory database
         engine = create_engine("sqlite:///:memory:")
         CampaignDB.__table__.create(engine, checkfirst=True)
-        CreativeAssetDB.__table__.create(engine, checkfirst=True)
+        ProductionAssetDB.__table__.create(engine, checkfirst=True)
         Session = sessionmaker(bind=engine)
         session = Session()
         
@@ -428,7 +430,7 @@ class TestPhase3CreativesPersistence:
         assert len(library.variants) > 0
         
         # Verify database has persisted assets
-        db_assets = session.query(CreativeAssetDB).filter_by(campaign_id=campaign.id).all()
+        db_assets = session.query(ProductionAssetDB).filter_by(campaign_id=campaign.id).all()
         assert len(db_assets) == len(library.variants)
         
         # Verify first asset

@@ -192,11 +192,11 @@ async def generate_creatives(
             
             # Stage 2: Persist to database if campaign_id and session provided
             if campaign_id is not None and session is not None:
-                from aicmo.cam.db_models import CreativeAssetDB
+                from aicmo.production.api import ProductionAssetDB
                 from aicmo.domain.creative import CreativeAsset
                 
                 asset = CreativeAsset.from_variant(variant, campaign_id=campaign_id)
-                db_asset = CreativeAssetDB()
+                db_asset = ProductionAssetDB()
                 asset.apply_to_db(db_asset)
                 session.add(db_asset)
     

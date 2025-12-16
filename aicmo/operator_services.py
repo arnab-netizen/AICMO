@@ -17,12 +17,12 @@ from sqlalchemy import func, desc
 from aicmo.domain.project import Project, ProjectState
 from aicmo.domain.execution import ContentItem, PublishStatus, ExecutionStatus
 from aicmo.cam.db_models import (
-    CampaignDB,
-    LeadDB,
-    OutreachAttemptDB,
-    ContactEventDB,
-    DiscoveryJobDB,
-    SafetySettingsDB,
+    CampaignDB,  # TODO Phase 4: Replace with CAM query ports
+    LeadDB,  # TODO Phase 4: Replace with CAM query ports
+    OutreachAttemptDB,  # TODO Phase 4: Replace with CAM query ports
+    ContactEventDB,  # TODO Phase 4: Replace with CAM query ports
+    DiscoveryJobDB,  # TODO Phase 4: Replace with CAM query ports
+    SafetySettingsDB,  # TODO Phase 4: Replace with CAM query ports
 )
 
 # W2.1: Import unified orchestrator and services
@@ -1578,6 +1578,7 @@ def get_channel_config(db: Session, channel_name: str) -> Dict[str, Any]:
     Returns:
         Dict with channel configuration
     """
+    # TODO Phase 4: Replace with CAM query port (ChannelConfigQueryPort)
     from aicmo.cam.db_models import ChannelConfigDB
     
     config = db.query(ChannelConfigDB).filter(
@@ -1623,6 +1624,7 @@ def update_channel_config(
     Returns:
         Updated configuration dict
     """
+    # TODO Phase 4: Replace with CAM command port (ChannelConfigCommandPort)
     from aicmo.cam.db_models import ChannelConfigDB
     
     config = db.query(ChannelConfigDB).filter(
