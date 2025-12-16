@@ -9,6 +9,8 @@ RUN pip install --no-cache-dir -r requirements.txt 2>/dev/null || pip install --
 
 EXPOSE 8501
 
-# CANONICAL DASHBOARD ENTRY: Always run streamlit_pages/aicmo_operator.py
-CMD ["streamlit", "run", "streamlit_pages/aicmo_operator.py", \
+# CANONICAL DASHBOARD ENTRY (V2): Run operator_v2.py (modular architecture)
+# Previous: streamlit_pages/aicmo_operator.py
+# New: operator_v2.py (11 independent tabs, safe DB wrapping, backend HTTP wiring)
+CMD ["streamlit", "run", "operator_v2.py", \
      "--server.address=0.0.0.0", "--server.port=8501"]
