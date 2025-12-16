@@ -47,6 +47,9 @@ import aicmo.venture.audit  # noqa
 # Campaign Orchestrator (Phase 2)
 import aicmo.cam.orchestrator.models  # noqa
 
+# Autonomy Orchestration Layer (AOL) - daemon, queue, lease
+import aicmo.orchestration.models  # noqa
+
 # TODO: Add qc, delivery models as they're implemented
 
 # --- END DEFINITIVE FIX ---

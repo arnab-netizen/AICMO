@@ -72,11 +72,16 @@ e2e-test: up-temporal
 test:
 	pytest -q
 
-.PHONY: ui
+.PHONY: ui ops-ui
 ui:
 	. .venv/bin/activate >/dev/null 2>&1 || python -m venv .venv && . .venv/bin/activate && \
 	pip install -r requirements-streamlit.txt && \
 	streamlit run streamlit_pages/aicmo_operator.py
+
+ops-ui:
+	. .venv/bin/activate >/dev/null 2>&1 || python -m venv .venv && . .venv/bin/activate && \
+	pip install -r requirements-streamlit.txt && \
+	streamlit run streamlit_pages/aicmo_ops_shell.py --server.port 8510
 
 api:
 	uvicorn backend.app:app --port 8000 --reload

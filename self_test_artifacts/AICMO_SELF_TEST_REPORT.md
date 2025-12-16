@@ -1,13 +1,13 @@
 # AICMO System Health Report
 
-**Generated:** 2025-12-11 14:07:45 UTC
+**Generated:** 2025-12-16 09:37:43 UTC
 
 **Mode:** Deterministic ✅ (stub outputs, fixed seeds)
 
 ## Summary
 
-- **Features Tested:** 32
-- **Passed:** 28 ✅
+- **Features Tested:** 34
+- **Passed:** 30 ✅
 - **Failed:** 4 ❌
 - **Skipped:** 0 ⏭️
 - **Status:** 🔴 ISSUES DETECTED
@@ -16,30 +16,30 @@
 
 **Feature Runtimes:**
 
-- generate_html_summary: 0.009s
-- persona_generator: 0.003s
-- language_filters: 0.002s
-- swot_generator: 0.002s
+- generate_full_deck_pptx: 0.005s
+- generate_html_summary: 0.004s
+- persona_generator: 0.001s
+- language_filters: 0.001s
 - social_calendar_generator: 0.001s
+- swot_generator: 0.001s
 - messaging_pillars_generator: 0.001s
 - situation_analysis_generator: 0.001s
-- generate_full_deck_pptx: 0.000s
-- agency_grade_processor: 0.000s
 - reasoning_trace: 0.000s
-- output_formatter: 0.000s
 - utils: 0.000s
+- output_formatter: 0.000s
+- agency_grade_processor: 0.000s
 - generate_strategy_pdf: 0.000s
 - build_kaizen_context: 0.000s
 - create_approval_request: 0.000s
-- generate_brand_core: 0.000s
-- create_project_task: 0.000s
-- generate_pitch_deck: 0.000s
-- generate_performance_dashboard: 0.000s
 - generate_creatives: 0.000s
-- generate_strategy: 0.000s
+- create_project_task: 0.000s
+- generate_brand_core: 0.000s
 - generate_brand_positioning: 0.000s
-- build_project_package: 0.000s
 - generate_media_plan: 0.000s
+- build_project_package: 0.000s
+- generate_strategy: 0.000s
+- generate_performance_dashboard: 0.000s
+- generate_pitch_deck: 0.000s
 - generate_strategy: 0.000s
 
 **Flakiness Check:** No inconsistencies detected ✅
@@ -361,6 +361,10 @@ Validation of text length and word-count requirements:
 
 *Cam Noop*
 
+#### ✅ csv_lead_source 
+
+*Csv Lead Source*
+
 #### ✅ dropcontact_verifier 
 
 *Dropcontact Verifier*
@@ -368,6 +372,10 @@ Validation of text length and word-count requirements:
 #### ✅ make_webhook 
 
 *Make Webhook*
+
+#### ✅ manual_lead_source 
+
+*Manual Lead Source*
 
 #### ✅ noop 
 
@@ -492,6 +500,12 @@ Validation of text length and word-count requirements:
 - **Configured:** Yes
 - **Details:** Module: aicmo.gateways.adapters.cam_noop
 
+### ✅ csv_lead_source
+
+- **Provider:** Csv Lead Source
+- **Configured:** Yes
+- **Details:** Module: aicmo.gateways.adapters.csv_lead_source
+
 ### ✅ dropcontact_verifier
 
 - **Provider:** Dropcontact Verifier
@@ -503,6 +517,12 @@ Validation of text length and word-count requirements:
 - **Provider:** Make Webhook
 - **Configured:** Yes
 - **Details:** Module: aicmo.gateways.adapters.make_webhook
+
+### ✅ manual_lead_source
+
+- **Provider:** Manual Lead Source
+- **Configured:** Yes
+- **Details:** Module: aicmo.gateways.adapters.manual_lead_source
 
 ### ✅ noop
 

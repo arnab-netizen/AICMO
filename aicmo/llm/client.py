@@ -143,7 +143,20 @@ def enhance_with_llm(
 
     Default: Claude Sonnet 4 (via ANTHROPIC_API_KEY)
     Fallback: OpenAI (via OPENAI_API_KEY and AICMO_OPENAI_MODEL)
+    
+    If LLM is not configured, returns stub_output unchanged with a warning.
     """
+    from aicmo.core.llm.runtime import llm_enabled, safe_llm_status
+    
+    # Graceful degradation: if LLM not enabled, return stub output
+    if not llm_enabled():
+        status = safe_llm_status()
+        # Log warning but don't crash
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"LLM not enabled ({status['reason']}). Returning stub output unchanged.")
+        return stub_output
+    
     options = options or {}
 
     # Determine provider and get appropriate client + model

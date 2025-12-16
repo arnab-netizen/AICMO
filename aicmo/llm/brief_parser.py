@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 import os
 
-from openai import OpenAI
-
 from aicmo.io.client_reports import ClientInputBrief
 
 try:
@@ -27,6 +25,14 @@ def build_brief_with_llm(raw_text: str, industry_key: str | None = None) -> Clie
     Returns:
         ClientInputBrief: Fully structured brief object
     """
+    from aicmo.core.llm.runtime import require_llm
+    
+    # Fail early with clear message if LLM not available
+    require_llm()
+    
+    # Only import after we've verified LLM is available
+    from openai import OpenAI
+    
     model = os.getenv("AICMO_OPENAI_MODEL", "gpt-4o-mini")
     api_key = os.getenv("OPENAI_API_KEY", "")
 

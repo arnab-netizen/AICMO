@@ -20,6 +20,19 @@ project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
+# ============================================================================
+# SAFETY: Dangerous ops (raw SQL, DB bootstrap) are gated by environment flag
+# ============================================================================
+AICMO_ENABLE_DANGEROUS_UI_OPS = os.getenv('AICMO_ENABLE_DANGEROUS_UI_OPS', '').lower() == '1'
+
+if AICMO_ENABLE_DANGEROUS_UI_OPS:
+    import streamlit as st
+    st.warning(
+        "⚠️ **DANGER MODE ENABLED**: Raw SQL and destructive operations are accessible. "
+        "This should only be used in development/debugging."
+    )
+# ============================================================================
+
 # PHASE 1: Install fatal exception hook BEFORE any imports that might fail
 if os.getenv('AICMO_E2E_MODE') == '1':
     try:
@@ -932,6 +945,240 @@ def _group_projects_by_stage(projects: List[Dict[str, Any]]) -> Dict[str, List[D
     return columns
 
 
+def _render_autonomy_tab() -> None:
+    """
+    Render Autonomy Orchestration Layer (AOL) monitoring tab.
+    
+    Displays:
+    - Daemon lease status (owner, expiry)
+    - Last tick summary
+    - Control flags (pause/resume/kill buttons)
+    - Action queue (pending/retry/DLQ counts)
+    - Recent execution logs
+    """
+    try:
+        # Lazy import to avoid cold-start blockers
+        from aicmo.orchestration.models import (
+            AOLControlFlags, AOLTickLedger, AOLLease, AOLAction, AOLExecutionLog
+        )
+        from aicmo.orchestration.queue import ActionQueue
+        
+        if not get_session or not OPERATOR_SERVICES_AVAILABLE:
+            st.warning("⚠️ Autonomy features require database connection")
+            return
+        
+        session = get_session()
+        
+        # Read current state
+        from sqlalchemy import select, desc, func
+        
+        # 1. Lease status
+        lease_stmt = select(AOLLease).limit(1)
+        lease = session.execute(lease_stmt).scalar_one_or_none()
+        
+        # 2. Control flags
+        flags_stmt = select(AOLControlFlags).limit(1)
+        flags = session.execute(flags_stmt).scalar_one_or_none()
+        
+        if not flags:
+            flags = AOLControlFlags()
+            session.add(flags)
+            session.commit()
+        
+        # 3. Last tick
+        last_tick_stmt = select(AOLTickLedger).order_by(desc(AOLTickLedger.id)).limit(1)
+        last_tick = session.execute(last_tick_stmt).scalar_one_or_none()
+        
+        # 4. Action counts
+        pending_count = session.query(func.count(AOLAction.id)).filter(
+            AOLAction.status.in_(["PENDING", "READY"])
+        ).scalar() or 0
+        
+        retry_count = session.query(func.count(AOLAction.id)).filter(
+            AOLAction.status == "RETRY"
+        ).scalar() or 0
+        
+        dlq_count = session.query(func.count(AOLAction.id)).filter(
+            AOLAction.status == "DLQ"
+        ).scalar() or 0
+        
+        session.close()
+        
+        # === DISPLAY ===
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("📋 Pending Actions", pending_count)
+        
+        with col2:
+            st.metric("🔄 Retry Queue", retry_count)
+        
+        with col3:
+            st.metric("💀 Dead Letter", dlq_count)
+        
+        with col4:
+            mode = "🎯 PROOF" if flags.proof_mode else "🔴 REAL"
+            st.metric("Mode", mode)
+        
+        # Daemon status
+        st.markdown("### Daemon Status")
+        
+        if lease:
+            lease_col1, lease_col2 = st.columns(2)
+            with lease_col1:
+                st.text_input("Lease Owner", lease.owner, disabled=True)
+            with lease_col2:
+                expires_in = (lease.expires_at_utc - datetime.datetime.utcnow()).total_seconds() if lease.expires_at_utc else 0
+                status_color = "🟢" if expires_in > 0 else "🔴"
+                st.metric("Lease TTL (s)", f"{status_color} {max(0, int(expires_in))}")
+        else:
+            st.info("✓ No daemon lease (idle or not running)")
+        
+        # Last tick
+        if last_tick:
+            st.markdown("### Last Tick Summary")
+            tick_col1, tick_col2, tick_col3 = st.columns(3)
+            
+            with tick_col1:
+                status_emoji = {"SUCCESS": "✓", "PARTIAL": "⚠️", "FAIL": "❌"}.get(last_tick.status, "?")
+                st.metric("Status", f"{status_emoji} {last_tick.status}")
+            
+            with tick_col2:
+                duration = (last_tick.finished_at_utc - last_tick.started_at_utc).total_seconds() \
+                    if last_tick.finished_at_utc else 0
+                st.metric("Duration (s)", f"{duration:.2f}")
+            
+            with tick_col3:
+                st.metric(
+                    "Actions",
+                    f"{last_tick.actions_succeeded}/{last_tick.actions_attempted}"
+                )
+            
+            if last_tick.notes:
+                st.caption(f"Notes: {last_tick.notes}")
+        else:
+            st.info("ℹ️ No ticks recorded yet")
+        
+        # Control flags
+        st.markdown("### Control Flags")
+        control_col1, control_col2, control_col3 = st.columns(3)
+        
+        with control_col1:
+            if st.button("⏸️ Pause Daemon" if not flags.paused else "▶️ Resume Daemon"):
+                session = get_session()
+                flags.paused = not flags.paused
+                session.merge(flags)
+                session.commit()
+                session.close()
+                st.rerun()
+        
+        with control_col2:
+            if st.button("🗑️ Clear DLQ"):
+                session = get_session()
+                session.query(AOLAction).filter(AOLAction.status == "DLQ").update(
+                    {AOLAction.status: "CANCELLED"}
+                )
+                session.commit()
+                session.close()
+                st.success("DLQ cleared")
+                st.rerun()
+        
+        with control_col3:
+            if st.button("🛑 Kill Daemon"):
+                session = get_session()
+                flags.killed = True
+                session.merge(flags)
+                session.commit()
+                session.close()
+                st.warning("Kill flag set - daemon will exit on next tick")
+        
+        # Enqueue test action section
+        st.markdown("### Enqueue Test Action (PROOF mode only)")
+        
+        enqueue_col1, enqueue_col2 = st.columns([1, 1])
+        
+        with enqueue_col1:
+            action_type = st.selectbox(
+                "Action Type",
+                ["POST_SOCIAL"],
+                disabled=not flags.proof_mode,
+                help="Only PROOF mode actions supported via UI"
+            )
+        
+        with enqueue_col2:
+            payload_json = st.text_area(
+                "Payload (JSON)",
+                '{"platform": "twitter", "message": "Test"}',
+                height=60,
+                disabled=not flags.proof_mode,
+            )
+        
+        if st.button("📤 Enqueue Action", disabled=not flags.proof_mode):
+            if not flags.proof_mode:
+                st.error("Cannot enqueue: PROOF mode is disabled")
+            else:
+                try:
+                    import json
+                    import uuid
+                    from aicmo.orchestration.queue import ActionQueue
+                    
+                    # Validate JSON
+                    payload = json.loads(payload_json)
+                    
+                    # Create unique idempotency key
+                    idempotency_key = f"ui_test_{uuid.uuid4().hex[:8]}"
+                    
+                    session = get_session()
+                    ActionQueue.enqueue_action(
+                        session=session,
+                        action_type=action_type,
+                        payload_json=json.dumps(payload),
+                        idempotency_key=idempotency_key,
+                    )
+                    session.commit()
+                    session.close()
+                    
+                    st.success(f"✓ Action enqueued: {idempotency_key}")
+                    st.rerun()
+                    
+                except json.JSONDecodeError as e:
+                    st.error(f"Invalid JSON: {e}")
+                except Exception as e:
+                    st.error(f"Failed to enqueue action: {e}")
+        
+        if not flags.proof_mode:
+            st.info("💡 Enable PROOF mode to enqueue test actions")
+        st.markdown("### Recent Execution Logs")
+        
+        session = get_session()
+        log_stmt = select(AOLExecutionLog).order_by(
+            desc(AOLExecutionLog.ts_utc)
+        ).limit(10)
+        logs = session.execute(log_stmt).scalars().all()
+        session.close()
+        
+        if logs:
+            log_data = []
+            for log in logs:
+                log_data.append({
+                    "Time": log.ts_utc.isoformat() if log.ts_utc else "N/A",
+                    "Level": log.level,
+                    "Action ID": log.action_id,
+                    "Message": log.message or "",
+                    "Artifact": log.artifact_ref or ""
+                })
+            
+            st.dataframe(log_data, use_container_width=True)
+        else:
+            st.info("ℹ️ No execution logs yet")
+        
+    except Exception as e:
+        st.error(f"Autonomy tab error: {str(e)}")
+        import traceback
+        with st.expander("Debug Info"):
+            st.code(traceback.format_exc())
+
+
 def _render_gateway_ticker(status_map: Dict[str, str]) -> None:
     """Render compact gateway health ticker."""
     parts: List[str] = []
@@ -1238,8 +1485,8 @@ def render_command_center_tab() -> None:
         _render_gateway_ticker(gateway_status)
 
     # Nested views inside Command Center
-    cmd_tab, projects_tab, warroom_tab, gallery_tab, pm_tab, analytics_tab, control_tab = st.tabs(
-        ["Command", "Projects", "War Room", "Gallery", "PM Dashboard", "Analytics", "Control Tower"]
+    cmd_tab, projects_tab, warroom_tab, gallery_tab, pm_tab, analytics_tab, autonomy_tab, control_tab = st.tabs(
+        ["Command", "Projects", "War Room", "Gallery", "PM Dashboard", "Analytics", "Autonomy", "Control Tower"]
     )
 
     # 1) COMMAND VIEW – "What's blocking money right now?"
@@ -1559,7 +1806,11 @@ def render_command_center_tab() -> None:
             except Exception as e:
                 st.error(f"Failed to load gallery: {e}")
 
-    # 5) CONTROL TOWER – Execution & gateways
+    # 6) AUTONOMY TAB – Orchestration Layer monitoring
+    with autonomy_tab:
+        _render_autonomy_tab()
+
+    # 7) CONTROL TOWER – Execution & gateways
     with control_tab:
         top_l, top_r = st.columns([2, 1])
 

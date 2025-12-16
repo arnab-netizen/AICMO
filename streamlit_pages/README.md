@@ -1,21 +1,33 @@
 # AICMO Streamlit UI - Canonical Entrypoint
 
 ## Quick Start
+
+### Main Operator Dashboard (Production)
 ```bash
 # Run the canonical AICMO operator dashboard:
-python -m streamlit run aicmo_operator.py --server.port 8501
+python -m streamlit run streamlit_pages/aicmo_operator.py --server.port 8501
 ```
 
 Or use the official launcher:
 ```bash
 python run_streamlit.py
+# or:
+make ui
+```
+
+### Ops Shell (Diagnostics & Sentinels)
+```bash
+# Run diagnostics and E2E sentinel checks:
+python -m streamlit run streamlit_pages/aicmo_ops_shell.py --server.port 8510
+# or:
+make ops-ui
 ```
 
 ---
 
 ## Canonical UI: `aicmo_operator.py`
 
-**This is the single, authoritative Streamlit UI for AICMO.**
+**This is the single, authoritative Streamlit UI for AICMO production workflows.**
 
 ### Features:
 - ✅ Complete client acquisition (CAM) workflows
@@ -34,6 +46,30 @@ python run_streamlit.py
 - **Located**: `streamlit_pages/aicmo_operator.py`
 - **Used by**: `run_streamlit.py`, test suite, tools/audit scripts
 - **Last modified**: Actively maintained
+
+---
+
+## Ops Shell: `aicmo_ops_shell.py`
+
+**Stable, minimal diagnostics entrypoint for infrastructure triage and E2E checks.**
+
+### Pages:
+- **Home**: Overview and navigation
+- **Sentinels**: E2E system health checks (Python runtime, imports, DB, alembic, LLM, etc.)
+- **Diagnostics**: Environment config, database validation, schema bootstrap button
+- **Canonical UI**: Launch instructions for the main dashboard
+
+### Design:
+- ✓ No heavy imports at startup (lazy loading)
+- ✓ All operations behind explicit buttons
+- ✓ Evidence-based checks (command output, file existence)
+- ✓ Clear pass/fail/unknown status
+- ✓ Masked credentials in display
+
+### File Details:
+- **Located**: `streamlit_pages/aicmo_ops_shell.py`
+- **Purpose**: Infrastructure diagnostics, not workflows
+- **Port**: `8510` (different from main UI)
 
 ---
 
