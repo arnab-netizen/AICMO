@@ -120,6 +120,17 @@ PY
             backend.log
             streamlit.log
 
+      - name: Upload Playwright artifacts on success (temporary)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts-success
+          path: |
+            playwright-report
+            test-results
+            backend.log
+            streamlit.log
+
       - name: Kill background services
         if: always()
         run: |
