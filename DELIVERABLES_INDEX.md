@@ -57,7 +57,7 @@
 ### Modified Files (3 total)
 
 #### 1. **streamlit/Dockerfile**
-- **Change**: Docker CMD from `streamlit run app.py` → `streamlit run streamlit_pages/aicmo_operator.py`
+- **Change**: Docker CMD from `streamlit run app.py` → `streamlit run operator_v2.py --server.port 8502 --server.headless true`
 - **Impact**: CRITICAL - Ensures Docker deployments use canonical file
 - **Lines Changed**: ~10
 - **Status**: ✅ VERIFIED

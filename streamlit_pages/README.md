@@ -114,7 +114,7 @@ If you were using other UI files, migrate to the canonical one:
 ### From `app.py`:
 ```bash
 # Old:
-python -m streamlit run app.py
+python -m streamlit run operator_v2.py --server.port 8502 --server.headless true
 
 # New:
 python -m streamlit run streamlit_pages/aicmo_operator.py

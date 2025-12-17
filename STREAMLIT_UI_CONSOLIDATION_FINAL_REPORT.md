@@ -66,7 +66,7 @@ All three original entrypoints were tested for bootability:
 |-----------|---------|--------|--------------|--------|
 | **aicmo_operator.py** | `streamlit run streamlit_pages/aicmo_operator.py --server.port 8501` | ✅ PASS | ✓ Yes | None |
 | aicmo_operator_new.py | `streamlit run streamlit_pages/aicmo_operator_new.py --server.port 8502` | ✅ PASS | ✓ Yes | None |
-| app.py | `streamlit run app.py --server.port 8503` | ✅ PASS | ✓ Yes | None |
+| operator_v2.py | `streamlit run operator_v2.py --server.port 8502 --server.headless true` | ✅ PASS | ✓ Yes | None |
 
 **Finding**: All three are technically operational, but feature parity differs significantly.
 
@@ -193,7 +193,7 @@ subprocess.Popen([
 **File**: `Makefile`
 **Changes**:
 - Removed duplicate `ui:` targets
-- Line 76-79: Changed from `streamlit run app.py` to `streamlit run streamlit_pages/aicmo_operator.py`
+- Line 76-79: Changed from `streamlit run app.py` to `streamlit run operator_v2.py --server.port 8502 --server.headless true`
 **Reason**: Single source of truth for `make ui` target
 
 #### 7. ✅ Add UI Selection Guide
@@ -326,6 +326,7 @@ fi
 |------|----------|--------|----------|---|
 | **aicmo_operator.py** | `streamlit_pages/` | ✅ CANONICAL | Production workflows | `streamlit run streamlit_pages/aicmo_operator.py --server.port 8501` |
 | app.py | repo root | ⚠️ DEPRECATED | Simple demo only | `streamlit run app.py` (not recommended) |
+| operator_v2.py | repo root | ✅ CANONICAL | Production entrypoint | `streamlit run operator_v2.py --server.port 8502 --server.headless true` |
 | streamlit_app.py | repo root | ⚠️ DEPRECATED | Legacy E2E tests | `streamlit run streamlit_app.py` (E2E only) |
 | aicmo_operator_new.py | `.archive/` | ❌ REMOVED | None | N/A (archived prototype) |
 

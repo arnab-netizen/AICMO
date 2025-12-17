@@ -266,6 +266,7 @@ async def aicmo_generate(
     run_id = str(uuid.uuid4())
     
     dev_stubs_enabled = os.getenv("AICMO_DEV_STUBS") == "1"
+    deterministic = os.getenv("AICMO_E2E_DETERMINISTIC") == "1"
     use_case = req.use_case or "general"
     
     log.info(f"AICMO_GENERATE use_case={use_case} dev_stubs={dev_stubs_enabled} trace_id={trace_id}")
@@ -282,7 +283,16 @@ async def aicmo_generate(
         
         if use_case == "creatives":
             # CREATIVES: Use real LLM generation
-            if dev_stubs_enabled:
+            if deterministic:
+                # Deterministic mode: return a predictable markdown deliverable
+                deliverables = [_create_stub_deliverable(
+                    "Creative Concepts & Copy Variations",
+                    "creative_brief",
+                    f"# Deterministic creative concepts for brief:\n\n{req.brief or '[brief]'}"
+                )]
+                provider = "deterministic"
+                model = "deterministic-v1"
+            elif dev_stubs_enabled:
                 log.info("[CREATIVES] Dev stubs enabled, using stub")
                 deliverables = [_create_stub_deliverable(
                     "Creative Concepts & Copy Variations",
@@ -301,7 +311,15 @@ async def aicmo_generate(
         
         elif use_case == "strategy":
             # STRATEGY: Use real LLM generation
-            if dev_stubs_enabled:
+            if deterministic:
+                deliverables = [_create_stub_deliverable(
+                    "Marketing Strategy & Roadmap",
+                    "strategy",
+                    f"# Deterministic strategy for brief:\n\n{req.brief or '[brief]'}"
+                )]
+                provider = "deterministic"
+                model = "deterministic-v1"
+            elif dev_stubs_enabled:
                 log.info("[STRATEGY] Dev stubs enabled, using stub")
                 deliverables = [_create_stub_deliverable(
                     "Marketing Strategy & Roadmap",

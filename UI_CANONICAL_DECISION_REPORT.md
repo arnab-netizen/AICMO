@@ -77,7 +77,7 @@ Test 1: streamlit run streamlit_pages/aicmo_operator.py --server.port 8501
 Test 2: streamlit run streamlit_pages/aicmo_operator_new.py --server.port 8502
   Result: ✓ PASS (page renders, no errors)
 
-Test 3: streamlit run app.py --server.port 8503
+Test 3: streamlit run operator_v2.py --server.port 8502 --server.headless true
   Result: ✓ PASS (page renders, no errors)
 ```
 

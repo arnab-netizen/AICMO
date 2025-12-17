@@ -323,7 +323,7 @@ pytest backend/tests/test_operator_services.py backend/tests/test_full_kaizen_fl
 ```
 
 ### Manual Dashboard Test
-1. Start app: `streamlit run app.py`
+1. Start app: `streamlit run operator_v2.py --server.port 8502 --server.headless true`
 2. Navigate to "Command Center" page
 3. Click "Projects" tab → verify real campaign data appears
 4. Select a project → verify `current_project_id` is set

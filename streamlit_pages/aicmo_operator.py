@@ -1,123 +1,17 @@
-"""
-AICMO Operator Dashboard — Premium Edition
-Canonical Streamlit entrypoint for AICMO operator UI.
+"""DEPRECATED: wrapper for canonical dashboard
 
-Build: AICMO_DASH_V2_2025_12_16
-File: streamlit_pages/aicmo_operator.py
-Launch: python -m streamlit run streamlit_pages/aicmo_operator.py
+This file previously contained a full Streamlit app. It is now a
+deprecated wrapper that forwards to the canonical `operator_v2.main()`.
+Run `streamlit run operator_v2.py --server.port 8502 --server.headless true` as the canonical entrypoint.
 """
 
-import io
-import json
-import os
-import re
-import sys
-import datetime
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+import streamlit as st
+from operator_v2 import main as operator_v2_main
 
-# ============================================================================
-# BUILD MARKER & RUNNING FILE SENTINEL (PHASE 1)
-# ============================================================================
-BUILD_MARKER = "AICMO_DASH_V2_2025_12_16"
-RUNNING_FILE = __file__
-RUNNING_CWD = os.getcwd()
+st.warning("DEPRECATED: use `streamlit run operator_v2.py` — forwarding to operator_v2")
 
-# Load .env early
-from dotenv import load_dotenv
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-env_path = BASE_DIR / ".env"
-if env_path.exists():
-    load_dotenv(env_path)
-
-# Ensure project root is in PYTHONPATH for imports
-project_root = Path(__file__).parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
-# ============================================================================
-# SAFETY: Dangerous ops (raw SQL, DB bootstrap) are gated by environment flag
-# ============================================================================
-AICMO_ENABLE_DANGEROUS_UI_OPS = os.getenv('AICMO_ENABLE_DANGEROUS_UI_OPS', '').lower() == '1'
-
-if AICMO_ENABLE_DANGEROUS_UI_OPS:
-    import streamlit as st
-    st.warning(
-        "⚠️ **DANGER MODE ENABLED**: Raw SQL and destructive operations are accessible. "
-        "This should only be used in development/debugging."
-    )
-# ============================================================================
-
-# PHASE 1: Install fatal exception hook BEFORE any imports that might fail
-if os.getenv('AICMO_E2E_MODE') == '1':
-    try:
-        from aicmo.core.diagnostics.fatal import install_fatal_exception_hook
-        install_fatal_exception_hook()
-    except Exception as e:
-        sys.stderr.write(f"Failed to install fatal hook: {e}\n")
-        sys.stderr.flush()
-
-import requests  # noqa: E402
-import streamlit as st  # noqa: E402
-from sqlalchemy import create_engine, text  # noqa: E402
-from sqlalchemy.engine import Engine  # noqa: E402
-
-# Import operator services for Command Center
-# NOTE: In E2E mode, delay import to avoid DB init issues on cold start
-if os.getenv('AICMO_E2E_MODE') != '1':
-    try:
-        from aicmo import operator_services
-        from aicmo.core.db import get_session
-        OPERATOR_SERVICES_AVAILABLE = True
-    except ImportError:
-        operator_services = None  # type: ignore
-        get_session = None  # type: ignore
-        OPERATOR_SERVICES_AVAILABLE = False
-else:
-    # E2E mode: stub these out to avoid startup issues
-    operator_services = None
-    get_session = None
-    OPERATOR_SERVICES_AVAILABLE = False
-
-# Import benchmark error UI helper
-try:
-    from aicmo.ui.benchmark_errors import render_benchmark_error_ui
-except ImportError:
-    render_benchmark_error_ui = None  # type: ignore
-
-# Try to import creative directions if available
-if TYPE_CHECKING:
-    from aicmo.creative.directions_engine import CreativeDirection
-else:
-    try:
-        from aicmo.creative.directions_engine import CreativeDirection
-    except Exception:  # optional, feature gate if not available
-        CreativeDirection = None  # type: ignore
-
-# Try to import humanization wrapper for post-processing
-try:
-    from backend.humanization_wrapper import default_wrapper as humanizer
-except Exception:  # optional, feature gate if not available
-    humanizer = None  # type: ignore
-
-# Try to import industry presets if available
-try:
-    from aicmo.presets.industry_presets import INDUSTRY_PRESETS
-except Exception:  # optional dependency
-    INDUSTRY_PRESETS: Dict[str, Any] = {}
-
-# PDF export availability flag
-try:
-    from backend.export.pdf_utils import ensure_pdf_for_report
-
-    PDF_EXPORT_AVAILABLE = True
-except (ImportError, ModuleNotFoundError):
-    ensure_pdf_for_report = None  # type: ignore[assignment]
-    PDF_EXPORT_AVAILABLE = False
-
-
-# -------------------------------------------------
+if __name__ == "__main__":
+    operator_v2_main()
 # Page config
 # -------------------------------------------------
 

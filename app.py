@@ -18,7 +18,7 @@ import sys
 
 This file delegates to `operator_v2.py` which hosts the canonical
 dashboard UI. Keep this file minimal so deployment tools can run either
-`streamlit run operator_v2.py` or `streamlit run app.py` interchangeably.
+`streamlit run operator_v2.py --server.port 8502 --server.headless true` is the canonical entrypoint.
 """
 from operator_v2 import main as operator_v2_main
 

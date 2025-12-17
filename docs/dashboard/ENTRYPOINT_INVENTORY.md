@@ -86,7 +86,7 @@ streamlit_pages/operator_qc.py - legacy (guarded)
 | File | Type | Launch Method | Runnable | Guard | Status | Notes |
 |------|------|---|---|---|---|---|
 | `streamlit_pages/aicmo_operator.py` | Streamlit Page | `streamlit run streamlit_pages/aicmo_operator.py` | ✅ YES | NONE | CANONICAL | Primary UI, 10 tabs, complete |
-| `app.py` | Streamlit Script | `streamlit run app.py` | ❌ NO | RuntimeError | BLOCKED | Shows clear error message |
+| `operator_v2.py` | Streamlit Script | `streamlit run operator_v2.py --server.port 8502 --server.headless true` | ✅ YES | Supported | CANONICAL |
 | `streamlit_app.py` | Streamlit Script | `streamlit run streamlit_app.py` | ❌ NO | st.stop() | BLOCKED | Legacy file, guarded |
 | `launch_operator.py` | Python Launcher | `python launch_operator.py` | ❌ NO | sys.exit(1) | BLOCKED | Deprecated launcher |
 | `streamlit_pages/aicmo_ops_shell.py` | Streamlit Page | `streamlit run streamlit_pages/aicmo_ops_shell.py` | ❌ NO | RuntimeError | BLOCKED | Deprecated UI |
@@ -126,7 +126,7 @@ docker run -p 8501:8501 aicmo:dashboard
 
 **If someone tries**:
 ```bash
-streamlit run app.py
+streamlit run operator_v2.py --server.port 8502 --server.headless true
 ```
 
 **Result**: RuntimeError immediately

@@ -31,7 +31,7 @@ The AICMO Streamlit operator dashboard has been successfully canonicalized to me
 | File | Status | Launch Method | Result |
 |------|--------|---|---|
 | `streamlit_pages/aicmo_operator.py` | ✅ CANONICAL | `streamlit run ...` | Dashboard launches |
-| `app.py` | ❌ BLOCKED | `streamlit run app.py` | RuntimeError |
+| `operator_v2.py` | ✅ SUPPORTED | `streamlit run operator_v2.py --server.port 8502 --server.headless true` | Supported |
 | `streamlit_app.py` | ❌ BLOCKED | `streamlit run streamlit_app.py` | st.stop() |
 | `launch_operator.py` | ❌ BLOCKED | `python launch_operator.py` | sys.exit(1) |
 | `streamlit_pages/aicmo_ops_shell.py` | ❌ BLOCKED | Deprecated UI | RuntimeError |

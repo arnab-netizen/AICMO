@@ -98,7 +98,7 @@ make ui
 ### What NOT To Do
 ```bash
 # ❌ DON'T use these anymore:
-python -m streamlit run app.py
+python -m streamlit run operator_v2.py --server.port 8502 --server.headless true
 python -m streamlit run streamlit_app.py
 ls -la streamlit_pages/aicmo_operator_new.py  # (removed/archived)
 ```

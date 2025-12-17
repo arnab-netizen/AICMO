@@ -18,7 +18,7 @@ from aicmo.cam.lead_grading import LeadGradeService
 from aicmo.cam.outreach.sequencer import ChannelSequencer
 from aicmo.cam.db_models import LeadDB, LeadStatus
 from aicmo.gateways.interfaces import EmailSender, SocialPoster
-multichannel_batch(
+def multichannel_batch(
     db: Session,
     campaign_id: int,
     email_sender: Optional[EmailSender] = None,

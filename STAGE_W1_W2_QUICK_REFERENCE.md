@@ -100,7 +100,7 @@ pytest backend/tests/test_full_kaizen_flow.py backend/tests/test_operator_servic
 
 ## Manual UI Testing
 
-1. Start app: `streamlit run app.py`
+1. Start app: `streamlit run operator_v2.py --server.port 8502 --server.headless true`
 2. Navigate to "Command Center" page
 3. Test each tab:
    - **Projects**: Verify real campaign data

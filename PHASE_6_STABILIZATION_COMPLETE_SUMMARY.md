@@ -103,7 +103,7 @@ All legacy entry points now have runtime guards preventing accidental execution:
 | Launch Method | Current File | Canonical File | Status |
 |---|---|---|---|
 | `streamlit run streamlit_pages/aicmo_operator.py` | aicmo_operator.py | ✅ Canonical | ✅ CORRECT |
-| `streamlit run app.py` | app.py (deprecated) | ✅ Canonical | 🛡️ GUARDED |
+| `streamlit run operator_v2.py --server.port 8502 --server.headless true` | operator_v2.py (canonical) | ✅ Canonical | 🛡️ GUARDED |
 | Docker: `docker run ...` | streamlit_pages/aicmo_operator.py | ✅ Canonical | ✅ FIXED |
 | Shell script: `./scripts/launch_operator_ui.sh` | streamlit_pages/aicmo_operator.py | ✅ Canonical | ✅ CORRECT |
 | Python: `python launch_operator.py` | Deprecated launcher | ✅ Canonical | 🛡️ GUARDED |

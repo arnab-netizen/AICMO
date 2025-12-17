@@ -17,7 +17,16 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from math import sqrt, exp
 
-from scipy import stats
+try:
+    from scipy import stats
+except Exception:  # pragma: no cover - optional dependency in CI
+    stats = None
+    class _MissingScipy:
+        def __getattr__(self, name):
+            raise ImportError(
+                "scipy is required for aicmo.cam.analytics.ab_testing; install scipy to run analytics tests"
+            )
+    stats = _MissingScipy()
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 

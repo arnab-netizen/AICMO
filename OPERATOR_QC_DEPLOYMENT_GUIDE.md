@@ -82,7 +82,7 @@ python -c "import subprocess; print('✅ Subprocess available')"
 
 ```bash
 # In terminal where streamlit is running:
-streamlit run app.py
+streamlit run operator_v2.py --server.port 8502 --server.headless true
 
 # Then in browser:
 # 1. Navigate to main dashboard

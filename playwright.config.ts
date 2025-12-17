@@ -1,5 +1,32 @@
 import { defineConfig, devices } from '@playwright/test';
 
+export default defineConfig({
+  testDir: 'tests/e2e',
+  timeout: 90_000,
+  expect: { timeout: 5000 },
+  fullyParallel: false,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 1,
+  reporter: 'list',
+  use: {
+    actionTimeout: 30_000,
+    navigationTimeout: 30_000,
+    baseURL: process.env.AICMO_UI_BASE_URL || 'http://localhost:8501',
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    viewport: { width: 1280, height: 800 },
+    bypassCSP: true,
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+});
+import { defineConfig, devices } from '@playwright/test';
+
 /**
  * Playwright configuration for AICMO Revenue Marketing Engine E2E tests.
  * 
