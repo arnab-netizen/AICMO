@@ -26,16 +26,37 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Python deps (explicit)
+      - name: Install Python deps (strict)
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            ls -la requirements.txt || true
+            echo "requirements.txt missing; add it or update workflow to Poetry"
+            exit 1
+          fi
 
       - name: Install Node deps
         run: npm ci
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
+
+      - name: Sanity check Python imports
+        run: |
+          python - <<'PY'
+import sys
+try:
+    from backend.app import app
+    print('backend.app:app OK')
+except Exception as e:
+    import pkgutil
+    print('ERROR: failed to import backend.app:app:', e, file=sys.stderr)
+    print('backend package modules:', [m.name for m in pkgutil.iter_modules(['backend'])], file=sys.stderr)
+    raise
+PY
+          python -c "import operator_v2; print('operator_v2 import OK')"
 
       - name: Start backend (uvicorn)
         env:
@@ -48,26 +69,37 @@ jobs:
         env:
           BACKEND_URL: http://127.0.0.1:8000
           AICMO_DEV_STUBS: '0'
+          AICMO_STRICT_TABKEYS: '1'
           PYTHONUNBUFFERED: '1'
         run: |
-          nohup bash -lc "BACKEND_URL=http://127.0.0.1:8000 AICMO_DEV_STUBS=0 streamlit run operator_v2.py --server.port 8502 --server.headless true" > streamlit.log 2>&1 &
+          nohup bash -lc "BACKEND_URL=http://127.0.0.1:8000 AICMO_DEV_STUBS=0 AICMO_STRICT_TABKEYS=1 streamlit run operator_v2.py --server.port 8502 --server.headless true" > streamlit.log 2>&1 &
           echo $! > streamlit.pid
 
       - name: Wait for backend readiness
         run: |
+          ok=0
           for i in {1..30}; do
-            curl -sSf http://127.0.0.1:8000/openapi.json >/dev/null 2>&1 && break || true
+            if curl -sSf http://127.0.0.1:8000/openapi.json >/dev/null 2>&1; then ok=1; break; fi
             sleep 2
           done
-          curl -sSf http://127.0.0.1:8000/openapi.json
+          if [ "$ok" -ne 1 ]; then
+            echo "Backend failed to become ready"
+            tail -n 200 backend.log || true
+            exit 1
+          fi
 
       - name: Wait for Streamlit readiness
         run: |
+          ok=0
           for i in {1..30}; do
-            curl -sSf http://127.0.0.1:8502/ >/dev/null 2>&1 && break || true
+            if curl -sSf http://127.0.0.1:8502/ >/dev/null 2>&1; then ok=1; break; fi
             sleep 2
           done
-          curl -sSf http://127.0.0.1:8502/ || true
+          if [ "$ok" -ne 1 ]; then
+            echo "Streamlit failed to become ready"
+            tail -n 200 streamlit.log || true
+            exit 1
+          fi
 
       - name: Run Playwright E2E tests
         env:
@@ -91,5 +123,5 @@ jobs:
       - name: Kill background services
         if: always()
         run: |
-          kill $(cat backend.pid) || true
-          kill $(cat streamlit.pid) || true
+          [ -f backend.pid ] && kill $(cat backend.pid) || true
+          [ -f streamlit.pid ] && kill $(cat streamlit.pid) || true
