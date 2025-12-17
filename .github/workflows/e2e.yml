@@ -1,0 +1,95 @@
+name: E2E Playwright
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      AICMO_STRICT_TABKEYS: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python deps (explicit)
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Install Node deps
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Start backend (uvicorn)
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: |
+          nohup uvicorn backend.app:app --host 127.0.0.1 --port 8000 > backend.log 2>&1 &
+          echo $! > backend.pid
+
+      - name: Start Streamlit (operator_v2)
+        env:
+          BACKEND_URL: http://127.0.0.1:8000
+          AICMO_DEV_STUBS: '0'
+          PYTHONUNBUFFERED: '1'
+        run: |
+          nohup bash -lc "BACKEND_URL=http://127.0.0.1:8000 AICMO_DEV_STUBS=0 streamlit run operator_v2.py --server.port 8502 --server.headless true" > streamlit.log 2>&1 &
+          echo $! > streamlit.pid
+
+      - name: Wait for backend readiness
+        run: |
+          for i in {1..30}; do
+            curl -sSf http://127.0.0.1:8000/openapi.json >/dev/null 2>&1 && break || true
+            sleep 2
+          done
+          curl -sSf http://127.0.0.1:8000/openapi.json
+
+      - name: Wait for Streamlit readiness
+        run: |
+          for i in {1..30}; do
+            curl -sSf http://127.0.0.1:8502/ >/dev/null 2>&1 && break || true
+            sleep 2
+          done
+          curl -sSf http://127.0.0.1:8502/ || true
+
+      - name: Run Playwright E2E tests
+        env:
+          AICMO_UI_BASE_URL: http://127.0.0.1:8502
+          AICMO_BACKEND_BASE_URL: http://127.0.0.1:8000
+        run: |
+          npm run test:e2e -- --reporter=line
+        continue-on-error: false
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            playwright-report
+            test-results
+            backend.log
+            streamlit.log
+
+      - name: Kill background services
+        if: always()
+        run: |
+          kill $(cat backend.pid) || true
+          kill $(cat streamlit.pid) || true

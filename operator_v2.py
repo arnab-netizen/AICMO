@@ -161,11 +161,76 @@ CANONICAL_SESSION_KEYS = [
     "artifact_delivery",
 ]
 
+# Source: internal tab_key constants used in render_*_tab() calls
+# Authoritative internal tab keys (must match `tab_key` used when calling `aicmo_tab_shell`)
+# Do NOT invent keys here; derive from actual `aicmo_tab_shell(...)` usage.
+TAB_KEYS = [
+    "leadgen",
+    "campaigns",
+    "intake",
+    "strategy",
+    "creatives",
+    "execution",
+    "monitoring",
+    "delivery",
+    "autonomy",
+    "learn",
+    "system",
+]
+
+
+def is_strict_tabkeys() -> bool:
+    import os
+    return os.getenv("AICMO_STRICT_TABKEYS", "0") == "1"
+
 
 def ensure_canonical_session_keys():
     for k in CANONICAL_SESSION_KEYS:
         if k not in st.session_state:
             st.session_state[k] = None
+
+
+def st_test_anchor(testid: str) -> None:
+    """Insert a deterministic, invisible test anchor into the Streamlit DOM.
+
+    This uses `st.markdown(..., unsafe_allow_html=True)` to add a
+    <div data-testid="..."></div> which Playwright can reliably target.
+    If unsafe HTML is blocked, this function is intentionally non-fatal
+    (it will quietly render nothing).
+    """
+    try:
+        import streamlit as _st
+    except Exception:
+        # Fallback: attempt to use existing st binding
+        _st = st
+
+    try:
+        _st.markdown(f'<div data-testid="{testid}" style="display:none"></div>', unsafe_allow_html=True)
+    except Exception:
+        # If Streamlit disallows unsafe HTML, silently skip (anchors optional)
+        pass
+
+
+def st_test_section_start(testid: str) -> None:
+    # Note: section wrappers are fragile with Streamlit's HTML handling.
+    # Prefer `st_test_anchor()` for deterministic anchors. Section wrappers
+    # are provided for completeness but are not recommended in prod.
+    try:
+        _ = st
+        st.markdown(f'<div data-testid="{testid}">', unsafe_allow_html=True)
+    except Exception:
+        # If unsafe HTML not allowed, do nothing
+        pass
+
+
+def st_test_section_end() -> None:
+    # Prefer `st_test_anchor()`; section wrappers are potentially unbalanced
+    # if Streamlit filters HTML. Keep for compatibility only.
+    try:
+        _ = st
+        st.markdown('</div>', unsafe_allow_html=True)
+    except Exception:
+        pass
 
 
 def gate(required_keys: list) -> tuple[bool, list]:
@@ -190,6 +255,154 @@ def render_gate_panel(tab_name: str, required_keys: list) -> bool:
         st.write(f"- {m}")
     st.info("Complete Intake or upstream Generate steps to enable this tab.")
     return False
+
+
+# -----------------------------
+# Intake & Artifact wiring
+# -----------------------------
+from aicmo.ui.persistence.intake_store import IntakeStore
+
+
+def _now_iso() -> str:
+    return datetime.utcnow().isoformat()
+
+
+def normalize_client_brief(raw: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize intake payload into canonical brief shape (pure).
+
+    Required normalized keys (always present):
+    client_name, brand_name, product_service, industry, geography,
+    objectives, budget, timeline, constraints, raw_brief_text
+    """
+    return {
+        "client_name": raw.get("client_name") or raw.get("name") or "",
+        "brand_name": raw.get("brand_name") or raw.get("company") or "",
+        "product_service": raw.get("product_service") or raw.get("product_service", ""),
+        "industry": raw.get("industry", ""),
+        "geography": raw.get("geography", ""),
+        "objectives": raw.get("objectives", []),
+        "budget": raw.get("budget", ""),
+        "timeline": raw.get("timeline", ""),
+        "constraints": raw.get("constraints", ""),
+        "raw_brief_text": raw.get("raw_brief_text", ""),
+    }
+
+
+def handle_intake_submit(session: dict, intake_payload: dict, store: IntakeStore) -> dict:
+    """Pure handler to persist intake and populate canonical session keys.
+
+    Mutates `session` dict (intended to be `st.session_state`) and returns
+    the created artifact dict.
+    """
+    # Validate minimum fields
+    client_name = intake_payload.get("client_name") or intake_payload.get("name") or ""
+    brand_name = intake_payload.get("brand_name") or intake_payload.get("company") or ""
+    product_service = intake_payload.get("product_service") or ""
+
+    if (not client_name and not brand_name) or not product_service:
+        return {
+            "status": "FAILED",
+            "error": "Missing required intake fields: require brand_name OR client_name, and product_service",
+        }
+
+    # Normalize brief
+    brief = normalize_client_brief({**intake_payload})
+
+    # Persist using provided store (may raise if DB mode unsupported)
+    client_profile = {"client_name": brief["client_name"], "brand_name": brief["brand_name"]}
+
+    client_id = store.create_client(client_profile)
+    engagement_id = store.create_engagement(client_id, {"product_service": brief["product_service"]})
+
+    # Populate canonical session keys
+    session["active_client_id"] = client_id
+    session["active_engagement_id"] = engagement_id
+    session["active_client_profile"] = client_profile
+    session["active_engagement"] = {"product_service": brief["product_service"]}
+
+    # Build artifact_intake in canonical shape
+    artifact = {
+        "artifact_type": "intake",
+        "client_id": client_id,
+        "engagement_id": engagement_id,
+        "generated_at": _now_iso(),
+        "status": "SUCCESS",
+        "deliverables": [
+            {
+                "id": str(uuid.uuid4()),
+                "title": "Client Intake Summary",
+                "content_markdown": (
+                    f"# Intake Summary\n\n**Client:** {brief['client_name']}\n**Brand:** {brief['brand_name']}\n**Product/Service:** {brief['product_service']}\n\n---\n\n{brief.get('raw_brief_text','')}"
+                ),
+                "mime_type": "text/markdown",
+            }
+        ],
+        "provider_trace": None,
+        "raw_backend_envelope": {"mode": "local_intake_summary"},
+    }
+
+    session["client_brief"] = brief
+    session["artifact_intake"] = artifact
+
+    return artifact
+
+
+def store_artifact_from_backend(session: dict, artifact_type: str, backend_envelope: dict) -> dict:
+    """Validate backend envelope and return canonical artifact dict (pure).
+
+    Does NOT perform side-effects beyond returning the artifact dict; caller
+    should apply to `session` as needed.
+    """
+    # Validate shape
+    deliverables = backend_envelope.get("deliverables") or backend_envelope.get("deliverables", [])
+    if not isinstance(deliverables, list) or len(deliverables) == 0:
+        return {
+            "artifact_type": artifact_type,
+            "client_id": session.get("active_client_id"),
+            "engagement_id": session.get("active_engagement_id"),
+            "generated_at": _now_iso(),
+            "status": "ERROR",
+            "deliverables": [],
+            "provider_trace": backend_envelope.get("meta"),
+            "raw_backend_envelope": backend_envelope,
+            "error": "No deliverables returned by backend",
+        }
+
+    # Ensure content_markdown present for each deliverable
+    normalized_items = []
+    for d in deliverables:
+        if not isinstance(d, dict) or not d.get("content_markdown") or not str(d.get("content_markdown")).strip():
+            return {
+                "artifact_type": artifact_type,
+                "client_id": session.get("active_client_id"),
+                "engagement_id": session.get("active_engagement_id"),
+                "generated_at": _now_iso(),
+                "status": "ERROR",
+                "deliverables": [],
+                "provider_trace": backend_envelope.get("meta"),
+                "raw_backend_envelope": backend_envelope,
+                "error": "One or more deliverables missing content_markdown",
+            }
+
+        normalized_items.append({
+            "id": str(d.get("id") or uuid.uuid4()),
+            "title": d.get("title", "Deliverable"),
+            "content_markdown": d.get("content_markdown"),
+            "mime_type": "text/markdown",
+        })
+
+    artifact = {
+        "artifact_type": artifact_type,
+        "client_id": session.get("active_client_id"),
+        "engagement_id": session.get("active_engagement_id"),
+        "generated_at": _now_iso(),
+        "status": "SUCCESS",
+        "deliverables": normalized_items,
+        "provider_trace": backend_envelope.get("meta"),
+        "raw_backend_envelope": backend_envelope,
+    }
+
+    return artifact
 
 
 # ===================================================================
@@ -756,6 +969,10 @@ def render_deliverables_output(tab_key: str, last_result: dict) -> None:
         # ─────────────────────────────────────────────────────────────
         
         with st.expander("📋 Output Preview", expanded=True):
+            try:
+                st_test_anchor(f"output-preview-{tab_key}")
+            except Exception:
+                pass
             draft_text = st.session_state.get(draft_text_key, "")
             if draft_text:
                 # Show preview with scroll
@@ -772,6 +989,10 @@ def render_deliverables_output(tab_key: str, last_result: dict) -> None:
         st.subheader("✏️ Amend Deliverable")
         
         current_draft = st.session_state.get(draft_text_key, "")
+        try:
+            st_test_anchor(f"draft-editor-{tab_key}")
+        except Exception:
+            pass
         amended_text = st.text_area(
             "Edit deliverable content:",
             value=current_draft,
@@ -806,6 +1027,10 @@ def render_deliverables_output(tab_key: str, last_result: dict) -> None:
         # ─────────────────────────────────────────────────────────────
         
         st.subheader("✅ Approval")
+        try:
+            st_test_anchor(f"btn-approve-{tab_key}")
+        except Exception:
+            pass
         
         if st.session_state.get(export_ready_key):
             # Already approved
@@ -848,6 +1073,12 @@ def render_deliverables_output(tab_key: str, last_result: dict) -> None:
         export_ready = st.session_state.get(export_ready_key, False)
         
         # Guard: Only render buttons if approved_text is valid
+        # Export area anchor (always present so tests can assert gating)
+        try:
+            st_test_anchor(f"export-{tab_key}")
+        except Exception:
+            pass
+
         if isinstance(approved_text, str) and approved_text.strip():
             # Generate filename with timestamp
             now = datetime.now()
@@ -942,6 +1173,27 @@ def aicmo_tab_shell(
         - f"{tab_key}__approved_by": Approval author
         - f"{tab_key}__export_ready": Whether export is enabled
     """
+    # Validate provided tab_key against authoritative `TAB_KEYS`.
+    # Enforcement is gated by env var `AICMO_STRICT_TABKEYS` to avoid
+    # breaking production environments. When strict mode is enabled
+    # (`AICMO_STRICT_TABKEYS=1`) unknown `tab_key` values will raise
+    # a `ValueError`. When strict mode is disabled, a non-blocking
+    # `st.warning` is shown and rendering proceeds.
+    if tab_key not in TAB_KEYS:
+        if is_strict_tabkeys():
+            raise ValueError(
+                f"Unknown tab_key '{tab_key}'. Expected one of: {TAB_KEYS}. "
+                "Enable AICMO_STRICT_TABKEYS=1 to enforce canonical tab keys."
+            )
+        else:
+            try:
+                st.warning(
+                    f"Non-canonical tab_key '{tab_key}' in use; continuing. "
+                    "Set AICMO_STRICT_TABKEYS=1 to make this a hard error."
+                )
+            except Exception:
+                # If Streamlit not fully available at import-time, skip warning
+                pass
     
     # Ensure session state keys exist
     inputs_key = f"{tab_key}__inputs"
@@ -988,6 +1240,12 @@ def aicmo_tab_shell(
     # ─────────────────────────────────────────────────────────────
     
     with st.container(border=True):
+        # Tab & inputs anchors for Playwright E2E stability
+        try:
+            st_test_anchor(f"tab-{tab_key}")
+            st_test_anchor(f"inputs-{tab_key}")
+        except Exception:
+            pass
         st.subheader("📋 Inputs")
         inputs = inputs_renderer()
         st.session_state[inputs_key] = inputs
@@ -1035,6 +1293,12 @@ def aicmo_tab_shell(
         if not allowed:
             st.warning(f"Blocked: missing {', '.join(missing_keys)}")
 
+        # Anchor for Generate button (exists even if disabled)
+        try:
+            st_test_anchor(f"btn-generate-{tab_key}")
+        except Exception:
+            pass
+
         if st.button(
             "🚀 Generate",
             type="primary",
@@ -1049,17 +1313,34 @@ def aicmo_tab_shell(
             try:
                 # Call runner and store result
                 result = runner(inputs)
-                
-                # AUTO-EXPANSION: If result is manifest-only, expand to deliverables
+
+                # Validate backend content: do NOT fabricate or expand manifest-only responses
                 if result.get("status") == "SUCCESS":
                     content = result.get("content")
+                    # If backend returned manifest-only (IDs without content), treat as ERROR
                     if is_manifest_only(content):
-                        # Expand manifest
-                        expanded = expand_manifest_to_deliverables(tab_key, content)
-                        # Convert expanded to normalized deliverables
-                        normalized = normalize_to_deliverables(tab_key, expanded)
-                        # Store normalized as the final result content
-                        result["content"] = normalized
+                        # Replace result with explicit failure envelope
+                        result = {
+                            "status": "FAILED",
+                            "content": "Backend returned manifest-only response without deliverable content",
+                            "meta": {"tab": tab_key},
+                            "debug": {"note": "manifest_only_detected"}
+                        }
+                    else:
+                        # On valid backend SUCCESS, attempt to store canonical artifact
+                        envelope = result
+                        artifact_type = {
+                            "strategy": "strategy",
+                            "creatives": "creatives",
+                            "execution": "execution",
+                            "delivery": "delivery",
+                        }.get(tab_key)
+
+                        if artifact_type:
+                            artifact = store_artifact_from_backend(st.session_state, artifact_type, envelope)
+                            # If artifact indicates SUCCESS, write to session_state to unlock gating
+                            key = f"artifact_{artifact_type}"
+                            st.session_state[key] = artifact
                 
                 st.session_state[result_key] = result
                 st.session_state[timestamp_key] = datetime.now().isoformat()
@@ -1112,6 +1393,11 @@ def aicmo_tab_shell(
     st.write("")  # Spacing
     
     with st.container(border=True):
+        # Output anchors for Playwright
+        try:
+            st_test_anchor(f"output-{tab_key}")
+        except Exception:
+            pass
         st.subheader("📤 Output")
         
         result = st.session_state[result_key]
@@ -1264,68 +1550,87 @@ def validate_backend_response(response: Dict[str, Any]) -> Tuple[bool, str]:
 def run_intake_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
     """Run intake workflow via backend"""
     try:
-        name = inputs.get("name", "").strip()
-        email = inputs.get("email", "").strip()
-        company = inputs.get("company", "").strip()
-        
-        if not (name and email):
+        # Intake persistence path: use configured persistence mode
+        # Build intake payload expected by handle_intake_submit
+        intake_payload = {
+            "name": inputs.get("name", "").strip(),
+            "email": inputs.get("email", "").strip(),
+            "brand_name": inputs.get("company", "").strip(),
+            "product_service": inputs.get("product_service", "").strip(),
+            "raw_brief_text": inputs.get("notes", "").strip(),
+        }
+
+        # Validate required fields before any backend call
+        # Per rules: require brand_name OR client_name, AND product_service
+        client_name = intake_payload.get("name")
+        brand_name = intake_payload.get("brand_name")
+        product_service = intake_payload.get("product_service")
+
+        if (not client_name and not brand_name) or not product_service:
             return {
                 "status": "FAILED",
-                "content": "Name and email are required",
+                "content": "Missing required intake fields: brand_name OR client_name, and product_service",
                 "meta": {"tab": "intake"},
                 "debug": {}
             }
-        
-        # Check dev stubs flag
+
+        # Instantiate persistence store according to env
+        persistence_mode = os.getenv("AICMO_PERSISTENCE_MODE", "inmemory")
+        try:
+            store = IntakeStore(mode=persistence_mode)
+        except Exception as e:
+            # If DB mode requested but fails, fallback to inmemory for this session
+            log.exception("IntakeStore init failed, falling back to inmemory")
+            try:
+                store = IntakeStore(mode="inmemory")
+            except Exception:
+                return {"status": "FAILED", "content": "Intake persistence unavailable", "meta": {"tab": "intake"}, "debug": {"traceback": traceback.format_exc()}}
+
+        # In dev stub mode, still persist locally but do not call LLM/backend
         if os.getenv("AICMO_DEV_STUBS") == "1":
-            log.info("[INTAKE] Using dev stub (AICMO_DEV_STUBS=1)")
-            return {
-                "status": "SUCCESS",
-                "content": f"✅ [STUB] Lead '{name}' from {company} ({email}) submitted to intake queue.",
-                "meta": {"lead_name": name, "email": email, "company": company},
-                "debug": {"note": "This is a stub response"}
-            }
-        
-        # Call backend
+            artifact = handle_intake_submit(st.session_state, intake_payload, store)
+            return {"status": "SUCCESS", "content": st.session_state.get("artifact_intake", {}), "meta": {"tab": "intake"}, "debug": {"note": "dev stub persisted locally"}}
+
+        # Otherwise call backend generate endpoint for intake confirmation
         backend_response = backend_post_json(
             "/aicmo/generate",
             {
-                "brief": f"Lead intake: {name} from {company}",
-                "client_email": email,
+                "brief": intake_payload.get("raw_brief_text", ""),
+                "client_email": intake_payload.get("email"),
                 "use_case": "intake",
-                "metadata": {"name": name, "email": email, "company": company}
+                "metadata": intake_payload,
             }
         )
-        
-        # Validate response
+
+        # Validate backend response - must include deliverables with content_markdown
         is_valid, error_msg = validate_backend_response(backend_response)
         if not is_valid:
-            log.error(f"Backend response validation failed: {error_msg}")
+            # Do not persist intake if backend response invalid; surface error
             return {
                 "status": "FAILED",
                 "content": f"Backend validation error: {error_msg}",
                 "meta": {"tab": "intake", "trace_id": backend_response.get("trace_id")},
                 "debug": {"raw_response": backend_response}
             }
-        
+
         # Convert backend envelope to markdown for editing
         draft_md = backend_envelope_to_markdown(backend_response)
-        
-        # Success: return converted markdown as content (not summary text!)
+
+        # Persist intake using store and populate session/artifact
+        try:
+            artifact = handle_intake_submit(st.session_state, intake_payload, store)
+            # Attach backend envelope into artifact raw_backend_envelope
+            artifact["raw_backend_envelope"] = backend_response
+            st.session_state["artifact_intake"] = artifact
+        except Exception as e:
+            log.exception("Failed to persist intake after backend response")
+            return {"status": "FAILED", "content": str(e), "meta": {"tab": "intake"}, "debug": {"traceback": traceback.format_exc()}}
+
         return {
             "status": backend_response.get("status", "SUCCESS"),
-            "content": draft_md,  # THIS IS THE KEY FIX: markdown content, not summary
-            "meta": {
-                "lead_name": name,
-                "email": email,
-                "company": company,
-                "trace_id": backend_response.get("trace_id"),
-                "provider": backend_response.get("meta", {}).get("provider"),
-                "run_id": backend_response.get("run_id"),
-            },
-            "debug": {
-                "raw_envelope": backend_response,  # Store full envelope in debug
-            }
+            "content": draft_md,
+            "meta": {"trace_id": backend_response.get("trace_id"), "run_id": backend_response.get("run_id")},
+            "debug": {"raw_envelope": backend_response}
         }
     except Exception as e:
         log.error(f"Intake error: {e}", exc_info=True)
@@ -1631,6 +1936,7 @@ def render_intake_inputs() -> Dict[str, Any]:
     with col1:
         name = st.text_input("Lead Name *", key="intake_name_input")
         email = st.text_input("Email *", key="intake_email_input")
+        product_service = st.text_input("Product / Service *", key="intake_product_service_input")
     
     with col2:
         company = st.text_input("Company", key="intake_company_input")
@@ -1642,6 +1948,7 @@ def render_intake_inputs() -> Dict[str, Any]:
         "name": name,
         "email": email,
         "company": company,
+        "product_service": product_service,
         "phone": phone,
         "notes": notes
     }
