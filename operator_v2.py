@@ -36,12 +36,25 @@ from io import BytesIO
 # BUILD MARKER & DASHBOARD IDENTIFICATION
 # ===================================================================
 
-DASHBOARD_BUILD = "OPERATOR_V2_REFACTOR_2025_12_16"
+DASHBOARD_BUILD = "ARTIFACT_SYSTEM_REFACTOR_2025_12_17"
 RUNNING_FILE = __file__
 RUNNING_CWD = os.getcwd()
 
+# Get git hash (best effort)
+try:
+    import subprocess
+    git_hash = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], 
+                                      stderr=subprocess.DEVNULL, 
+                                      cwd=Path(__file__).parent).decode('utf-8').strip()
+except Exception:
+    git_hash = "unknown"
+
+BUILD_TIMESTAMP_UTC = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+
 print(f"[DASHBOARD] DASHBOARD_BUILD={DASHBOARD_BUILD}", flush=True)
 print(f"[DASHBOARD] Running from: {RUNNING_FILE}", flush=True)
+print(f"[DASHBOARD] Git hash: {git_hash}", flush=True)
+print(f"[DASHBOARD] Build timestamp: {BUILD_TIMESTAMP_UTC}", flush=True)
 print(f"[DASHBOARD] Working directory: {RUNNING_CWD}", flush=True)
 
 # ===================================================================
@@ -234,15 +247,41 @@ def st_test_section_end() -> None:
 
 
 def gate(required_keys: list) -> tuple[bool, list]:
+    """
+    Check if required session keys are present and valid.
+    
+    For artifact keys, also checks if artifact is approved.
+    Artifacts in flagged_for_review state are blocked with detailed stale information.
+    """
     missing = []
     for k in required_keys:
         v = st.session_state.get(k, None)
         if v is None:
-            missing.append(k)
+            missing.append(f"{k} (missing)")
         else:
             if k.startswith("artifact_"):
-                if not (isinstance(v, dict) and isinstance(v.get("id"), str) and isinstance(v.get("data"), dict)):
-                    missing.append(k)
+                # Check if it's a valid artifact dict
+                if not isinstance(v, dict):
+                    missing.append(f"{k} (invalid format)")
+                    continue
+                
+                # Check artifact status
+                artifact_status = v.get("status")
+                artifact_type = k.replace("artifact_", "")
+                
+                if artifact_status == "approved":
+                    # OK - approved and ready
+                    continue
+                elif artifact_status == "flagged_for_review":
+                    # STALE: Show why it was flagged
+                    flagged_reason = v.get("notes", {}).get("flagged_reason", "unknown reason")
+                    missing.append(f"{artifact_type} (STALE: {flagged_reason})")
+                else:
+                    # draft, revised, etc. - not approved yet
+                    missing.append(f"{artifact_type} ({artifact_status} - must be approved)")
+    
+    return (len(missing) == 0, missing)
+    
     return (len(missing) == 0, missing)
 
 
@@ -409,7 +448,7 @@ def store_artifact_from_backend(session: dict, artifact_type: str, backend_envel
 # UI REFACTOR MAP
 # ===================================================================
 # TAB STRUCTURE (embedded in operator_v2.py):
-# 1. Intake - Lead intake form → Generate → Display submitted lead
+# 1. Intake - Client intake form → Generate → Display client brief
 # 2. Strategy - Campaign strategy inputs → Generate → Strategy output
 # 3. Creatives - Content input → Generate → Creative assets
 # 4. Execution - Platform + content → Generate → Post schedule
@@ -1051,13 +1090,81 @@ def render_deliverables_output(tab_key: str, last_result: dict) -> None:
             # Not yet approved
             st.info("Ready to approve?")
             if st.button("👍 Approve Deliverable", key=f"{tab_key}__approve", type="primary", use_container_width=True):
-                # Copy draft to approved
-                st.session_state[approved_text_key] = st.session_state.get(draft_text_key, "")
-                st.session_state[approved_at_key] = datetime.now().isoformat()
-                st.session_state[approved_by_key] = "operator"
-                st.session_state[export_ready_key] = True
-                st.toast("✅ Deliverable approved!")
-                st.rerun()
+                # ARTIFACT ENFORCEMENT: Call ArtifactStore.approve_artifact() FIRST
+                # UI does NOT set approval state directly - ArtifactStore is the source of truth
+                
+                try:
+                    from aicmo.ui.persistence.artifact_store import (
+                        ArtifactStore, ArtifactType, Artifact, 
+                        ArtifactValidationError, ArtifactStateError
+                    )
+                    
+                    # Get artifact for this tab
+                    artifact_key = f"artifact_{tab_key}"
+                    artifact_dict = st.session_state.get(artifact_key)
+                    
+                    if not artifact_dict:
+                        st.error(f"❌ Cannot approve: No artifact found for {tab_key}. Please generate content first.")
+                        st.stop()
+                    
+                    artifact_store = ArtifactStore(st.session_state, mode="inmemory")
+                    artifact = Artifact.from_dict(artifact_dict)
+                    
+                    # Attempt approval - this runs validation and may refuse
+                    approved_artifact = artifact_store.approve_artifact(
+                        artifact,
+                        approved_by="operator",
+                        approval_note=None
+                    )
+                    
+                    # SUCCESS: Approval granted by ArtifactStore
+                    # Now update UI state (not approval state - that's in artifact)
+                    st.session_state[approved_text_key] = st.session_state.get(draft_text_key, "")
+                    st.session_state[approved_at_key] = approved_artifact.approved_at
+                    st.session_state[approved_by_key] = approved_artifact.approved_by
+                    st.session_state[export_ready_key] = True
+                    
+                    # Show warnings if any
+                    if "approval_warnings" in approved_artifact.notes:
+                        warnings = approved_artifact.notes["approval_warnings"]
+                        st.warning(f"⚠️ Approved with warnings:\n" + "\n".join(f"• {w}" for w in warnings))
+                    
+                    # Special handling for intake: set active client/engagement
+                    if tab_key == "intake":
+                        st.session_state["active_client_id"] = approved_artifact.client_id
+                        st.session_state["active_engagement_id"] = approved_artifact.engagement_id
+                        st.toast("✅ Client Intake approved! Strategy tab unlocked.")
+                    else:
+                        st.toast("✅ Deliverable approved!")
+                    
+                    st.rerun()
+                    
+                except ArtifactValidationError as e:
+                    # VALIDATION FAILED: Show errors and DO NOT approve
+                    st.error(f"❌ **Approval Refused: Validation Failed**")
+                    st.error("**Errors:**")
+                    for err in e.errors:
+                        st.error(f"• {err}")
+                    
+                    if e.warnings:
+                        st.warning("**Warnings:**")
+                        for warn in e.warnings:
+                            st.warning(f"• {warn}")
+                    
+                    st.info("Please fix the errors above and regenerate before approving.")
+                    st.stop()
+                    
+                except ArtifactStateError as e:
+                    # INVALID STATUS TRANSITION
+                    st.error(f"❌ **Approval Refused: Invalid State Transition**")
+                    st.error(str(e))
+                    st.stop()
+                    
+                except Exception as e:
+                    # UNEXPECTED ERROR
+                    log.error(f"Unexpected error during approval: {e}")
+                    st.error(f"❌ Approval failed: {e}")
+                    st.stop()
         
         st.write("")  # Spacing
         
@@ -1548,90 +1655,143 @@ def validate_backend_response(response: Dict[str, Any]) -> Tuple[bool, str]:
 # Each runner takes inputs dict and returns standardized result envelope
 
 def run_intake_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """Run intake workflow via backend"""
+    """Run intake workflow with artifact creation and validation"""
     try:
-        # Intake persistence path: use configured persistence mode
-        # Build intake payload expected by handle_intake_submit
-        intake_payload = {
-            "name": inputs.get("name", "").strip(),
-            "email": inputs.get("email", "").strip(),
-            "brand_name": inputs.get("company", "").strip(),
-            "product_service": inputs.get("product_service", "").strip(),
-            "raw_brief_text": inputs.get("notes", "").strip(),
-        }
-
-        # Validate required fields before any backend call
-        # Per rules: require brand_name OR client_name, AND product_service
-        client_name = intake_payload.get("name")
-        brand_name = intake_payload.get("brand_name")
-        product_service = intake_payload.get("product_service")
-
-        if (not client_name and not brand_name) or not product_service:
+        from aicmo.ui.persistence.artifact_store import (
+            ArtifactStore, ArtifactType, ArtifactStatus, validate_intake
+        )
+        from aicmo.ui.generation_plan import build_generation_plan_from_checkboxes
+        
+        # Validate required fields
+        required_fields = ["client_name", "website", "industry", "geography", 
+                          "primary_offer", "objective"]
+        missing = [f for f in required_fields if not inputs.get(f)]
+        
+        if missing:
             return {
                 "status": "FAILED",
-                "content": "Missing required intake fields: brand_name OR client_name, and product_service",
+                "content": f"Missing required fields: {', '.join(missing)}",
                 "meta": {"tab": "intake"},
                 "debug": {}
             }
-
-        # Instantiate persistence store according to env
-        persistence_mode = os.getenv("AICMO_PERSISTENCE_MODE", "inmemory")
-        try:
-            store = IntakeStore(mode=persistence_mode)
-        except Exception as e:
-            # If DB mode requested but fails, fallback to inmemory for this session
-            log.exception("IntakeStore init failed, falling back to inmemory")
-            try:
-                store = IntakeStore(mode="inmemory")
-            except Exception:
-                return {"status": "FAILED", "content": "Intake persistence unavailable", "meta": {"tab": "intake"}, "debug": {"traceback": traceback.format_exc()}}
-
-        # In dev stub mode, still persist locally but do not call LLM/backend
-        if os.getenv("AICMO_DEV_STUBS") == "1":
-            artifact = handle_intake_submit(st.session_state, intake_payload, store)
-            return {"status": "SUCCESS", "content": st.session_state.get("artifact_intake", {}), "meta": {"tab": "intake"}, "debug": {"note": "dev stub persisted locally"}}
-
-        # Otherwise call backend generate endpoint for intake confirmation
-        backend_response = backend_post_json(
-            "/aicmo/generate",
-            {
-                "brief": intake_payload.get("raw_brief_text", ""),
-                "client_email": intake_payload.get("email"),
-                "use_case": "intake",
-                "metadata": intake_payload,
+        
+        # Build intake content dict
+        intake_content = {
+            "client_name": inputs.get("client_name"),
+            "website": inputs.get("website"),
+            "industry": inputs.get("industry"),
+            "geography": inputs.get("geography"),
+            "timezone": inputs.get("timezone"),
+            "primary_offer": inputs.get("primary_offer"),
+            "pricing": inputs.get("pricing"),
+            "differentiators": inputs.get("differentiators"),
+            "target_audience": inputs.get("target_audience"),
+            "pain_points": inputs.get("pain_points"),
+            "desired_outcomes": inputs.get("desired_outcomes"),
+            "objective": inputs.get("objective"),
+            "kpi_targets": inputs.get("kpi_targets"),
+            "timeline_start": inputs.get("timeline_start"),
+            "duration_weeks": inputs.get("duration_weeks"),
+            "budget_range": inputs.get("budget_range"),
+            "tone_voice": inputs.get("tone_voice"),
+            "languages": inputs.get("languages"),
+            "context_data": inputs.get("context_data", {}),
+            "delivery_requirements": {
+                "pdf": inputs.get("pdf_required", False),
+                "pptx": inputs.get("pptx_required", False),
+                "zip": inputs.get("zip_required", False),
+                "frequency": inputs.get("report_frequency", "One-time")
             }
-        )
-
-        # Validate backend response - must include deliverables with content_markdown
-        is_valid, error_msg = validate_backend_response(backend_response)
-        if not is_valid:
-            # Do not persist intake if backend response invalid; surface error
+        }
+        
+        # Validate intake
+        ok, errors, warnings = validate_intake_content(intake_content)
+        
+        if not ok:
             return {
                 "status": "FAILED",
-                "content": f"Backend validation error: {error_msg}",
-                "meta": {"tab": "intake", "trace_id": backend_response.get("trace_id")},
-                "debug": {"raw_response": backend_response}
+                "content": f"Validation errors: {'; '.join(errors)}",
+                "meta": {"tab": "intake", "warnings": warnings},
+                "debug": {"intake_content": intake_content}
             }
-
-        # Convert backend envelope to markdown for editing
-        draft_md = backend_envelope_to_markdown(backend_response)
-
-        # Persist intake using store and populate session/artifact
+        
+        # Create or get client_id and engagement_id
+        persistence_mode = os.getenv("AICMO_PERSISTENCE_MODE", "inmemory")
         try:
-            artifact = handle_intake_submit(st.session_state, intake_payload, store)
-            # Attach backend envelope into artifact raw_backend_envelope
-            artifact["raw_backend_envelope"] = backend_response
-            st.session_state["artifact_intake"] = artifact
+            intake_store = IntakeStore(mode=persistence_mode)
+            client_id = intake_store.create_client(intake_content)
+            engagement_id = intake_store.create_engagement(client_id, intake_content)
         except Exception as e:
-            log.exception("Failed to persist intake after backend response")
-            return {"status": "FAILED", "content": str(e), "meta": {"tab": "intake"}, "debug": {"traceback": traceback.format_exc()}}
+            log.exception("IntakeStore failed, using fallback IDs")
+            import uuid
+            client_id = str(uuid.uuid4())
+            engagement_id = str(uuid.uuid4())
+        
+        # Store in session
+        st.session_state["active_client_id"] = client_id
+        st.session_state["active_engagement_id"] = engagement_id
+        
+        # Build generation plan from checkboxes
+        gen_plan = inputs.get("generation_plan", {})
+        strategy_jobs = gen_plan.get("strategy_jobs", [])
+        creative_jobs = gen_plan.get("creative_jobs", [])
+        execution_jobs = gen_plan.get("execution_jobs", [])
+        monitoring_jobs = gen_plan.get("monitoring_jobs", [])
+        delivery_jobs = gen_plan.get("delivery_jobs", [])
+        
+        generation_plan = build_generation_plan_from_checkboxes(
+            client_id, engagement_id,
+            strategy_jobs, creative_jobs, execution_jobs,
+            monitoring_jobs, delivery_jobs
+        )
+        
+        # Create intake artifact
+        artifact_store = ArtifactStore(st.session_state, mode="inmemory")
+        artifact = artifact_store.create_artifact(
+            artifact_type=ArtifactType.INTAKE,
+            client_id=client_id,
+            engagement_id=engagement_id,
+            content=intake_content,
+            generation_plan=generation_plan.to_dict()
+        )
+        
+        # Build human-readable summary
+        summary = f"""# Client Intake Created
 
+**Client:** {intake_content['client_name']}
+**Industry:** {intake_content['industry']}
+**Objective:** {intake_content['objective']}
+**Budget:** {intake_content.get('budget_range', 'Not specified')}
+
+**Target Audience:** {intake_content['target_audience']}
+
+**Generation Plan:**
+- Strategy Jobs: {len(strategy_jobs)}
+- Creative Jobs: {len(creative_jobs)}
+- Execution Jobs: {len(execution_jobs)}
+- Monitoring Jobs: {len(monitoring_jobs)}
+- Delivery Jobs: {len(delivery_jobs)}
+
+**Status:** Draft (ready for approval)
+
+**Validation:**
+{"✅ All required fields present" if ok else "⚠️ Validation errors"}
+{f"⚠️ Warnings: {', '.join(warnings)}" if warnings else ""}
+"""
+        
         return {
-            "status": backend_response.get("status", "SUCCESS"),
-            "content": draft_md,
-            "meta": {"trace_id": backend_response.get("trace_id"), "run_id": backend_response.get("run_id")},
-            "debug": {"raw_envelope": backend_response}
+            "status": "SUCCESS",
+            "content": summary,
+            "meta": {
+                "tab": "intake",
+                "client_id": client_id,
+                "engagement_id": engagement_id,
+                "artifact_id": artifact.artifact_id,
+                "warnings": warnings
+            },
+            "debug": {"artifact": artifact.to_dict()}
         }
+        
     except Exception as e:
         log.error(f"Intake error: {e}", exc_info=True)
         return {
@@ -1643,8 +1803,40 @@ def run_intake_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def run_strategy_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """Run strategy generation via backend"""
+    """Run strategy generation with artifact + lineage enforcement"""
     try:
+        from aicmo.ui.persistence.artifact_store import (
+            ArtifactStore, ArtifactType, Artifact
+        )
+        
+        # Check for required upstream: intake must be approved
+        client_id = st.session_state.get("active_client_id")
+        engagement_id = st.session_state.get("active_engagement_id")
+        
+        if not client_id or not engagement_id:
+            return {
+                "status": "FAILED",
+                "content": "⚠️ Cannot generate strategy: No active client/engagement. Please complete and approve Intake first.",
+                "meta": {"tab": "strategy"},
+                "debug": {}
+            }
+        
+        # Build source lineage - intake MUST be approved
+        artifact_store = ArtifactStore(st.session_state, mode="inmemory")
+        lineage, lineage_errors = artifact_store.build_source_lineage(
+            client_id,
+            engagement_id,
+            [ArtifactType.INTAKE]
+        )
+        
+        if lineage_errors:
+            return {
+                "status": "FAILED",
+                "content": f"⚠️ Cannot generate strategy:\n" + "\n".join(f"• {e}" for e in lineage_errors),
+                "meta": {"tab": "strategy"},
+                "debug": {"lineage_errors": lineage_errors}
+            }
+        
         campaign_name = inputs.get("campaign_name", "").strip()
         if not campaign_name:
             return {
@@ -1656,11 +1848,22 @@ def run_strategy_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
         
         if os.getenv("AICMO_DEV_STUBS") == "1":
             log.info("[STRATEGY] Using dev stub")
+            stub_content = f"# {campaign_name} Strategy\n\n[Stub Mode - Real generation disabled]\n\n## Operator Notes\n- Edit content above"
+            
+            # Create artifact even in stub mode
+            strategy_artifact = artifact_store.create_artifact(
+                artifact_type=ArtifactType.STRATEGY,
+                client_id=client_id,
+                engagement_id=engagement_id,
+                content={"strategy_text": stub_content, "campaign_name": campaign_name},
+                source_artifacts=[Artifact.from_dict(st.session_state["artifact_intake"])]
+            )
+            
             return {
                 "status": "SUCCESS",
-                "content": f"# {campaign_name} Strategy\n\n[Stub Mode - Real generation disabled]\n\n## Operator Notes\n- Edit content above",
-                "meta": {"campaign": campaign_name},
-                "debug": {"note": "stub"}
+                "content": stub_content,
+                "meta": {"campaign": campaign_name, "artifact_id": strategy_artifact.artifact_id},
+                "debug": {"note": "stub", "lineage": lineage}
             }
         
         backend_response = backend_post_json(
@@ -1677,19 +1880,30 @@ def run_strategy_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
                 "debug": {"raw_response": backend_response}
             }
         
-        # KEY FIX: Convert envelope to markdown
+        # Convert envelope to markdown
         draft_md = backend_envelope_to_markdown(backend_response)
+        
+        # Create Strategy artifact with lineage
+        intake_artifact = Artifact.from_dict(st.session_state["artifact_intake"])
+        strategy_artifact = artifact_store.create_artifact(
+            artifact_type=ArtifactType.STRATEGY,
+            client_id=client_id,
+            engagement_id=engagement_id,
+            content=backend_response.get("content", {}),  # Store structured content
+            source_artifacts=[intake_artifact]
+        )
         
         return {
             "status": backend_response.get("status", "SUCCESS"),
-            "content": draft_md,  # Markdown content, not JSON
+            "content": draft_md,  # Markdown for UI
             "meta": {
                 "campaign": campaign_name,
                 "trace_id": backend_response.get("trace_id"),
                 "provider": backend_response.get("meta", {}).get("provider"),
                 "run_id": backend_response.get("run_id"),
+                "artifact_id": strategy_artifact.artifact_id
             },
-            "debug": {"raw_envelope": backend_response}
+            "debug": {"raw_envelope": backend_response, "lineage": lineage}
         }
     except Exception as e:
         log.error(f"Strategy error: {e}")
@@ -1702,19 +1916,63 @@ def run_strategy_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def run_creatives_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """Run creative generation via backend"""
+    """Run creative generation with artifact + lineage enforcement"""
     try:
+        from aicmo.ui.persistence.artifact_store import (
+            ArtifactStore, ArtifactType, Artifact
+        )
+        
+        # Check for required upstream: strategy must be approved
+        client_id = st.session_state.get("active_client_id")
+        engagement_id = st.session_state.get("active_engagement_id")
+        
+        if not client_id or not engagement_id:
+            return {
+                "status": "FAILED",
+                "content": "⚠️ Cannot generate creatives: No active client/engagement. Please complete Intake first.",
+                "meta": {"tab": "creatives"},
+                "debug": {}
+            }
+        
+        # Build source lineage - strategy MUST be approved
+        artifact_store = ArtifactStore(st.session_state, mode="inmemory")
+        lineage, lineage_errors = artifact_store.build_source_lineage(
+            client_id,
+            engagement_id,
+            [ArtifactType.STRATEGY]
+        )
+        
+        if lineage_errors:
+            return {
+                "status": "FAILED",
+                "content": f"⚠️ Cannot generate creatives:\n" + "\n".join(f"• {e}" for e in lineage_errors),
+                "meta": {"tab": "creatives"},
+                "debug": {"lineage_errors": lineage_errors}
+            }
+        
         topic = inputs.get("topic", "").strip()
         if not topic:
             return {"status": "FAILED", "content": "Topic required", "meta": {"tab": "creatives"}, "debug": {}}
         
         if os.getenv("AICMO_DEV_STUBS") == "1":
             log.info("[CREATIVES] Using dev stub")
+            stub_content = f"# Creative Concepts for {topic}\n\n[Stub Mode]\n\n## Operator Notes\n- Edit above"
+            
+            # Create artifact even in stub mode
+            strategy_artifact = Artifact.from_dict(st.session_state["artifact_strategy"])
+            creatives_artifact = artifact_store.create_artifact(
+                artifact_type=ArtifactType.CREATIVES,
+                client_id=client_id,
+                engagement_id=engagement_id,
+                content={"creatives_text": stub_content, "topic": topic},
+                source_artifacts=[strategy_artifact]
+            )
+            
             return {
                 "status": "SUCCESS",
-                "content": f"# Creative Concepts for {topic}\n\n[Stub Mode]\n\n## Operator Notes\n- Edit above",
-                "meta": {"topic": topic},
-                "debug": {}
+                "content": stub_content,
+                "meta": {"topic": topic, "artifact_id": creatives_artifact.artifact_id},
+                "debug": {"note": "stub", "lineage": lineage}
             }
         
         backend_response = backend_post_json(
@@ -1731,19 +1989,30 @@ def run_creatives_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
                 "debug": {"raw_response": backend_response}
             }
         
-        # KEY FIX: Convert envelope to markdown
+        # Convert envelope to markdown
         draft_md = backend_envelope_to_markdown(backend_response)
+        
+        # Create Creatives artifact with lineage
+        strategy_artifact = Artifact.from_dict(st.session_state["artifact_strategy"])
+        creatives_artifact = artifact_store.create_artifact(
+            artifact_type=ArtifactType.CREATIVES,
+            client_id=client_id,
+            engagement_id=engagement_id,
+            content=backend_response.get("content", {}),  # Store structured content
+            source_artifacts=[strategy_artifact]
+        )
         
         return {
             "status": backend_response.get("status", "SUCCESS"),
-            "content": draft_md,  # Markdown content
+            "content": draft_md,  # Markdown for UI
             "meta": {
                 "topic": topic,
                 "trace_id": backend_response.get("trace_id"),
                 "provider": backend_response.get("meta", {}).get("provider"),
                 "run_id": backend_response.get("run_id"),
+                "artifact_id": creatives_artifact.artifact_id
             },
-            "debug": {"raw_envelope": backend_response}
+            "debug": {"raw_envelope": backend_response, "lineage": lineage}
         }
     except Exception as e:
         log.error(f"Creatives error: {e}")
@@ -1756,15 +2025,76 @@ def run_creatives_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def run_execution_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """Run campaign execution scheduling via backend"""
+    """Run campaign execution scheduling with artifact + lineage enforcement"""
     try:
+        from aicmo.ui.persistence.artifact_store import (
+            ArtifactStore, ArtifactType, Artifact
+        )
+        
+        # Check for required upstream
+        client_id = st.session_state.get("active_client_id")
+        engagement_id = st.session_state.get("active_engagement_id")
+        
+        if not client_id or not engagement_id:
+            return {
+                "status": "FAILED",
+                "content": "⚠️ Cannot generate execution: No active client/engagement. Please complete Intake first.",
+                "meta": {"tab": "execution"},
+                "debug": {}
+            }
+        
+        # Execution requires strategy always, creatives conditionally
+        # For now, require strategy; creatives optional
+        artifact_store = ArtifactStore(st.session_state, mode="inmemory")
+        required_types = [ArtifactType.STRATEGY]
+        
+        # Check if creatives exists and is approved (optional)
+        has_creatives = st.session_state.get("artifact_creatives")
+        
+        lineage, lineage_errors = artifact_store.build_source_lineage(
+            client_id,
+            engagement_id,
+            required_types
+        )
+        
+        if lineage_errors:
+            return {
+                "status": "FAILED",
+                "content": f"⚠️ Cannot generate execution:\n" + "\n".join(f"• {e}" for e in lineage_errors),
+                "meta": {"tab": "execution"},
+                "debug": {"lineage_errors": lineage_errors}
+            }
+        
         campaign_id = inputs.get("campaign_id", "").strip()
         if not campaign_id:
             return {"status": "FAILED", "content": "Campaign ID required", "meta": {"tab": "execution"}, "debug": {}}
         
         if os.getenv("AICMO_DEV_STUBS") == "1":
             log.info("[EXECUTION] Using dev stub")
-            return {"status": "SUCCESS", "content": f"# Execution Plan: {campaign_id}\n\n[Stub Mode]\n\n## Notes\n- Edit above", "meta": {"campaign_id": campaign_id}, "debug": {"note": "stub"}}
+            stub_content = f"# Execution Plan: {campaign_id}\n\n[Stub Mode]\n\n## Notes\n- Edit above"
+            
+            # Create artifact
+            strategy_artifact = Artifact.from_dict(st.session_state["artifact_strategy"])
+            source_artifacts = [strategy_artifact]
+            
+            if has_creatives:
+                creatives_artifact = Artifact.from_dict(st.session_state["artifact_creatives"])
+                source_artifacts.append(creatives_artifact)
+            
+            execution_artifact = artifact_store.create_artifact(
+                artifact_type=ArtifactType.EXECUTION,
+                client_id=client_id,
+                engagement_id=engagement_id,
+                content={"execution_text": stub_content, "campaign_id": campaign_id},
+                source_artifacts=source_artifacts
+            )
+            
+            return {
+                "status": "SUCCESS",
+                "content": stub_content,
+                "meta": {"campaign_id": campaign_id, "artifact_id": execution_artifact.artifact_id},
+                "debug": {"note": "stub", "lineage": lineage}
+            }
         
         backend_response = backend_post_json("/aicmo/generate", {"campaign_id": campaign_id, "use_case": "execution"})
         is_valid, error_msg = validate_backend_response(backend_response)
@@ -1772,6 +2102,23 @@ def run_execution_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
             return {"status": "FAILED", "content": error_msg, "meta": {"tab": "execution", "trace_id": backend_response.get("trace_id")}, "debug": {"raw_response": backend_response}}
         
         draft_md = backend_envelope_to_markdown(backend_response)
+        
+        # Create Execution artifact with lineage
+        strategy_artifact = Artifact.from_dict(st.session_state["artifact_strategy"])
+        source_artifacts = [strategy_artifact]
+        
+        if has_creatives:
+            creatives_artifact = Artifact.from_dict(st.session_state["artifact_creatives"])
+            source_artifacts.append(creatives_artifact)
+        
+        execution_artifact = artifact_store.create_artifact(
+            artifact_type=ArtifactType.EXECUTION,
+            client_id=client_id,
+            engagement_id=engagement_id,
+            content=backend_response.get("content", {}),
+            source_artifacts=source_artifacts
+        )
+        
         return {
             "status": backend_response.get("status", "SUCCESS"),
             "content": draft_md,
@@ -1780,8 +2127,9 @@ def run_execution_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
                 "trace_id": backend_response.get("trace_id"),
                 "provider": backend_response.get("meta", {}).get("provider"),
                 "run_id": backend_response.get("run_id"),
+                "artifact_id": execution_artifact.artifact_id
             },
-            "debug": {"raw_envelope": backend_response}
+            "debug": {"raw_envelope": backend_response, "lineage": lineage}
         }
     except Exception as e:
         log.error(f"Execution error: {e}")
@@ -1930,27 +2278,299 @@ def run_learn_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
 # ===================================================================
 
 def render_intake_inputs() -> Dict[str, Any]:
-    """Render intake form and return inputs"""
+    """Render comprehensive client intake form and return inputs"""
+    
+    st.markdown("### 📋 Client Identity")
     col1, col2 = st.columns(2)
     
     with col1:
-        name = st.text_input("Lead Name *", key="intake_name_input")
-        email = st.text_input("Email *", key="intake_email_input")
-        product_service = st.text_input("Product / Service *", key="intake_product_service_input")
-    
+        client_name = st.text_input("Brand/Client Name *", key="intake_client_name")
+        website = st.text_input("Website *", key="intake_website", 
+                                help="Enter URL or check 'No website yet'")
+        no_website = st.checkbox("No website yet", key="intake_no_website")
+        industry = st.selectbox("Industry *", 
+                               ["Technology", "E-commerce", "Services", "Healthcare", 
+                                "Education", "Finance", "Real Estate", "Other"],
+                               key="intake_industry")
+        
     with col2:
-        company = st.text_input("Company", key="intake_company_input")
-        phone = st.text_input("Phone (optional)", key="intake_phone_input")
+        company = st.text_input("Company (if different from brand)", key="intake_company")
+        geography = st.text_input("Geography Served *", key="intake_geography",
+                                 placeholder="e.g., USA, Global, APAC")
+        timezone = st.selectbox("Timezone", 
+                               ["UTC", "EST", "PST", "CET", "IST", "AEDT"],
+                               key="intake_timezone")
+        contact_email = st.text_input("Contact Email", key="intake_contact_email")
     
-    notes = st.text_area("Notes", key="intake_notes_input", height=100)
+    st.markdown("### 💼 Offer & Economics")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        primary_offer = st.text_area("Primary Offer(s) *", key="intake_primary_offer",
+                                     height=100,
+                                     placeholder="What products/services do you offer?")
+        pricing = st.text_input("Pricing / Price Range", key="intake_pricing")
+        aov_ltv = st.text_input("AOV/LTV (optional)", key="intake_aov_ltv")
+        
+    with col2:
+        differentiators = st.text_area("Differentiators / USP *", key="intake_differentiators",
+                                       height=100,
+                                       placeholder="What makes you unique?")
+        competitors = st.text_area("Competitors (optional)", key="intake_competitors",
+                                   help="List competitor names and/or URLs")
+        proof_assets = st.text_area("Proof Assets (testimonials/case studies)", 
+                                    key="intake_proof_assets",
+                                    help="Links to testimonials, case studies, etc.")
+    
+    st.markdown("### 🎯 Audience & Market")
+    target_audience = st.text_area("Target Audience Description *", key="intake_target_audience",
+                                   height=100,
+                                   placeholder="Who are your ideal customers?")
+    pain_points = st.text_area("Pain Points *", key="intake_pain_points",
+                               height=100,
+                               placeholder="What problems do you solve?")
+    desired_outcomes = st.text_area("Desired Outcomes *", key="intake_desired_outcomes",
+                                    height=100,
+                                    placeholder="What results do customers want?")
+    objections = st.text_area("Common Objections (optional)", key="intake_objections",
+                             help="What hesitations do prospects have?")
+    
+    st.markdown("### 🎯 Goals & Constraints")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        objective = st.selectbox("Primary Objective *",
+                                ["Awareness", "Leads", "Sales", "Hiring", 
+                                 "Partnerships", "Retention"],
+                                key="intake_objective")
+        kpi_targets = st.text_area("KPI Targets", key="intake_kpi_targets",
+                                   placeholder="e.g., 100 qualified leads/month, 10% conversion rate")
+        
+    with col2:
+        timeline_start = st.date_input("Start Date", key="intake_timeline_start")
+        duration_weeks = st.number_input("Duration (weeks)", min_value=1, value=12, 
+                                        key="intake_duration_weeks")
+        budget_range = st.text_input("Budget Range (ads + production)", 
+                                     key="intake_budget_range",
+                                     placeholder="e.g., $10k-$50k")
+    
+    constraints = st.text_area("Constraints (regulated claims, forbidden topics, etc.)", 
+                              key="intake_constraints",
+                              help="Any regulatory or brand constraints")
+    
+    st.markdown("### 🎨 Brand Voice & Compliance")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        tone_voice = st.text_area("Tone/Voice Description *", key="intake_tone_voice",
+                                  height=100,
+                                  placeholder="e.g., Professional but friendly, witty, authoritative")
+        voice_examples = st.text_area("Voice Examples (optional)", key="intake_voice_examples",
+                                      help="Paste example copy that matches your voice")
+        
+    with col2:
+        banned_words = st.text_area("Banned Words/Phrases (optional)", key="intake_banned_words")
+        required_disclaimers = st.text_area("Required Disclaimers (optional)", 
+                                           key="intake_required_disclaimers")
+        languages = st.text_input("Languages *", key="intake_languages", value="English")
+    
+    st.markdown("### 📦 Assets & Access")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        brand_kit = st.text_input("Brand Kit Link (logo/colors/fonts)", key="intake_brand_kit")
+        content_library = st.text_input("Content Library Link", key="intake_content_library")
+        social_handles = st.text_input("Social Handles", key="intake_social_handles",
+                                       placeholder="@instagram, @twitter, etc.")
+        
+    with col2:
+        tracking_status = st.selectbox("GA4/Pixel Tracking",
+                                      ["Yes - fully set up", "Partial", "No", "Unknown"],
+                                      key="intake_tracking_status")
+        ad_account_ready = st.selectbox("Ad Account Readiness",
+                                       ["Yes - active accounts", "Need setup", "Unknown"],
+                                       key="intake_ad_account_ready")
+    
+    st.markdown("### 📋 Delivery Requirements")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**Required Outputs:**")
+        pdf_required = st.checkbox("PDF Report", key="intake_pdf_required")
+        pptx_required = st.checkbox("PPTX Deck", key="intake_pptx_required")
+        zip_required = st.checkbox("Asset ZIP", key="intake_zip_required")
+        
+    with col2:
+        report_frequency = st.selectbox("Report Frequency",
+                                       ["One-time", "Weekly", "Monthly"],
+                                       key="intake_report_frequency")
+    
+    # Polymorphic context based on objective
+    context_data = {}
+    if objective == "Hiring":
+        st.markdown("### 🏢 Hiring Context (EVP)")
+        context_data["hiring"] = {
+            "evp_statement": st.text_area("Employee Value Proposition", 
+                                         key="intake_evp_statement"),
+            "role_types": st.text_input("Role Types", key="intake_role_types"),
+            "hiring_locations": st.text_input("Hiring Locations", key="intake_hiring_locations"),
+            "employer_brand_notes": st.text_area("Employer Brand Notes", 
+                                                key="intake_employer_brand_notes")
+        }
+    
+    if industry == "E-commerce":
+        st.markdown("### 🛒 E-commerce Context")
+        context_data["ecommerce"] = {
+            "product_catalog_url": st.text_input("Product Catalog/Feed URL", 
+                                                key="intake_product_catalog_url"),
+            "top_skus": st.text_input("Top SKUs", key="intake_top_skus"),
+            "margins": st.text_input("Typical Margins (optional)", key="intake_margins")
+        }
+    
+    if industry == "Services":
+        st.markdown("### 🤝 Services Context")
+        context_data["services"] = {
+            "service_deck_link": st.text_input("Service Deck Link", 
+                                              key="intake_service_deck_link"),
+            "service_areas": st.text_input("Service Areas", key="intake_service_areas"),
+            "booking_link": st.text_input("Consultation Booking Link", 
+                                         key="intake_booking_link")
+        }
+    
+    st.markdown("### ⚙️ Generation Plan")
+    st.write("**Select what AICMO should generate:**")
+    
+    st.write("**Strategy Jobs:**")
+    strategy_jobs = []
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.checkbox("ICP Definition", key="gen_icp"):
+            strategy_jobs.append("icp_definition")
+        if st.checkbox("Positioning", key="gen_positioning"):
+            strategy_jobs.append("positioning")
+    with col2:
+        if st.checkbox("Messaging Framework", key="gen_messaging"):
+            strategy_jobs.append("messaging_framework")
+        if st.checkbox("Content Pillars", key="gen_pillars"):
+            strategy_jobs.append("content_pillars")
+    with col3:
+        if st.checkbox("Platform Strategy", key="gen_platform"):
+            strategy_jobs.append("platform_strategy")
+        if st.checkbox("Measurement Plan", key="gen_measurement"):
+            strategy_jobs.append("measurement_plan")
+    
+    st.write("**Creative Jobs:**")
+    creative_jobs = []
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.checkbox("Brand Kit Suggestions", key="gen_brand_kit"):
+            creative_jobs.append("brand_kit_suggestions")
+        if st.checkbox("Carousel Templates", key="gen_carousels"):
+            creative_jobs.append("carousel_templates")
+    with col2:
+        if st.checkbox("Reel Cover Templates", key="gen_reel_covers"):
+            creative_jobs.append("reel_cover_templates")
+        if st.checkbox("Image Pack Prompts", key="gen_image_prompts"):
+            creative_jobs.append("image_pack_prompts")
+    with col3:
+        if st.checkbox("Video/Reel Scripts", key="gen_video_scripts"):
+            creative_jobs.append("video_scripts")
+        if st.checkbox("Thumbnails/Banners", key="gen_thumbnails"):
+            creative_jobs.append("thumbnails_banners")
+    
+    st.write("**Execution Jobs:**")
+    execution_jobs = []
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.checkbox("Content Calendar (Week 1)", key="gen_calendar"):
+            execution_jobs.append("content_calendar_week1")
+        if st.checkbox("IG Posts (Week 1)", key="gen_ig_posts"):
+            execution_jobs.append("ig_posts_week1")
+        if st.checkbox("FB Posts (Week 1)", key="gen_fb_posts"):
+            execution_jobs.append("fb_posts_week1")
+    with col2:
+        if st.checkbox("LinkedIn Posts (Week 1)", key="gen_linkedin_posts"):
+            execution_jobs.append("linkedin_posts_week1")
+        if st.checkbox("Reels Scripts (Week 1)", key="gen_reels_scripts"):
+            execution_jobs.append("reels_scripts_week1")
+    with col3:
+        if st.checkbox("Hashtag Sets", key="gen_hashtags"):
+            execution_jobs.append("hashtag_sets")
+        if st.checkbox("Email Sequence", key="gen_email"):
+            execution_jobs.append("email_sequence")
+    
+    st.write("**Monitoring Jobs:**")
+    monitoring_jobs = []
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.checkbox("Tracking Checklist", key="gen_tracking_checklist"):
+            monitoring_jobs.append("tracking_checklist")
+    with col2:
+        if st.checkbox("Weekly Optimization Suggestions", key="gen_weekly_opt"):
+            monitoring_jobs.append("weekly_optimization")
+    
+    st.write("**Delivery Jobs:**")
+    delivery_jobs = []
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.checkbox("PDF Report", key="gen_pdf_report"):
+            delivery_jobs.append("pdf_report")
+    with col2:
+        if st.checkbox("PPTX Deck", key="gen_pptx_deck"):
+            delivery_jobs.append("pptx_deck")
+    with col3:
+        if st.checkbox("Asset ZIP", key="gen_asset_zip"):
+            delivery_jobs.append("asset_zip")
+    
+    # Build generation plan dict
+    generation_plan = {
+        "strategy_jobs": strategy_jobs,
+        "creative_jobs": creative_jobs,
+        "execution_jobs": execution_jobs,
+        "monitoring_jobs": monitoring_jobs,
+        "delivery_jobs": delivery_jobs
+    }
     
     return {
-        "name": name,
-        "email": email,
+        "client_name": client_name,
+        "website": website if not no_website else "none",
+        "industry": industry,
+        "geography": geography,
+        "timezone": timezone,
+        "contact_email": contact_email,
         "company": company,
-        "product_service": product_service,
-        "phone": phone,
-        "notes": notes
+        "primary_offer": primary_offer,
+        "pricing": pricing,
+        "aov_ltv": aov_ltv,
+        "differentiators": differentiators,
+        "competitors": competitors,
+        "proof_assets": proof_assets,
+        "target_audience": target_audience,
+        "pain_points": pain_points,
+        "desired_outcomes": desired_outcomes,
+        "objections": objections,
+        "objective": objective,
+        "kpi_targets": kpi_targets,
+        "timeline_start": str(timeline_start),
+        "duration_weeks": duration_weeks,
+        "budget_range": budget_range,
+        "constraints": constraints,
+        "tone_voice": tone_voice,
+        "voice_examples": voice_examples,
+        "banned_words": banned_words,
+        "required_disclaimers": required_disclaimers,
+        "languages": languages,
+        "brand_kit": brand_kit,
+        "content_library": content_library,
+        "social_handles": social_handles,
+        "tracking_status": tracking_status,
+        "ad_account_ready": ad_account_ready,
+        "pdf_required": pdf_required,
+        "pptx_required": pptx_required,
+        "zip_required": zip_required,
+        "report_frequency": report_frequency,
+        "context_data": context_data,
+        "generation_plan": generation_plan
     }
 
 
@@ -2211,11 +2831,11 @@ def render_output(result: Dict[str, Any]) -> None:
 
 def render_intake_tab():
     """Intake tab with single-click workflow"""
-    st.header("📥 Intake")
-    st.write("Submit new leads and prospects.")
+    st.header("📥 Client Intake")
+    st.write("Create/update the client & project brief used by all modules.")
     aicmo_tab_shell(
         tab_key="intake",
-        title="Lead Intake",
+        title="Client Intake",
         inputs_renderer=render_intake_inputs,
         runner=run_intake_step,
         output_renderer=render_output
@@ -2340,27 +2960,212 @@ def render_learn_tab():
 
 
 def render_system_diag_tab():
-    """System diagnostics tab (no input needed)"""
+    """System diagnostics tab with self-test for artifact gating"""
     st.header("🔧 System")
-    st.write("System diagnostics and configuration.")
+    st.write("System diagnostics, configuration, and self-tests.")
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Dashboard Build", "OPERATOR_V2_REFACTOR_2025_12_16")
+        st.metric("Dashboard Build", "ARTIFACT_SYSTEM_REFACTOR_2025_12_17")
     with col2:
         st.metric("Tab Count", "11")
     with col3:
         st.metric("Status", "✅ LIVE")
     
+    st.divider()
+    
+    # ─── UI WIRING SELF-TEST ───
+    st.subheader("🧪 UI Wiring Self-Test")
+    st.write("Tests artifact system, validation enforcement, cascading, and gating logic.")
+    
+    if st.button("▶️ Run UI Wiring Self-Test", type="primary"):
+        test_results = []
+        
+        # Test 1: Create intake artifact (draft)
+        try:
+            from aicmo.ui.persistence.artifact_store import (
+                ArtifactStore, ArtifactType, ArtifactStatus, Artifact,
+                ArtifactValidationError, ArtifactStateError, check_gating
+            )
+            
+            artifact_store = ArtifactStore(st.session_state, mode="inmemory")
+            intake_content = {
+                "client_name": "Self-Test Client",
+                "website": "https://selftest.example.com",
+                "industry": "Technology",
+                "geography": "Global",
+                "primary_offer": "Test Product",
+                "objective": "Self-Test"
+            }
+            intake_artifact = artifact_store.create_artifact(
+                artifact_type=ArtifactType.INTAKE,
+                client_id="selftest-client",
+                engagement_id="selftest-engagement",
+                content=intake_content
+            )
+            test_results.append(("✅ PASS", "Create intake artifact", f"ID: {intake_artifact.artifact_id[:8]}... (status: {intake_artifact.status.value})"))
+        except Exception as e:
+            test_results.append(("❌ FAIL", "Create intake artifact", str(e)))
+        
+        # Test 2: Validation enforcement - should refuse invalid intake
+        try:
+            invalid_artifact = artifact_store.create_artifact(
+                artifact_type=ArtifactType.INTAKE,
+                client_id="test",
+                engagement_id="test",
+                content={"client_name": "Test"}  # Missing required fields
+            )
+            
+            try:
+                artifact_store.approve_artifact(invalid_artifact, approved_by="test")
+                test_results.append(("❌ FAIL", "Validation enforcement", "Invalid intake was approved (should have been refused)"))
+            except ArtifactValidationError as e:
+                test_results.append(("✅ PASS", "Validation enforcement", f"Invalid intake refused: {len(e.errors)} errors detected"))
+        except Exception as e:
+            test_results.append(("❌ FAIL", "Validation enforcement", str(e)))
+        
+        # Test 3: Approve valid intake artifact
+        try:
+            approved_intake = artifact_store.approve_artifact(intake_artifact, approved_by="test_operator")
+            if approved_intake.status == ArtifactStatus.APPROVED:
+                test_results.append(("✅ PASS", "Approve intake artifact", f"Status: {approved_intake.status.value}, approved_by: {approved_intake.approved_by}"))
+            else:
+                test_results.append(("❌ FAIL", "Approve intake artifact", f"Status is {approved_intake.status.value}, expected approved"))
+        except Exception as e:
+            test_results.append(("❌ FAIL", "Approve intake artifact", str(e)))
+        
+        # Test 4: Check gating for Strategy (should unlock)
+        try:
+            allowed, reasons = check_gating(ArtifactType.STRATEGY, artifact_store)
+            if allowed:
+                test_results.append(("✅ PASS", "Strategy gating (intake approved)", "Strategy unlocked after intake approval"))
+            else:
+                test_results.append(("❌ FAIL", "Strategy gating (intake approved)", f"Still blocked: {reasons}"))
+        except Exception as e:
+            test_results.append(("❌ FAIL", "Strategy gating (intake approved)", str(e)))
+        
+        # Test 5: Create and approve strategy
+        try:
+            strategy_content = {
+                "icp": {"segments": [{"name": "Test", "who": "VP", "where": "B2B"}]},
+                "positioning": {"statement": "Test positioning"},
+                "messaging": {"core_promise": "Test promise"},
+                "content_pillars": [],
+                "platform_plan": [],
+                "cta_rules": {},
+                "measurement": {}
+            }
+            strategy_artifact = artifact_store.create_artifact(
+                artifact_type=ArtifactType.STRATEGY,
+                client_id="selftest-client",
+                engagement_id="selftest-engagement",
+                content=strategy_content,
+                source_artifacts=[approved_intake]
+            )
+            strategy_approved = artifact_store.approve_artifact(strategy_artifact, approved_by="test_operator")
+            test_results.append(("✅ PASS", "Create and approve strategy", f"Strategy v{strategy_approved.version} approved"))
+        except Exception as e:
+            test_results.append(("❌ FAIL", "Create and approve strategy", str(e)))
+        
+        # Test 6: Check Creatives gating (should unlock)
+        try:
+            allowed, reasons = check_gating(ArtifactType.CREATIVES, artifact_store)
+            if allowed:
+                test_results.append(("✅ PASS", "Creatives gating (strategy approved)", "Creatives unlocked"))
+            else:
+                test_results.append(("❌ FAIL", "Creatives gating (strategy approved)", f"Blocked: {reasons}"))
+        except Exception as e:
+            test_results.append(("❌ FAIL", "Creatives gating (strategy approved)", str(e)))
+        
+        # Test 7: Cascade stale detection
+        try:
+            # Update intake content to trigger version increment
+            intake_updated_content = approved_intake.content.copy()
+            intake_updated_content["industry"] = "FinTech"
+            
+            intake_v2 = artifact_store.update_artifact(
+                approved_intake,
+                content=intake_updated_content,
+                increment_version=True
+            )
+            
+            # Check if strategy was flagged
+            strategy_dict = st.session_state.get("artifact_strategy")
+            if strategy_dict:
+                strategy_updated = Artifact.from_dict(strategy_dict)
+                if strategy_updated.status == ArtifactStatus.FLAGGED_FOR_REVIEW:
+                    reason = strategy_updated.notes.get("flagged_reason", "")
+                    test_results.append(("✅ PASS", "Cascade stale detection", f"Strategy flagged: {reason}"))
+                else:
+                    test_results.append(("❌ FAIL", "Cascade stale detection", f"Strategy status: {strategy_updated.status.value} (expected flagged_for_review)"))
+            else:
+                test_results.append(("⚠️ WARN", "Cascade stale detection", "Strategy artifact not found"))
+        except Exception as e:
+            test_results.append(("❌ FAIL", "Cascade stale detection", str(e)))
+        
+        # Test 8: Status transition enforcement
+        try:
+            # Try invalid transition (approved -> approved)
+            test_artifact = artifact_store.create_artifact(
+                artifact_type=ArtifactType.INTAKE,
+                client_id="test2",
+                engagement_id="test2",
+                content=intake_content
+            )
+            test_approved = artifact_store.approve_artifact(test_artifact, approved_by="test")
+            
+            # Try to approve again - should fail
+            try:
+                artifact_store.approve_artifact(test_approved, approved_by="test")
+                test_results.append(("❌ FAIL", "Status transition enforcement", "Re-approval succeeded (should have been blocked)"))
+            except ArtifactStateError:
+                test_results.append(("✅ PASS", "Status transition enforcement", "Invalid transition blocked (approved->approved)"))
+        except Exception as e:
+            test_results.append(("❌ FAIL", "Status transition enforcement", str(e)))
+        
+        # Display results
+        st.write("")
+        st.write("### Test Results")
+        
+        for status, test_name, details in test_results:
+            if "✅ PASS" in status:
+                st.success(f"{status} | {test_name} | {details}")
+            elif "❌ FAIL" in status:
+                st.error(f"{status} | {test_name} | {details}")
+            else:
+                st.warning(f"{status} | {test_name} | {details}")
+        
+        # Summary
+        passed = sum(1 for s, _, _ in test_results if "✅ PASS" in s)
+        failed = sum(1 for s, _, _ in test_results if "❌ FAIL" in s)
+        warned = sum(1 for s, _, _ in test_results if "⚠️ WARN" in s)
+        
+        st.write("")
+        if failed == 0:
+            st.success(f"🎉 All tests passed! ({passed} passed, {warned} warnings)")
+        else:
+            st.error(f"❌ {failed} test(s) failed ({passed} passed, {warned} warnings)")
+    
+    st.divider()
+    
     st.write("**Session State Summary:**")
     col1, col2 = st.columns(2)
     with col1:
-        st.code(json.dumps({k: type(v).__name__ for k, v in st.session_state.items() if "__" in k}, indent=2))
+        st.write("**Active Artifacts:**")
+        artifacts = {k: v.get("status") if isinstance(v, dict) else type(v).__name__ 
+                    for k, v in st.session_state.items() if k.startswith("artifact_")}
+        if artifacts:
+            for k, v in artifacts.items():
+                st.caption(f"{k}: {v}")
+        else:
+            st.caption("(No artifacts yet)")
+    
     with col2:
         st.write("**Environment:**")
         st.code(f"DASHBOARD_BUILD={os.getenv('DASHBOARD_BUILD', 'not set')}\n"
-                f"CWD={os.getcwd()}\n"
-                f"PYTHONPATH includes project root")
+                f"AICMO_PERSISTENCE_MODE={os.getenv('AICMO_PERSISTENCE_MODE', 'inmemory')}\n"
+                f"AICMO_DEV_STUBS={os.getenv('AICMO_DEV_STUBS', '0')}\n"
+                f"CWD={os.getcwd()}")
 
 
 # ===================================================================
@@ -2368,22 +3173,30 @@ def render_system_diag_tab():
 # ===================================================================
 
 def render_dashboard_header():
-    """Render main dashboard header"""
-    dashboard_build = os.getenv("DASHBOARD_BUILD", "OPERATOR_V2_DEV")
+    """Render main dashboard header with visible build stamp"""
     
-    col1, col2, col3 = st.columns([2, 1, 1])
+    # Get build info from globals
+    build_file = "operator_v2.py"
+    try:
+        import subprocess
+        git_hash = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], 
+                                          stderr=subprocess.DEVNULL).decode('utf-8').strip()
+    except Exception:
+        git_hash = "unknown"
+    
+    build_timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    
+    col1, col2 = st.columns([3, 1])
     
     with col1:
         st.title("🎯 AICMO Operator Dashboard V2")
     
     with col2:
-        st.write("")  # Spacing
-    
-    with col3:
         st.markdown(f"""
-        <div style='text-align: right; font-size: 12px; color: #888;'>
-        <b>Build:</b> {dashboard_build}<br/>
-        <b>Status:</b> ✅ LIVE
+        <div style='text-align: right; font-size: 11px; color: #666; background: #f0f0f0; padding: 8px; border-radius: 4px;'>
+        <b>UI_BUILD_FILE:</b> {build_file}<br/>
+        <b>Git Hash:</b> {git_hash}<br/>
+        <b>Build Time:</b> {build_timestamp}
         </div>
         """, unsafe_allow_html=True)
     

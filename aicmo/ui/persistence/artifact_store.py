@@ -178,6 +178,85 @@ class ArtifactStore:
         
         return version_map
     
+    def build_source_lineage(
+        self,
+        client_id: str,
+        engagement_id: str,
+        required_types: List[ArtifactType]
+    ) -> Tuple[Dict[str, Dict[str, Any]], List[str]]:
+        """
+        Build source_lineage dict from latest approved upstream artifacts.
+        
+        Args:
+            client_id: Client ID
+            engagement_id: Engagement ID
+            required_types: List of upstream artifact types that MUST be approved
+        
+        Returns:
+            (lineage_dict, errors)
+            lineage_dict: {artifact_type: {approved_version, approved_at, artifact_id}}
+            errors: List of error messages (empty if all required types approved)
+        """
+        lineage = {}
+        errors = []
+        
+        for artifact_type in required_types:
+            approved = self.get_latest_approved(client_id, engagement_id, artifact_type)
+            
+            if not approved:
+                errors.append(f"Required upstream {artifact_type.value} not approved")
+            else:
+                lineage[artifact_type.value] = {
+                    'approved_version': approved.version,
+                    'approved_at': approved.approved_at,
+                    'artifact_id': approved.artifact_id
+                }
+        
+        return lineage, errors
+    
+    def assert_lineage_fresh(
+        self,
+        lineage: Dict[str, Dict[str, Any]],
+        client_id: str,
+        engagement_id: str
+    ) -> Tuple[bool, List[str]]:
+        """
+        Verify that lineage references are fresh (match current approved versions).
+        
+        Args:
+            lineage: source_lineage dict from artifact
+            client_id: Client ID
+            engagement_id: Engagement ID
+        
+        Returns:
+            (ok, errors)
+            ok: True if all lineage refs are fresh
+            errors: List of stale references (empty if fresh)
+        """
+        errors = []
+        
+        for artifact_type_str, lineage_info in lineage.items():
+            try:
+                artifact_type = ArtifactType(artifact_type_str)
+            except ValueError:
+                errors.append(f"Unknown artifact type in lineage: {artifact_type_str}")
+                continue
+            
+            current_approved = self.get_latest_approved(client_id, engagement_id, artifact_type)
+            
+            if not current_approved:
+                errors.append(f"Upstream {artifact_type_str} no longer approved")
+                continue
+            
+            lineage_version = lineage_info.get('approved_version')
+            if lineage_version != current_approved.version:
+                errors.append(
+                    f"Stale {artifact_type_str}: lineage has v{lineage_version}, "
+                    f"current approved is v{current_approved.version}"
+                )
+        
+        return (len(errors) == 0, errors)
+
     def _validate_status_transition(self, current: ArtifactStatus, new: ArtifactStatus) -> None:
         """
         Enforce allowed status transitions.
@@ -315,7 +394,7 @@ class ArtifactStore:
         Triggers cascade if this is a new/higher approved version.
         
         Raises:
-            ArtifactValidationError: If validation fails
+            ArtifactValidationError: If validation fails (content or lineage)
             ArtifactStateError: If status transition is invalid
         """
         # Capture previous approved version BEFORE approval
@@ -326,11 +405,21 @@ class ArtifactStore:
         )
         prev_approved_version = prev_approved.version if prev_approved else 0
         
-        # Run validation BEFORE approval
+        # Run content validation BEFORE approval
         ok, errors, warnings = self._validate_artifact_content(artifact.artifact_type, artifact.content)
         
         if not ok:
             raise ArtifactValidationError(errors, warnings)
+        
+        # Validate lineage freshness if artifact has source_lineage
+        if artifact.source_lineage:
+            lineage_ok, lineage_errors = self.assert_lineage_fresh(
+                artifact.source_lineage,
+                artifact.client_id,
+                artifact.engagement_id
+            )
+            if not lineage_ok:
+                raise ArtifactValidationError(lineage_errors, [])
         
         # Validate status transition
         self._validate_status_transition(artifact.status, ArtifactStatus.APPROVED)
@@ -434,6 +523,10 @@ class ArtifactStore:
             return validate_intake_content(content)
         elif artifact_type == ArtifactType.STRATEGY:
             return validate_strategy_contract(content)
+        elif artifact_type == ArtifactType.CREATIVES:
+            return validate_creatives_content(content)
+        elif artifact_type == ArtifactType.EXECUTION:
+            return validate_execution_content(content)
         else:
             # For now, other types have no validation
             return (True, [], [])
@@ -625,6 +718,57 @@ def validate_intake_content(content: Dict[str, Any]) -> Tuple[bool, List[str], L
             warnings.append("Generation plan exists but no jobs selected")
     
     return (len(errors) == 0, errors, warnings)
+
+
+def validate_creatives_content(content: Dict[str, Any]) -> Tuple[bool, List[str], List[str]]:
+    """
+    Validate Creatives artifact content.
+    
+    Returns: (ok: bool, errors: List[str], warnings: List[str])
+    """
+    errors = []
+    warnings = []
+    
+    # Basic structure check - must have some creatives-like content
+    if not content:
+        errors.append("Creatives content is empty")
+        return (False, errors, warnings)
+    
+    # Check for common creatives structures
+    has_creatives_list = "creatives" in content and isinstance(content.get("creatives"), list)
+    has_posts_list = "posts" in content and isinstance(content.get("posts"), list)
+    has_content_field = any(k in content for k in ["content", "creative_content", "assets"])
+    
+    if not (has_creatives_list or has_posts_list or has_content_field):
+        warnings.append("Creatives content doesn't have standard structure (creatives, posts, or assets)")
+    
+    return (len(errors) == 0, errors, warnings)
+
+
+def validate_execution_content(content: Dict[str, Any]) -> Tuple[bool, List[str], List[str]]:
+    """
+    Validate Execution artifact content.
+    
+    Returns: (ok: bool, errors: List[str], warnings: List[str])
+    """
+    errors = []
+    warnings = []
+    
+    # Basic structure check
+    if not content:
+        errors.append("Execution content is empty")
+        return (False, errors, warnings)
+    
+    # Check for execution-like structures
+    has_schedule = "schedule" in content or "calendar" in content
+    has_posts = "posts" in content
+    has_timeline = "timeline" in content or "execution_plan" in content
+    
+    if not (has_schedule or has_posts or has_timeline):
+        warnings.append("Execution content doesn't have standard structure (schedule, posts, or timeline)")
+    
+    return (len(errors) == 0, errors, warnings)
+
 
 
 def validate_strategy_contract(content: Dict[str, Any]) -> Tuple[bool, List[str], List[str]]:
