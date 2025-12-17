@@ -28,6 +28,7 @@ from backend.modules.visualgen.api.router import router as visualgen_router
 from backend.modules.taste.router import router as taste_router
 from backend.api.routes_learn import router as learn_router
 from backend.routers.cam import router as cam_router
+from backend.routers.aicmo import router as aicmo_router
 
 log = logging.getLogger("uvicorn.error")
 
@@ -83,6 +84,7 @@ app.include_router(visualgen_router, prefix="/api/visualgen", tags=["visualgen"]
 app.include_router(taste_router)
 app.include_router(learn_router, tags=["learning"])
 app.include_router(cam_router)  # CAM router already has /api/cam prefix
+app.include_router(aicmo_router, tags=["aicmo"])  # AICMO router (provides /aicmo/generate)
 
 # Metrics endpoint
 metrics_app = make_asgi_app()

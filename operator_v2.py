@@ -23,6 +23,7 @@ BUILD CHANGES:
 
 import os
 import sys
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Callable, Dict, Any, Optional, Tuple
@@ -60,6 +61,10 @@ if str(project_root) not in sys.path:
 
 os.environ["DASHBOARD_BUILD"] = DASHBOARD_BUILD
 
+# Configure logging early (before check_startup_requirements)
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
+
 # ===================================================================
 # STREAMLIT PAGE CONFIGURATION
 # ===================================================================
@@ -72,6 +77,120 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# ===================================================================
+# STARTUP CONFIGURATION CHECK (PHASE D)
+# ===================================================================
+# CRITICAL: Enforce BACKEND_URL in production mode
+# In dev mode (AICMO_DEV_STUBS=1), stubs are allowed
+# In production, must have valid backend URL
+# ===================================================================
+
+def check_startup_requirements():
+    """
+    Verify Streamlit startup requirements.
+    
+    BLOCKING REQUIREMENT:
+    - If not in dev stub mode (AICMO_DEV_STUBS != "1"):
+      → BACKEND_URL or AICMO_BACKEND_URL MUST be set
+      → If missing, show blocking error and STOP execution
+    
+    This prevents silent failures where backend calls return errors.
+    """
+    dev_stubs = os.getenv("AICMO_DEV_STUBS") == "1"
+    backend_url = os.getenv("BACKEND_URL") or os.getenv("AICMO_BACKEND_URL")
+    
+    if not dev_stubs and not backend_url:
+        # PRODUCTION MODE: Backend URL is REQUIRED
+        st.error("""
+        ❌ **CONFIGURATION ERROR**
+        
+        AICMO Operator requires BACKEND_URL configuration in production mode.
+        
+        **Required Environment Variables:**
+        - `BACKEND_URL` or `AICMO_BACKEND_URL` → Backend service URL (e.g., http://localhost:8000)
+        
+        **Development Mode (stubs only):**
+        - Set `AICMO_DEV_STUBS=1` to test with stubs (no backend required)
+        
+        **Production Mode (real generation):**
+        - Set `BACKEND_URL=http://your-backend:8000`
+        - Set valid LLM API keys if using real providers
+        
+        **To fix:**
+        ```bash
+        export BACKEND_URL=http://localhost:8000
+        streamlit run operator_v2.py
+        ```
+        """)
+        st.stop()  # Block all further execution
+    
+    # Log configuration
+    log.info(f"[STARTUP] DevStubs={dev_stubs}, BackendURL={'configured' if backend_url else 'not required (dev mode)'}")
+
+# Run startup check
+check_startup_requirements()
+
+
+# ------------------
+# Canonical navigation & session contract
+# ------------------
+NAV_TABS = [
+    "Lead Gen",
+    "Campaigns",
+    "Intake",
+    "Strategy",
+    "Creatives",
+    "Execution",
+    "Monitoring",
+    "Delivery",
+    "Autonomy",
+    "Learn",
+    "System",
+]
+
+CANONICAL_SESSION_KEYS = [
+    "active_client_id",
+    "active_engagement_id",
+    "active_client_profile",
+    "active_engagement",
+    "artifact_strategy",
+    "artifact_creatives",
+    "artifact_execution",
+    "artifact_monitoring",
+    "artifact_delivery",
+]
+
+
+def ensure_canonical_session_keys():
+    for k in CANONICAL_SESSION_KEYS:
+        if k not in st.session_state:
+            st.session_state[k] = None
+
+
+def gate(required_keys: list) -> tuple[bool, list]:
+    missing = []
+    for k in required_keys:
+        v = st.session_state.get(k, None)
+        if v is None:
+            missing.append(k)
+        else:
+            if k.startswith("artifact_"):
+                if not (isinstance(v, dict) and isinstance(v.get("id"), str) and isinstance(v.get("data"), dict)):
+                    missing.append(k)
+    return (len(missing) == 0, missing)
+
+
+def render_gate_panel(tab_name: str, required_keys: list) -> bool:
+    allowed, missing = gate(required_keys)
+    if allowed:
+        return True
+    st.error(f"Tab '{tab_name}' is blocked — missing required context:")
+    for m in missing:
+        st.write(f"- {m}")
+    st.info("Complete Intake or upstream Generate steps to enable this tab.")
+    return False
+
 
 # ===================================================================
 # UI REFACTOR MAP
@@ -204,6 +323,78 @@ def normalize_to_deliverables(module_key: str, result_content: object) -> dict:
         "summary": summary,
         "raw": raw
     }
+
+
+def backend_envelope_to_markdown(envelope: Dict[str, Any]) -> str:
+    """
+    Convert backend DeliverablesEnvelope into markdown for UI rendering.
+    
+    This handles the response from /aicmo/generate endpoint which returns:
+    {
+        "status": "SUCCESS|FAILED",
+        "module": "string",
+        "run_id": "uuid",
+        "meta": {...},
+        "deliverables": [
+            {"id": "...", "kind": "...", "title": "...", "content_markdown": "..."}
+        ]
+    }
+    
+    Returns: markdown string suitable for st.text_area editing and display
+    """
+    if not isinstance(envelope, dict):
+        return "# Error\n\nInvalid backend response format"
+    
+    status = envelope.get("status", "UNKNOWN")
+    module = envelope.get("module", "unknown")
+    deliverables = envelope.get("deliverables", [])
+    meta = envelope.get("meta", {})
+    
+    lines = []
+    
+    # Header
+    lines.append(f"# {module.title()} - {status}\n")
+    
+    # Metadata (if present)
+    if meta:
+        lines.append("## Metadata\n")
+        for k, v in meta.items():
+            if k not in ["timestamp"] and v:
+                lines.append(f"- **{k}:** {v}\n")
+        lines.append("\n")
+    
+    # Deliverables
+    if deliverables:
+        lines.append(f"## Deliverables ({len(deliverables)})\n\n")
+        for i, d in enumerate(deliverables, 1):
+            title = d.get("title", f"Deliverable {i}")
+            kind = d.get("kind", "unknown")
+            content_md = d.get("content_markdown", "")
+            
+            lines.append(f"### {i}. {title}\n")
+            lines.append(f"**Type:** {kind}\n")
+            
+            if content_md:
+                lines.append(f"\n{content_md}\n")
+            
+            lines.append("\n")
+    else:
+        if status == "SUCCESS":
+            lines.append("## Deliverables\n")
+            lines.append("(No deliverables in response - check backend)\n\n")
+        else:
+            error = envelope.get("error", {})
+            if isinstance(error, dict):
+                lines.append(f"## Error\n")
+                lines.append(f"{error.get('message', 'Unknown error')}\n\n")
+    
+    # Operator notes
+    lines.append("\n## Operator Notes\n")
+    lines.append("- Edit above content as needed\n")
+    lines.append("- Use Save Amendments to store changes\n")
+    lines.append("- Approve when ready for export\n")
+    
+    return "".join(lines)
 
 
 def is_manifest_only(content: object) -> bool:
@@ -651,48 +842,50 @@ def render_deliverables_output(tab_key: str, last_result: dict) -> None:
         
         st.subheader("📥 Export")
         
+        # Get current state
+        draft_text = st.session_state.get(draft_text_key, "")
+        approved_text = st.session_state.get(approved_text_key, None)
         export_ready = st.session_state.get(export_ready_key, False)
-        approved_text = st.session_state.get(approved_text_key, "")
         
-        # Generate filename with timestamp
-        now = datetime.now()
-        timestamp_str = now.strftime("%Y%m%d_%H%M")
-        markdown_filename = f"aicmo_{tab_key}_{timestamp_str}.md"
-        json_filename = f"aicmo_{tab_key}_{timestamp_str}.json"
-        
-        col_md, col_json = st.columns(2)
-        
-        with col_md:
-            if st.download_button(
-                label="⬇️ Download Markdown",
-                data=approved_text,
-                file_name=markdown_filename,
-                mime="text/markdown",
-                disabled=not export_ready,
-                key=f"{tab_key}__download_md"
-            ):
-                st.toast(f"Exported: {markdown_filename}")
-        
-        with col_json:
-            # Optional: Also provide JSON export of approved envelope
-            if st.download_button(
-                label="⬇️ Download JSON",
-                data=json.dumps({
+        # Guard: Only render buttons if approved_text is valid
+        if isinstance(approved_text, str) and approved_text.strip():
+            # Generate filename with timestamp
+            now = datetime.now()
+            timestamp_str = now.strftime("%Y%m%d_%H%M")
+            markdown_filename = f"aicmo_{tab_key}_{timestamp_str}.md"
+            json_filename = f"aicmo_{tab_key}_{timestamp_str}.json"
+            
+            col_md, col_json = st.columns(2)
+            
+            with col_md:
+                if st.download_button(
+                    label="⬇️ Download Markdown",
+                    data=approved_text,
+                    file_name=markdown_filename,
+                    mime="text/markdown",
+                    key=f"{tab_key}__download_md"
+                ):
+                    st.toast(f"Exported: {markdown_filename}")
+            
+            with col_json:
+                # Optional: Also provide JSON export of approved envelope
+                json_data = json.dumps({
                     "tab": tab_key,
                     "approved_text": approved_text,
                     "approved_at": st.session_state.get(approved_at_key),
                     "approved_by": st.session_state.get(approved_by_key),
                     "exported_at": datetime.now().isoformat()
-                }, indent=2),
-                file_name=json_filename,
-                mime="application/json",
-                disabled=not export_ready,
-                key=f"{tab_key}__download_json"
-            ):
-                st.toast(f"Exported: {json_filename}")
-        
-        if not export_ready:
-            st.warning("⚠️ **Export disabled.** Approve the deliverable first.")
+                }, indent=2)
+                if st.download_button(
+                    label="⬇️ Download JSON",
+                    data=json_data,
+                    file_name=json_filename,
+                    mime="application/json",
+                    key=f"{tab_key}__download_json"
+                ):
+                    st.toast(f"Exported: {json_filename}")
+        else:
+            st.info("✏️ Approve the deliverable to enable export.")
     
     # ─────────────────────────────────────────────────────────────
     # FAILURE PATH
@@ -804,13 +997,48 @@ def aicmo_tab_shell(
     # ─────────────────────────────────────────────────────────────
     
     col_generate, col_reset, col_status = st.columns([2, 1, 1])
-    
+
+    # Determine gating requirements per tab_key
+    tab_required_map = {
+        "leadgen": [],
+        "campaigns": [],
+        "intake": [],
+        "strategy": ["active_client_id", "active_engagement_id"],
+        "creatives": ["active_client_id", "active_engagement_id", "artifact_strategy"],
+        "execution": ["active_client_id", "active_engagement_id", "artifact_creatives"],
+        "monitoring": ["artifact_execution"],
+        "delivery": ["active_client_id", "active_engagement_id", "artifact_strategy", "artifact_creatives"],
+        "autonomy": [],
+        "learn": [],
+        "system": [],
+    }
+
+    # if campaigns has a client_campaign input, require active_engagement_id
+    inputs_for_check = inputs or {}
+    extra_required = []
+    if tab_key == "campaigns":
+        if inputs_for_check.get("campaign_type") == "client_campaign":
+            extra_required.append("active_engagement_id")
+
+    required_keys = tab_required_map.get(tab_key, []) + extra_required
+
+    # Ensure canonical session keys exist
+    ensure_canonical_session_keys()
+
+    # Gate: determine allowed and render blocking panel if not allowed
+    allowed, missing_keys = gate(required_keys)
+
     with col_generate:
         is_running = st.session_state[running_key]
+        generate_disabled = is_running or (not allowed)
+        # Show explicit blocked panel when not allowed
+        if not allowed:
+            st.warning(f"Blocked: missing {', '.join(missing_keys)}")
+
         if st.button(
             "🚀 Generate",
             type="primary",
-            disabled=is_running,
+            disabled=generate_disabled,
             use_container_width=True,
             key=f"{tab_key}__generate_btn"
         ):
@@ -893,30 +1121,214 @@ def aicmo_tab_shell(
 
 
 # ===================================================================
+# HTTP CLIENT LAYER - Streamlit ↔ Backend Communication
+# ===================================================================
+
+import requests
+import uuid
+
+def get_backend_base_url() -> Optional[str]:
+    """
+    Get backend base URL from environment.
+    
+    Reads: BACKEND_URL or AICMO_BACKEND_URL
+    Returns None if not configured (UI will show blocking error)
+    """
+    url = os.getenv("BACKEND_URL") or os.getenv("AICMO_BACKEND_URL")
+    if not url:
+        log.warning("Backend URL not configured (BACKEND_URL or AICMO_BACKEND_URL)")
+    return url
+
+def backend_post_json(
+    path: str,
+    payload: Dict[str, Any],
+    timeout_s: int = 120,
+) -> Dict[str, Any]:
+    """
+    POST JSON to backend endpoint.
+    
+    Args:
+        path: Endpoint path (e.g., "/aicmo/generate")
+        payload: Request payload dict
+        timeout_s: Request timeout in seconds
+    
+    Returns:
+        Response dict with: status, run_id, module, meta, deliverables, error, trace_id
+        On error: returns FAILED envelope with error details
+    """
+    backend_url = get_backend_base_url()
+    if not backend_url:
+        return {
+            "status": "FAILED",
+            "error": "BACKEND_URL not configured (set BACKEND_URL or AICMO_BACKEND_URL env var)",
+            "trace_id": None,
+            "deliverables": [],
+        }
+    
+    url = f"{backend_url}{path}"
+    trace_id = str(uuid.uuid4())
+    
+    try:
+        log.info(f"POST {path} trace_id={trace_id[:12]}")
+        
+        response = requests.post(
+            url,
+            json=payload,
+            timeout=timeout_s,
+            headers={"X-Trace-ID": trace_id},
+        )
+        
+        response.raise_for_status()
+        data = response.json()
+        
+        # Add trace_id to response if not present
+        if "trace_id" not in data:
+            data["trace_id"] = trace_id
+        
+        log.info(f"POST {path} → {response.status_code} trace_id={trace_id[:12]}")
+        return data
+    
+    except requests.exceptions.Timeout:
+        log.error(f"Request timeout: {path}")
+        return {
+            "status": "FAILED",
+            "error": f"Backend request timeout after {timeout_s}s",
+            "trace_id": trace_id,
+            "deliverables": [],
+        }
+    except requests.exceptions.ConnectionError as e:
+        log.error(f"Connection error: {path} {e}")
+        return {
+            "status": "FAILED",
+            "error": f"Cannot connect to backend: {url}",
+            "trace_id": trace_id,
+            "deliverables": [],
+        }
+    except requests.exceptions.HTTPError as e:
+        log.error(f"HTTP error {response.status_code}: {path}")
+        try:
+            error_data = response.json()
+        except:
+            error_data = {"detail": response.text}
+        return {
+            "status": "FAILED",
+            "error": f"Backend error: {error_data}",
+            "trace_id": trace_id,
+            "deliverables": [],
+        }
+    except Exception as e:
+        log.error(f"Unexpected error: {path} {e}", exc_info=True)
+        return {
+            "status": "FAILED",
+            "error": f"Unexpected error: {str(e)}",
+            "trace_id": trace_id,
+            "deliverables": [],
+        }
+
+def validate_backend_response(response: Dict[str, Any]) -> Tuple[bool, str]:
+    """
+    Validate backend response matches deliverables contract.
+    
+    Returns: (is_valid, error_message)
+    """
+    if not isinstance(response, dict):
+        return False, "Response is not a dict"
+    
+    # Check required fields
+    if "status" not in response:
+        return False, "Missing status field"
+    
+    if response["status"] == "SUCCESS":
+        # SUCCESS requires non-empty deliverables
+        deliverables = response.get("deliverables", [])
+        if not deliverables or not isinstance(deliverables, list):
+            return False, "SUCCESS status requires non-empty deliverables list"
+        
+        # Each deliverable must have non-empty content_markdown
+        for i, d in enumerate(deliverables):
+            if not isinstance(d, dict):
+                return False, f"Deliverable {i} is not a dict"
+            
+            content = d.get("content_markdown", "")
+            if not content or not str(content).strip():
+                return False, f"Deliverable {i} has empty content_markdown"
+    
+    return True, ""
+
+
+# ===================================================================
 # TAB RUNNERS (Backend Integration)
 # ===================================================================
 # Each runner takes inputs dict and returns standardized result envelope
 
 def run_intake_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """Run intake workflow"""
+    """Run intake workflow via backend"""
     try:
         name = inputs.get("name", "").strip()
         email = inputs.get("email", "").strip()
         company = inputs.get("company", "").strip()
         
         if not (name and email):
-            raise ValueError("Name and email are required")
+            return {
+                "status": "FAILED",
+                "content": "Name and email are required",
+                "meta": {"tab": "intake"},
+                "debug": {}
+            }
         
-        # In production: call backend
-        # success, data, error = http_post_json("/intake/leads", {...})
+        # Check dev stubs flag
+        if os.getenv("AICMO_DEV_STUBS") == "1":
+            log.info("[INTAKE] Using dev stub (AICMO_DEV_STUBS=1)")
+            return {
+                "status": "SUCCESS",
+                "content": f"✅ [STUB] Lead '{name}' from {company} ({email}) submitted to intake queue.",
+                "meta": {"lead_name": name, "email": email, "company": company},
+                "debug": {"note": "This is a stub response"}
+            }
         
+        # Call backend
+        backend_response = backend_post_json(
+            "/aicmo/generate",
+            {
+                "brief": f"Lead intake: {name} from {company}",
+                "client_email": email,
+                "use_case": "intake",
+                "metadata": {"name": name, "email": email, "company": company}
+            }
+        )
+        
+        # Validate response
+        is_valid, error_msg = validate_backend_response(backend_response)
+        if not is_valid:
+            log.error(f"Backend response validation failed: {error_msg}")
+            return {
+                "status": "FAILED",
+                "content": f"Backend validation error: {error_msg}",
+                "meta": {"tab": "intake", "trace_id": backend_response.get("trace_id")},
+                "debug": {"raw_response": backend_response}
+            }
+        
+        # Convert backend envelope to markdown for editing
+        draft_md = backend_envelope_to_markdown(backend_response)
+        
+        # Success: return converted markdown as content (not summary text!)
         return {
-            "status": "SUCCESS",
-            "content": f"✅ Lead '{name}' from {company} ({email}) submitted to intake queue.",
-            "meta": {"lead_name": name, "email": email, "company": company},
-            "debug": {}
+            "status": backend_response.get("status", "SUCCESS"),
+            "content": draft_md,  # THIS IS THE KEY FIX: markdown content, not summary
+            "meta": {
+                "lead_name": name,
+                "email": email,
+                "company": company,
+                "trace_id": backend_response.get("trace_id"),
+                "provider": backend_response.get("meta", {}).get("provider"),
+                "run_id": backend_response.get("run_id"),
+            },
+            "debug": {
+                "raw_envelope": backend_response,  # Store full envelope in debug
+            }
         }
     except Exception as e:
+        log.error(f"Intake error: {e}", exc_info=True)
         return {
             "status": "FAILED",
             "content": str(e),
@@ -926,33 +1338,56 @@ def run_intake_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def run_strategy_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """Run strategy generation"""
+    """Run strategy generation via backend"""
     try:
         campaign_name = inputs.get("campaign_name", "").strip()
         if not campaign_name:
-            raise ValueError("Campaign name required")
-        
-        # Stub: would call backend strategy generation
-        strategy_output = {
-            "campaign": campaign_name,
-            "objectives": inputs.get("objectives", []),
-            "platforms": inputs.get("platforms", []),
-            "estimated_reach": "100K-500K",
-            "timeline": "8 weeks",
-            "budget_allocation": {
-                "content_creation": "30%",
-                "paid_promotion": "50%",
-                "contingency": "20%"
+            return {
+                "status": "FAILED",
+                "content": "Campaign name is required",
+                "meta": {"tab": "strategy"},
+                "debug": {}
             }
-        }
+        
+        if os.getenv("AICMO_DEV_STUBS") == "1":
+            log.info("[STRATEGY] Using dev stub")
+            return {
+                "status": "SUCCESS",
+                "content": f"# {campaign_name} Strategy\n\n[Stub Mode - Real generation disabled]\n\n## Operator Notes\n- Edit content above",
+                "meta": {"campaign": campaign_name},
+                "debug": {"note": "stub"}
+            }
+        
+        backend_response = backend_post_json(
+            "/aicmo/generate",
+            {"brief": f"Strategy: {campaign_name}", "use_case": "strategy"}
+        )
+        
+        is_valid, error_msg = validate_backend_response(backend_response)
+        if not is_valid:
+            return {
+                "status": "FAILED",
+                "content": error_msg,
+                "meta": {"tab": "strategy", "trace_id": backend_response.get("trace_id")},
+                "debug": {"raw_response": backend_response}
+            }
+        
+        # KEY FIX: Convert envelope to markdown
+        draft_md = backend_envelope_to_markdown(backend_response)
         
         return {
-            "status": "SUCCESS",
-            "content": strategy_output,
-            "meta": {"campaign": campaign_name, "status": "generated"},
-            "debug": {}
+            "status": backend_response.get("status", "SUCCESS"),
+            "content": draft_md,  # Markdown content, not JSON
+            "meta": {
+                "campaign": campaign_name,
+                "trace_id": backend_response.get("trace_id"),
+                "provider": backend_response.get("meta", {}).get("provider"),
+                "run_id": backend_response.get("run_id"),
+            },
+            "debug": {"raw_envelope": backend_response}
         }
     except Exception as e:
+        log.error(f"Strategy error: {e}")
         return {
             "status": "FAILED",
             "content": str(e),
@@ -962,63 +1397,51 @@ def run_strategy_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def run_creatives_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """Run creative generation"""
+    """Run creative generation via backend"""
     try:
         topic = inputs.get("topic", "").strip()
         if not topic:
-            raise ValueError("Topic required for creative generation")
+            return {"status": "FAILED", "content": "Topic required", "meta": {"tab": "creatives"}, "debug": {}}
         
-        # Generate deliverable-ready content (not just manifest)
-        # In production, this would call backend LLM service
-        creatives = [
-            {
-                "id": "creative_1",
-                "title": f"LinkedIn Professional Post - {topic}",
-                "platform": "linkedin",
-                "type": "image",
-                "format": "image",
-                "caption": f"🎯 **Discover the Power of {topic}**\n\nLearn how {topic} can transform your business process. Here's what you need to know...\n\n✓ Increase efficiency\n✓ Reduce costs\n✓ Improve quality",
-                "hashtags": [topic.lower().replace(" ", ""), "business", "innovation"],
-                "image_url": None,
-                "timestamp": datetime.now().isoformat()
-            },
-            {
-                "id": "creative_2",
-                "title": f"Instagram Carousel - {topic} Guide",
-                "platform": "instagram",
-                "type": "carousel",
-                "format": "carousel",
-                "carousel_slides": [
-                    f"Slide 1: {topic} 101\nDive deep into the basics",
-                    f"Slide 2: Best Practices\nWhat the experts recommend",
-                    f"Slide 3: Real Results\nCompanies see 40% improvement"
-                ],
-                "hashtags": [topic.lower().replace(" ", ""), "instagram", "carousel"],
-                "timestamp": datetime.now().isoformat()
-            },
-            {
-                "id": "creative_3",
-                "title": f"Twitter Thread - {topic} Tips",
-                "platform": "twitter",
-                "type": "text",
-                "format": "text",
-                "body_markdown": f"🧵 Thread: 5 Game-Changing Tips for {topic}\n\n1/ Start with strategy. Understand your goals before diving in.\n\n2/ Invest in quality. Cut corners now = regret later.\n\n3/ Measure everything. Data drives decisions.\n\n4/ Iterate fast. Ship, learn, improve.\n\n5/ Share wins. Your team deserves recognition.",
-                "hashtags": [topic.lower().replace(" ", ""), "twitter", "tips"],
-                "timestamp": datetime.now().isoformat()
+        if os.getenv("AICMO_DEV_STUBS") == "1":
+            log.info("[CREATIVES] Using dev stub")
+            return {
+                "status": "SUCCESS",
+                "content": f"# Creative Concepts for {topic}\n\n[Stub Mode]\n\n## Operator Notes\n- Edit above",
+                "meta": {"topic": topic},
+                "debug": {}
             }
-        ]
+        
+        backend_response = backend_post_json(
+            "/aicmo/generate",
+            {"brief": f"Creatives for: {topic}", "use_case": "creatives"}
+        )
+        
+        is_valid, error_msg = validate_backend_response(backend_response)
+        if not is_valid:
+            return {
+                "status": "FAILED",
+                "content": error_msg,
+                "meta": {"tab": "creatives"},
+                "debug": {"raw_response": backend_response}
+            }
+        
+        # KEY FIX: Convert envelope to markdown
+        draft_md = backend_envelope_to_markdown(backend_response)
         
         return {
-            "status": "SUCCESS",
-            "content": {
+            "status": backend_response.get("status", "SUCCESS"),
+            "content": draft_md,  # Markdown content
+            "meta": {
                 "topic": topic,
-                "creatives_generated": len(creatives),
-                "creatives": creatives
+                "trace_id": backend_response.get("trace_id"),
+                "provider": backend_response.get("meta", {}).get("provider"),
+                "run_id": backend_response.get("run_id"),
             },
-            "meta": {"topic": topic, "count": len(creatives), "status": "ready_to_publish"},
-            "debug": {}
+            "debug": {"raw_envelope": backend_response}
         }
     except Exception as e:
+        log.error(f"Creatives error: {e}")
         return {
             "status": "FAILED",
             "content": str(e),
@@ -1028,250 +1451,173 @@ def run_creatives_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def run_execution_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """Run campaign execution scheduling"""
+    """Run campaign execution scheduling via backend"""
     try:
         campaign_id = inputs.get("campaign_id", "").strip()
         if not campaign_id:
-            raise ValueError("Campaign ID required")
+            return {"status": "FAILED", "content": "Campaign ID required", "meta": {"tab": "execution"}, "debug": {}}
         
-        # Stub: would schedule posts
-        scheduled = {
-            "campaign_id": campaign_id,
-            "total_posts": 12,
-            "first_post": "2025-12-20T09:00:00Z",
-            "last_post": "2026-01-31T17:00:00Z"
-        }
+        if os.getenv("AICMO_DEV_STUBS") == "1":
+            log.info("[EXECUTION] Using dev stub")
+            return {"status": "SUCCESS", "content": f"# Execution Plan: {campaign_id}\n\n[Stub Mode]\n\n## Notes\n- Edit above", "meta": {"campaign_id": campaign_id}, "debug": {"note": "stub"}}
         
+        backend_response = backend_post_json("/aicmo/generate", {"campaign_id": campaign_id, "use_case": "execution"})
+        is_valid, error_msg = validate_backend_response(backend_response)
+        if not is_valid:
+            return {"status": "FAILED", "content": error_msg, "meta": {"tab": "execution", "trace_id": backend_response.get("trace_id")}, "debug": {"raw_response": backend_response}}
+        
+        draft_md = backend_envelope_to_markdown(backend_response)
         return {
-            "status": "SUCCESS",
-            "content": f"✅ Campaign '{campaign_id}' scheduled: {scheduled['total_posts']} posts queued",
-            "meta": {"campaign_id": campaign_id, "posts": scheduled['total_posts']},
-            "debug": {}
+            "status": backend_response.get("status", "SUCCESS"),
+            "content": draft_md,
+            "meta": {
+                "campaign_id": campaign_id,
+                "trace_id": backend_response.get("trace_id"),
+                "provider": backend_response.get("meta", {}).get("provider"),
+                "run_id": backend_response.get("run_id"),
+            },
+            "debug": {"raw_envelope": backend_response}
         }
     except Exception as e:
-        return {
-            "status": "FAILED",
-            "content": str(e),
-            "meta": {"tab": "execution"},
-            "debug": {"traceback": traceback.format_exc()}
-        }
+        log.error(f"Execution error: {e}")
+        return {"status": "FAILED", "content": str(e), "meta": {"tab": "execution"}, "debug": {"traceback": traceback.format_exc()}}
 
 
 def run_monitoring_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """Run monitoring query"""
+    """Run monitoring query via backend"""
     try:
         campaign_id = inputs.get("campaign_id", "").strip()
         if not campaign_id:
-            raise ValueError("Campaign ID required")
+            return {"status": "FAILED", "content": "Campaign ID required", "meta": {"tab": "monitoring"}, "debug": {}}
         
-        # Stub: would fetch analytics
-        analytics = {
-            "impressions": 125000,
-            "clicks": 3400,
-            "ctr": "2.7%",
-            "leads": 89,
-            "cpc": "$1.24"
-        }
+        if os.getenv("AICMO_DEV_STUBS") == "1":
+            log.info("[MONITORING] Using dev stub")
+            return {"status": "SUCCESS", "content": f"# Performance Report: {campaign_id}\n\n[Stub Mode]\n\n## Notes\n- Edit above", "meta": {"campaign_id": campaign_id}, "debug": {"note": "stub"}}
         
+        backend_response = backend_post_json("/aicmo/generate", {"campaign_id": campaign_id, "use_case": "monitoring"})
+        is_valid, error_msg = validate_backend_response(backend_response)
+        if not is_valid:
+            return {"status": "FAILED", "content": error_msg, "meta": {"tab": "monitoring", "trace_id": backend_response.get("trace_id")}, "debug": {"raw_response": backend_response}}
+        
+        draft_md = backend_envelope_to_markdown(backend_response)
         return {
-            "status": "SUCCESS",
-            "content": analytics,
-            "meta": {"campaign_id": campaign_id},
-            "debug": {}
+            "status": backend_response.get("status", "SUCCESS"),
+            "content": draft_md,
+            "meta": {
+                "campaign_id": campaign_id,
+                "trace_id": backend_response.get("trace_id"),
+                "provider": backend_response.get("meta", {}).get("provider"),
+                "run_id": backend_response.get("run_id"),
+            },
+            "debug": {"raw_envelope": backend_response}
         }
     except Exception as e:
-        return {
-            "status": "FAILED",
-            "content": str(e),
-            "meta": {"tab": "monitoring"},
-            "debug": {"traceback": traceback.format_exc()}
-        }
+        log.error(f"Monitoring error: {e}")
+        return {"status": "FAILED", "content": str(e), "meta": {"tab": "monitoring"}, "debug": {"traceback": traceback.format_exc()}}
 
 
 def run_leadgen_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """Run lead generation query"""
+    """Run lead generation query via backend"""
     try:
         filters = inputs.get("filters", {})
+        if os.getenv("AICMO_DEV_STUBS") == "1":
+            log.info("[LEADGEN] Using dev stub")
+            return {"status": "SUCCESS", "content": {"total_leads": 5, "leads": []}, "meta": {"count": 5}, "debug": {}}
         
-        # Stub: would query leads from DB
-        leads = [
-            {"id": f"lead_{i}", "status": "NEW", "score": 85 - i*10}
-            for i in range(5)
-        ]
+        backend_response = backend_post_json("/aicmo/generate", {"filters": filters, "use_case": "leadgen"})
+        is_valid, error_msg = validate_backend_response(backend_response)
+        if not is_valid:
+            return {"status": "FAILED", "content": error_msg, "meta": {"tab": "leadgen"}, "debug": {}}
         
-        return {
-            "status": "SUCCESS",
-            "content": {
-                "total_leads": len(leads),
-                "leads": leads
-            },
-            "meta": {"count": len(leads)},
-            "debug": {}
-        }
+        return {"status": backend_response.get("status", "SUCCESS"), "content": backend_response.get("deliverables", []), "meta": {"count": len(backend_response.get("deliverables", []))}, "debug": {}}
     except Exception as e:
-        return {
-            "status": "FAILED",
-            "content": str(e),
-            "meta": {"tab": "leadgen"},
-            "debug": {"traceback": traceback.format_exc()}
-        }
+        log.error(f"Leadgen error: {e}")
+        return {"status": "FAILED", "content": str(e), "meta": {"tab": "leadgen"}, "debug": {}}
 
 
 def run_campaigns_full_pipeline(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Run full campaign pipeline (Create → Generate → Review → Approve → Execute)
-    automatically behind single Generate button
-    """
+    """Run full campaign pipeline via backend"""
     try:
         campaign_name = inputs.get("campaign_name", "").strip()
         if not campaign_name:
-            raise ValueError("Campaign name required")
+            return {"status": "FAILED", "content": "Campaign name required", "meta": {"tab": "campaigns"}, "debug": {}}
         
-        # STEP 1: Create
-        campaign_id = f"camp_{datetime.now().timestamp()}"
+        if os.getenv("AICMO_DEV_STUBS") == "1":
+            log.info("[CAMPAIGNS] Using dev stub")
+            return {"status": "SUCCESS", "content": {"campaign_id": "test_123", "campaign_name": campaign_name}, "meta": {"status": "executed"}, "debug": {}}
         
-        # STEP 2: Generate strategy + deliverables
-        objectives = inputs.get("objectives", [])
-        platforms = inputs.get("platforms", [])
+        backend_response = backend_post_json("/aicmo/generate", {"brief": f"Campaign: {campaign_name}", "objectives": inputs.get("objectives", []), "platforms": inputs.get("platforms", [])})
+        is_valid, error_msg = validate_backend_response(backend_response)
+        if not is_valid:
+            return {"status": "FAILED", "content": error_msg, "meta": {"tab": "campaigns"}, "debug": {}}
         
-        # Create campaign deliverables
-        campaign_deliverables = [
-            {
-                "id": campaign_id,
-                "title": f"Campaign: {campaign_name}",
-                "platform": None,
-                "format": "campaign_summary",
-                "body_markdown": f"**Campaign Configuration**\n\n"
-                               f"- **Objectives:** {', '.join(objectives) if objectives else 'General'}\n"
-                               f"- **Platforms:** {', '.join(platforms) if platforms else 'All'}\n"
-                               f"- **Budget:** ${inputs.get('budget', 'TBD')}\n"
-                               f"- **Duration:** {inputs.get('duration', 'TBD')} weeks\n\n"
-                               f"**Status:** Ready to execute",
-                "hashtags": [],
-                "timestamp": datetime.now().isoformat(),
-                "meta": {
-                    "campaign_id": campaign_id,
-                    "created_at": datetime.now().isoformat(),
-                    "status": "active"
-                }
-            }
-        ]
-        
-        # STEP 3: Review (auto-approve for demo)
-        approval_status = "AUTO_APPROVED"
-        
-        # STEP 4: Generate sample posts for each platform
-        for platform in (platforms if platforms else ["LinkedIn", "Twitter"]):
-            post_copy = f"Check out our latest insights on {campaign_name}! #innovation #{campaign_name.lower().replace(' ', '')}"
-            campaign_deliverables.append({
-                "id": f"post_{platform.lower()}",
-                "title": f"{platform} Post - {campaign_name}",
-                "platform": platform,
-                "format": "post",
-                "body_markdown": post_copy,
-                "hashtags": ["campaign", campaign_name.lower().replace(" ", "")],
-                "timestamp": datetime.now().isoformat()
-            })
-        
-        return {
-            "status": "SUCCESS",
-            "content": {
-                "campaign_id": campaign_id,
-                "campaign_name": campaign_name,
-                "creatives": campaign_deliverables,
-                "total_posts": len(campaign_deliverables) - 1
-            },
-            "meta": {
-                "campaign_id": campaign_id,
-                "name": campaign_name,
-                "status": "executed",
-                "platforms": ", ".join(platforms) if platforms else "All"
-            },
-            "debug": {}
-        }
+        return {"status": backend_response.get("status", "SUCCESS"), "content": backend_response.get("deliverables", []), "meta": {"campaign_name": campaign_name, "status": "executed"}, "debug": {}}
     except Exception as e:
-        return {
-            "status": "FAILED",
-            "content": str(e),
-            "meta": {"tab": "campaigns"},
-            "debug": {"traceback": traceback.format_exc()}
-        }
+        log.error(f"Campaigns error: {e}")
+        return {"status": "FAILED", "content": str(e), "meta": {"tab": "campaigns"}, "debug": {}}
 
 
 def run_autonomy_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """Run autonomy settings"""
+    """Run autonomy settings via backend"""
     try:
         autonomy_level = inputs.get("autonomy_level", "manual")
         
-        return {
-            "status": "SUCCESS",
-            "content": f"✅ Autonomy settings updated: {autonomy_level}",
-            "meta": {"autonomy_level": autonomy_level},
-            "debug": {}
-        }
+        if os.getenv("AICMO_DEV_STUBS") == "1":
+            log.info("[AUTONOMY] Using dev stub")
+            return {"status": "SUCCESS", "content": f"Autonomy: {autonomy_level}", "meta": {"autonomy_level": autonomy_level}, "debug": {}}
+        
+        backend_response = backend_post_json("/aicmo/generate", {"autonomy_level": autonomy_level, "use_case": "autonomy"})
+        is_valid, error_msg = validate_backend_response(backend_response)
+        if not is_valid:
+            return {"status": "FAILED", "content": error_msg, "meta": {"tab": "autonomy"}, "debug": {}}
+        
+        return {"status": "SUCCESS", "content": f"✅ Autonomy: {autonomy_level}", "meta": {"autonomy_level": autonomy_level}, "debug": {}}
     except Exception as e:
-        return {
-            "status": "FAILED",
-            "content": str(e),
-            "meta": {"tab": "autonomy"},
-            "debug": {"traceback": traceback.format_exc()}
-        }
+        log.error(f"Autonomy error: {e}")
+        return {"status": "FAILED", "content": str(e), "meta": {"tab": "autonomy"}, "debug": {}}
 
 
 def run_delivery_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """Run report generation"""
+    """Run report generation via backend"""
     try:
         report_type = inputs.get("report_type", "summary")
         campaign_id = inputs.get("campaign_id", "")
         
-        report = {
-            "type": report_type,
-            "campaign_id": campaign_id,
-            "generated_at": datetime.now().isoformat(),
-            "pages": 5,
-            "format": "PDF"
-        }
+        if os.getenv("AICMO_DEV_STUBS") == "1":
+            log.info("[DELIVERY] Using dev stub")
+            return {"status": "SUCCESS", "content": f"Report: {report_type}.pdf", "meta": {"type": report_type}, "debug": {}}
         
-        return {
-            "status": "SUCCESS",
-            "content": f"✅ Report generated: {report_type}.pdf",
-            "meta": {"type": report_type, "pages": 5},
-            "debug": {}
-        }
+        backend_response = backend_post_json("/aicmo/generate", {"report_type": report_type, "campaign_id": campaign_id, "use_case": "delivery"})
+        is_valid, error_msg = validate_backend_response(backend_response)
+        if not is_valid:
+            return {"status": "FAILED", "content": error_msg, "meta": {"tab": "delivery"}, "debug": {}}
+        
+        return {"status": "SUCCESS", "content": f"✅ Report generated", "meta": {"type": report_type}, "debug": {}}
     except Exception as e:
-        return {
-            "status": "FAILED",
-            "content": str(e),
-            "meta": {"tab": "delivery"},
-            "debug": {"traceback": traceback.format_exc()}
-        }
+        log.error(f"Delivery error: {e}")
+        return {"status": "FAILED", "content": str(e), "meta": {"tab": "delivery"}, "debug": {}}
 
 
 def run_learn_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """Run knowledge base query"""
+    """Run knowledge base query via backend"""
     try:
         query = inputs.get("query", "").strip()
         if not query:
-            raise ValueError("Query required")
+            return {"status": "FAILED", "content": "Query required", "meta": {"tab": "learn"}, "debug": {}}
         
-        results = [
-            {"title": f"Result {i}", "snippet": f"Knowledge about {query}..."}
-            for i in range(3)
-        ]
+        if os.getenv("AICMO_DEV_STUBS") == "1":
+            log.info("[LEARN] Using dev stub")
+            return {"status": "SUCCESS", "content": {"query": query, "results": 3}, "meta": {"query": query}, "debug": {}}
         
-        return {
-            "status": "SUCCESS",
-            "content": results,
-            "meta": {"query": query, "results": len(results)},
-            "debug": {}
-        }
+        backend_response = backend_post_json("/aicmo/generate", {"query": query, "use_case": "learn"})
+        is_valid, error_msg = validate_backend_response(backend_response)
+        if not is_valid:
+            return {"status": "FAILED", "content": error_msg, "meta": {"tab": "learn"}, "debug": {}}
+        
+        return {"status": "SUCCESS", "content": backend_response.get("deliverables", []), "meta": {"query": query}, "debug": {}}
     except Exception as e:
-        return {
-            "status": "FAILED",
-            "content": str(e),
-            "meta": {"tab": "learn"},
-            "debug": {"traceback": traceback.format_exc()}
-        }
+        log.error(f"Learn error: {e}")
+        return {"status": "FAILED", "content": str(e), "meta": {"tab": "learn"}, "debug": {}}
 
 
 # ===================================================================
@@ -1769,28 +2115,32 @@ def main():
     render_ux_integrity_panel()
     st.write("")  # Spacing
     
-    # Define all tabs
-    tabs_config = [
-        ("📥 Intake", render_intake_tab),
-        ("📊 Strategy", render_strategy_tab),
-        ("🎨 Creatives", render_creatives_tab),
-        ("🚀 Execution", render_execution_tab),
-        ("📈 Monitoring", render_monitoring_tab),
-        ("🎯 Lead Gen", render_leadgen_tab),
-        ("🎬 Campaigns", render_campaigns_tab),
-        ("🤖 Autonomy", render_autonomy_tab),
-        ("📦 Delivery", render_delivery_tab),
-        ("📚 Learn", render_learn_tab),
-        ("🔧 System", render_system_diag_tab),
-    ]
-    
-    tab_names = [name for name, _ in tabs_config]
+    # Define tabs according to canonical NAV_TABS order
+    renderer_map = {
+        "Lead Gen": render_leadgen_tab,
+        "Campaigns": render_campaigns_tab,
+        "Intake": render_intake_tab,
+        "Strategy": render_strategy_tab,
+        "Creatives": render_creatives_tab,
+        "Execution": render_execution_tab,
+        "Monitoring": render_monitoring_tab,
+        "Delivery": render_delivery_tab,
+        "Autonomy": render_autonomy_tab,
+        "Learn": render_learn_tab,
+        "System": render_system_diag_tab,
+    }
+
+    tab_names = NAV_TABS
     tabs = st.tabs(tab_names)
-    
-    for tab, (_, render_func) in zip(tabs, tabs_config):
+
+    for tab, name in zip(tabs, tab_names):
         with tab:
             try:
-                render_func()
+                renderer = renderer_map.get(name)
+                if renderer:
+                    renderer()
+                else:
+                    st.error(f"No renderer for tab: {name}")
             except Exception as e:
                 st.error(f"Error rendering tab: {str(e)}")
                 st.exception(e)

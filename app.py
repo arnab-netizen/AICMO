@@ -14,113 +14,17 @@ If imported or run directly, raises RuntimeError to prevent accidental deploymen
 
 import sys
 
-# Block direct execution or import as FastAPI app
-raise RuntimeError(
-    "DEPRECATED_STREAMLIT_ENTRYPOINT: app.py is legacy code. "
-    "Use 'streamlit run streamlit_pages/aicmo_operator.py' for Streamlit UI. "
-    "See RUNBOOK_RENDER_STREAMLIT.md:33 for details."
-)
+"""Thin wrapper entrypoint for Streamlit UI.
 
-sys.exit(1)
-
-import os
-import time
-import json
-import requests
-import streamlit as st
-
-# Show deprecation warning to users
-st.warning(
-    "⚠️ **DEPRECATED**: This is a simple example dashboard. "
-    "Use `streamlit_pages/aicmo_operator.py` for production workflows."
-)
-
-# ------------------------------
-# Basic page setup
-# ------------------------------
-st.set_page_config(page_title="AI-CMO Dashboard (DEPRECATED)", layout="centered")
-
-st.title("AI-CMO — Simple Dashboard")
-st.caption(
-    "Paste client info, pick a feature, click Run. Supports CopyHook (Day 1) and VisualGen (Day 2)."
-)
-
-# ------------------------------
-# Config inputs (non-technical)
-# ------------------------------
-with st.expander("Setup (edit once, then reuse)", expanded=True):
-    colA, colB = st.columns(2)
-    with colA:
-        api_base = st.text_input(
-            "API Base URL",
-            value=os.getenv("AICMO_API_BASE", "https://YOUR_SERVICE_HOST"),
-            help="Example: https://copyhook.example.com (if separate hosts, use the Conductor URL or the module host)",
-        )
-        api_key = st.text_input(
-            "API Key (X-API-Key header)",
-            value=os.getenv("AICMO_API_KEY", ""),
-            type="password",
-            help="Ask your backend for an API key; required for authenticated calls.",
-        )
-        poll_seconds = st.number_input(
-            "Max wait (seconds)",
-            min_value=5,
-            max_value=120,
-            value=25,
-            step=5,
-            help="How long to wait before timing out (status polling).",
-        )
-    with colB:
-        copyhook_prefix = st.text_input(
-            "CopyHook route prefix",
-            value="/api/copyhook",
-            help="Leave as /api/copyhook unless you changed it in the service",
-        )
-        visualgen_prefix = st.text_input(
-            "VisualGen route prefix",
-            value="/api/visualgen",
-            help="Leave as /api/visualgen unless you changed it in the service",
-        )
-        verify_ssl = st.checkbox("Verify HTTPS certificates", value=True)
+This file delegates to `operator_v2.py` which hosts the canonical
+dashboard UI. Keep this file minimal so deployment tools can run either
+`streamlit run operator_v2.py` or `streamlit run app.py` interchangeably.
+"""
+from operator_v2 import main as operator_v2_main
 
 
-# Tiny helper for building URLs safely
-def url_join(base: str, path: str) -> str:
-    return (base.rstrip("/") + "/" + path.lstrip("/")).rstrip("/")
-
-
-# Shared HTTP helpers
-def _headers():
-    h = {}
-    if api_key.strip():
-        h["X-API-Key"] = api_key.strip()
-    return h
-
-
-def post_json(url: str, payload: dict) -> dict:
-    r = requests.post(url, json=payload, headers=_headers(), verify=verify_ssl, timeout=30)
-    # Raise for 4xx/5xx so we can catch and show details
-    try:
-        r.raise_for_status()
-        return r.json() if r.text else {}
-    except requests.HTTPError:
-        # Try to parse detail payloads from 422, etc.
-        try:
-            return {"__error__": True, "status_code": r.status_code, "body": r.json()}
-        except Exception:
-            return {"__error__": True, "status_code": r.status_code, "body": r.text}
-
-
-def get_json(url: str) -> dict:
-    r = requests.get(url, headers=_headers(), verify=verify_ssl, timeout=30)
-    try:
-        r.raise_for_status()
-        return r.json() if r.text else {}
-    except requests.HTTPError:
-        try:
-            return {"__error__": True, "status_code": r.status_code, "body": r.json()}
-        except Exception:
-            return {"__error__": True, "status_code": r.status_code, "body": r.text}
+if __name__ == "__main__":
+    operator_v2_main()
 
 
 # ------------------------------
