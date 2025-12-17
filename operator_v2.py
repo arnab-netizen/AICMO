@@ -1433,21 +1433,8 @@ def aicmo_tab_shell(
                             "meta": {"tab": tab_key},
                             "debug": {"note": "manifest_only_detected"}
                         }
-                    else:
-                        # On valid backend SUCCESS, attempt to store canonical artifact
-                        envelope = result
-                        artifact_type = {
-                            "strategy": "strategy",
-                            "creatives": "creatives",
-                            "execution": "execution",
-                            "delivery": "delivery",
-                        }.get(tab_key)
-
-                        if artifact_type:
-                            artifact = store_artifact_from_backend(st.session_state, artifact_type, envelope)
-                            # If artifact indicates SUCCESS, write to session_state to unlock gating
-                            key = f"artifact_{artifact_type}"
-                            st.session_state[key] = artifact
+                    # NOTE: Artifact creation is now handled by runner functions (strategy/creatives/execution)
+                    # Legacy store_artifact_from_backend() call removed to prevent double-creation
                 
                 st.session_state[result_key] = result
                 st.session_state[timestamp_key] = datetime.now().isoformat()
@@ -2030,6 +2017,7 @@ def run_execution_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
         from aicmo.ui.persistence.artifact_store import (
             ArtifactStore, ArtifactType, Artifact
         )
+        from aicmo.ui.generation_plan import required_upstreams_for
         
         # Check for required upstream
         client_id = st.session_state.get("active_client_id")
@@ -2043,13 +2031,13 @@ def run_execution_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
                 "debug": {}
             }
         
-        # Execution requires strategy always, creatives conditionally
-        # For now, require strategy; creatives optional
-        artifact_store = ArtifactStore(st.session_state, mode="inmemory")
-        required_types = [ArtifactType.STRATEGY]
+        # Get selected job IDs from inputs (if provided)
+        selected_job_ids = inputs.get("selected_jobs", [])
         
-        # Check if creatives exists and is approved (optional)
-        has_creatives = st.session_state.get("artifact_creatives")
+        # Deterministically compute required upstream types based on selected jobs
+        artifact_store = ArtifactStore(st.session_state, mode="inmemory")
+        required_artifact_types_str = required_upstreams_for("execution", selected_job_ids)
+        required_types = [ArtifactType(t.upper()) for t in required_artifact_types_str]
         
         lineage, lineage_errors = artifact_store.build_source_lineage(
             client_id,
@@ -2062,7 +2050,7 @@ def run_execution_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
                 "status": "FAILED",
                 "content": f"⚠️ Cannot generate execution:\n" + "\n".join(f"• {e}" for e in lineage_errors),
                 "meta": {"tab": "execution"},
-                "debug": {"lineage_errors": lineage_errors}
+                "debug": {"lineage_errors": lineage_errors, "required_types": [t.value for t in required_types]}
             }
         
         campaign_id = inputs.get("campaign_id", "").strip()
@@ -2073,13 +2061,13 @@ def run_execution_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
             log.info("[EXECUTION] Using dev stub")
             stub_content = f"# Execution Plan: {campaign_id}\n\n[Stub Mode]\n\n## Notes\n- Edit above"
             
-            # Create artifact
-            strategy_artifact = Artifact.from_dict(st.session_state["artifact_strategy"])
-            source_artifacts = [strategy_artifact]
-            
-            if has_creatives:
-                creatives_artifact = Artifact.from_dict(st.session_state["artifact_creatives"])
-                source_artifacts.append(creatives_artifact)
+            # Build source_artifacts from lineage
+            source_artifacts = []
+            for artifact_type_str in lineage.keys():
+                artifact_type = ArtifactType(artifact_type_str.upper())
+                artifact_data = st.session_state.get(f"artifact_{artifact_type.value}")
+                if artifact_data:
+                    source_artifacts.append(Artifact.from_dict(artifact_data))
             
             execution_artifact = artifact_store.create_artifact(
                 artifact_type=ArtifactType.EXECUTION,
@@ -2089,11 +2077,15 @@ def run_execution_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
                 source_artifacts=source_artifacts
             )
             
+            # Store selected_job_ids in artifact notes for validation
+            execution_artifact.notes["selected_job_ids"] = selected_job_ids
+            artifact_store.update_artifact(execution_artifact, execution_artifact.content, notes=execution_artifact.notes, increment_version=False)
+            
             return {
                 "status": "SUCCESS",
                 "content": stub_content,
                 "meta": {"campaign_id": campaign_id, "artifact_id": execution_artifact.artifact_id},
-                "debug": {"note": "stub", "lineage": lineage}
+                "debug": {"note": "stub", "lineage": lineage, "required_types": [t.value for t in required_types]}
             }
         
         backend_response = backend_post_json("/aicmo/generate", {"campaign_id": campaign_id, "use_case": "execution"})
@@ -2103,13 +2095,13 @@ def run_execution_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
         
         draft_md = backend_envelope_to_markdown(backend_response)
         
-        # Create Execution artifact with lineage
-        strategy_artifact = Artifact.from_dict(st.session_state["artifact_strategy"])
-        source_artifacts = [strategy_artifact]
-        
-        if has_creatives:
-            creatives_artifact = Artifact.from_dict(st.session_state["artifact_creatives"])
-            source_artifacts.append(creatives_artifact)
+        # Build source_artifacts from lineage
+        source_artifacts = []
+        for artifact_type_str in lineage.keys():
+            artifact_type = ArtifactType(artifact_type_str.upper())
+            artifact_data = st.session_state.get(f"artifact_{artifact_type.value}")
+            if artifact_data:
+                source_artifacts.append(Artifact.from_dict(artifact_data))
         
         execution_artifact = artifact_store.create_artifact(
             artifact_type=ArtifactType.EXECUTION,
@@ -2118,6 +2110,10 @@ def run_execution_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
             content=backend_response.get("content", {}),
             source_artifacts=source_artifacts
         )
+        
+        # Store selected_job_ids in artifact notes for validation
+        execution_artifact.notes["selected_job_ids"] = selected_job_ids
+        artifact_store.update_artifact(execution_artifact, execution_artifact.content, notes=execution_artifact.notes, increment_version=False)
         
         return {
             "status": backend_response.get("status", "SUCCESS"),
@@ -2129,7 +2125,7 @@ def run_execution_step(inputs: Dict[str, Any]) -> Dict[str, Any]:
                 "run_id": backend_response.get("run_id"),
                 "artifact_id": execution_artifact.artifact_id
             },
-            "debug": {"raw_envelope": backend_response, "lineage": lineage}
+            "debug": {"raw_envelope": backend_response, "lineage": lineage, "required_types": [t.value for t in required_types]}
         }
     except Exception as e:
         log.error(f"Execution error: {e}")

@@ -257,6 +257,47 @@ class ArtifactStore:
         
         return (len(errors) == 0, errors)
 
+    def validate_required_lineage(
+        self,
+        artifact: Artifact,
+        selected_job_ids: Optional[List[str]] = None
+    ) -> tuple[bool, List[str]]:
+        """
+        Validate that artifact has all required upstream lineage.
+        
+        Args:
+            artifact: Artifact to validate
+            selected_job_ids: Optional job IDs for execution dependency resolution
+        
+        Returns:
+            (ok, errors)
+            ok: True if all required lineage present
+            errors: List of missing lineage types
+        
+        Rules enforced:
+            - Strategy MUST have intake lineage
+            - Creatives MUST have strategy lineage
+            - Execution MUST have strategy lineage (+ creatives if jobs require)
+            - Other types: no lineage required
+        """
+        from aicmo.ui.generation_plan import required_upstreams_for
+        
+        artifact_type_str = artifact.artifact_type.value
+        required = required_upstreams_for(artifact_type_str, selected_job_ids or [])
+        
+        if not required:
+            # No lineage required for this artifact type
+            return (True, [])
+        
+        current_lineage = artifact.source_lineage or {}
+        missing = []
+        
+        for required_type in required:
+            if required_type not in current_lineage:
+                missing.append(f"Required upstream {required_type} lineage missing")
+        
+        return (len(missing) == 0, missing)
+
     def _validate_status_transition(self, current: ArtifactStatus, new: ArtifactStatus) -> None:
         """
         Enforce allowed status transitions.
@@ -410,6 +451,14 @@ class ArtifactStore:
         
         if not ok:
             raise ArtifactValidationError(errors, warnings)
+        
+        # Validate REQUIRED lineage is present (must happen before freshness check)
+        lineage_required_ok, lineage_required_errors = self.validate_required_lineage(
+            artifact,
+            selected_job_ids=artifact.notes.get("selected_job_ids", [])
+        )
+        if not lineage_required_ok:
+            raise ArtifactValidationError(lineage_required_errors, [])
         
         # Validate lineage freshness if artifact has source_lineage
         if artifact.source_lineage:
