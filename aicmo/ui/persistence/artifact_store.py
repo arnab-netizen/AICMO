@@ -14,6 +14,9 @@ from enum import Enum
 from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass, field, asdict
 
+# Import canonical gating from unified module
+from aicmo.ui.gating import GATING_MAP
+
 
 # ===================================================================
 # EXCEPTIONS
@@ -435,7 +438,7 @@ class ArtifactStore:
         Triggers cascade if this is a new/higher approved version.
         
         Raises:
-            ArtifactValidationError: If validation fails (content or lineage)
+            ArtifactValidationError: If validation fails (content, lineage, or QC)
             ArtifactStateError: If status transition is invalid
         """
         # Capture previous approved version BEFORE approval
@@ -469,6 +472,11 @@ class ArtifactStore:
             )
             if not lineage_ok:
                 raise ArtifactValidationError(lineage_errors, [])
+        
+        # NEW: Enforce QC gate - no approval without passing QC
+        qc_ok, qc_errors = self._check_qc_gate(artifact)
+        if not qc_ok:
+            raise ArtifactValidationError(qc_errors, [])
         
         # Validate status transition
         self._validate_status_transition(artifact.status, ArtifactStatus.APPROVED)
@@ -576,9 +584,93 @@ class ArtifactStore:
             return validate_creatives_content(content)
         elif artifact_type == ArtifactType.EXECUTION:
             return validate_execution_content(content)
+        elif artifact_type == ArtifactType.MONITORING:
+            return validate_monitoring_content(content)
+        elif artifact_type == ArtifactType.DELIVERY:
+            return validate_delivery_content(content)
         else:
-            # For now, other types have no validation
+            # No validation for other types
             return (True, [], [])
+    
+    def store_qc_artifact(self, qc_artifact) -> None:
+        """Store QC artifact in session state"""
+        if "_qc_artifacts" not in self.session_state:
+            self.session_state["_qc_artifacts"] = {}
+        
+        key = f"{qc_artifact.target_artifact_id}_v{qc_artifact.target_version}"
+        self.session_state["_qc_artifacts"][key] = qc_artifact.to_dict()
+    
+    def get_qc_for_artifact(self, artifact: Artifact):
+        """
+        Get QC artifact for given artifact.
+        
+        Returns QCArtifact or None if not found.
+        """
+        if "_qc_artifacts" not in self.session_state:
+            return None
+        
+        key = f"{artifact.artifact_id}_v{artifact.version}"
+        qc_data = self.session_state["_qc_artifacts"].get(key)
+        
+        if qc_data:
+            # Import here to avoid circular dependency
+            from aicmo.ui.quality.qc_models import QCArtifact
+            return QCArtifact.from_dict(qc_data)
+        
+        return None
+    
+    def _check_qc_gate(self, artifact: Artifact) -> Tuple[bool, List[str]]:
+        """
+        Enforce QC gate: artifact cannot be approved without passing QC.
+        
+        Rules:
+            1. QC artifact must exist for this artifact_id + version
+            2. QC artifact target_version must match artifact.version
+            3. QC status must not be FAIL
+        
+        Returns: (ok: bool, errors: List[str])
+        """
+        from aicmo.ui.quality.qc_models import QCStatus
+        
+        errors = []
+        
+        # Rule 1: QC must exist
+        qc_artifact = self.get_qc_for_artifact(artifact)
+        if not qc_artifact:
+            errors.append(
+                f"Cannot approve {artifact.artifact_type.value}: No QC artifact found. "
+                f"Run QC checks before approval."
+            )
+            return (False, errors)
+        
+        # Rule 2: Version lock
+        if qc_artifact.target_version != artifact.version:
+            errors.append(
+                f"QC version mismatch: QC is for version {qc_artifact.target_version}, "
+                f"but artifact is version {artifact.version}. Regenerate QC."
+            )
+            return (False, errors)
+        
+        # Rule 3: QC must not have FAIL status
+        if qc_artifact.qc_status == QCStatus.FAIL:
+            blocker_checks = [
+                check for check in qc_artifact.checks
+                if check.status.value == "FAIL" and check.severity.value == "BLOCKER"
+            ]
+            blocker_messages = [check.message for check in blocker_checks]
+            
+            errors.append(
+                f"QC failed with {len(blocker_checks)} blocker(s). Cannot approve."
+            )
+            errors.extend(blocker_messages[:3])  # Show first 3 blockers
+            
+            if len(blocker_messages) > 3:
+                errors.append(f"... and {len(blocker_messages) - 3} more blockers")
+            
+            return (False, errors)
+        
+        # QC gate passed
+        return (True, [])
     
     def _get_downstream_types(self, artifact_type: ArtifactType) -> List[ArtifactType]:
         """Get list of artifact types that depend on this one"""
@@ -690,14 +782,7 @@ class ArtifactStore:
 # ===================================================================
 # GATING LOGIC
 # ===================================================================
-
-GATING_MAP = {
-    ArtifactType.STRATEGY: [ArtifactType.INTAKE],
-    ArtifactType.CREATIVES: [ArtifactType.STRATEGY],
-    ArtifactType.EXECUTION: [ArtifactType.STRATEGY, ArtifactType.CREATIVES],
-    ArtifactType.MONITORING: [ArtifactType.EXECUTION],
-    ArtifactType.DELIVERY: [ArtifactType.INTAKE, ArtifactType.STRATEGY, ArtifactType.CREATIVES, ArtifactType.EXECUTION],
-}
+# GATING_MAP imported from aicmo.ui.gating (single source of truth)
 
 
 def check_gating(
@@ -819,53 +904,281 @@ def validate_execution_content(content: Dict[str, Any]) -> Tuple[bool, List[str]
     return (len(errors) == 0, errors, warnings)
 
 
-
-def validate_strategy_contract(content: Dict[str, Any]) -> Tuple[bool, List[str], List[str]]:
+def validate_monitoring_content(content: Dict[str, Any]) -> Tuple[bool, List[str], List[str]]:
     """
-    Validate strategy contract schema.
+    Validate Monitoring artifact content.
     
     Returns: (ok: bool, errors: List[str], warnings: List[str])
     """
     errors = []
     warnings = []
     
-    # Required schema fields for Strategy Contract
-    required_keys = [
-        "icp",
-        "positioning",
-        "messaging",
-        "content_pillars",
-        "platform_plan",
-        "cta_rules",
-        "measurement"
-    ]
+    # Basic structure check
+    if not content:
+        errors.append("Monitoring content is empty")
+        return (False, errors, warnings)
     
-    for key in required_keys:
-        if key not in content:
-            errors.append(f"Strategy contract missing required field: {key}")
+    # Check for KPI configuration
+    if "kpi_config" in content:
+        kpi_config = content["kpi_config"]
+        if not kpi_config.get("selected_kpis"):
+            warnings.append("No KPIs selected for monitoring")
+        if not kpi_config.get("kpi_targets"):
+            warnings.append("No KPI targets defined")
+    else:
+        warnings.append("Monitoring missing kpi_config section")
     
-    # Check ICP structure
-    if "icp" in content:
-        icp = content["icp"]
-        if not isinstance(icp, dict):
-            errors.append("ICP must be a structured object")
-        else:
-            if "segments" not in icp:
-                errors.append("ICP missing 'segments' field")
+    # Check for tracking setup
+    if "tracking" not in content:
+        warnings.append("Monitoring missing tracking configuration")
     
-    # Check positioning structure
-    if "positioning" in content:
-        pos = content["positioning"]
-        if not isinstance(pos, dict):
-            errors.append("Positioning must be a structured object")
-        else:
-            if "statement" not in pos:
-                errors.append("Positioning missing 'statement' field")
-    
-    # Warnings for missing optional fields
-    if "compliance" in content:
-        compliance = content["compliance"]
-        if not compliance.get("forbidden_claims") and not compliance.get("required_disclaimers"):
-            warnings.append("Compliance section present but empty - verify if intentional")
+    # Check for reporting setup
+    if "reporting" not in content:
+        warnings.append("Monitoring missing reporting configuration")
     
     return (len(errors) == 0, errors, warnings)
+
+
+def validate_delivery_content(content: Dict[str, Any]) -> Tuple[bool, List[str], List[str]]:
+    """
+    Validate Delivery artifact content.
+    
+    Returns: (ok: bool, errors: List[str], warnings: List[str])
+    """
+    errors = []
+    warnings = []
+    
+    # Basic structure check
+    if not content:
+        errors.append("Delivery content is empty")
+        return (False, errors, warnings)
+    
+    # Check for artifact selection
+    if "artifact_selection" in content:
+        artifact_selection = content["artifact_selection"]
+        selected_count = sum([
+            artifact_selection.get("include_intake", False),
+            artifact_selection.get("include_strategy", False),
+            artifact_selection.get("include_creatives", False),
+            artifact_selection.get("include_execution", False),
+            artifact_selection.get("include_monitoring", False)
+        ])
+        if selected_count == 0:
+            errors.append("No artifacts selected for delivery")
+    else:
+        warnings.append("Delivery missing artifact_selection section")
+    
+    # Check for export formats
+    if "export_formats" in content:
+        export_formats = content["export_formats"]
+        format_count = sum([
+            export_formats.get("pdf", False),
+            export_formats.get("pptx", False),
+            export_formats.get("json", False),
+            export_formats.get("zip", False)
+        ])
+        if format_count == 0:
+            errors.append("No export formats selected")
+    else:
+        warnings.append("Delivery missing export_formats section")
+    
+    # Check pre-flight checklist
+    if "checklist" in content:
+        checklist = content["checklist"]
+        if not checklist.get("checklist_complete", False):
+            warnings.append("Pre-flight checklist not complete")
+    else:
+        warnings.append("Delivery missing pre-flight checklist")
+    
+    return (len(errors) == 0, errors, warnings)
+
+
+def validate_strategy_contract(content: Dict[str, Any]) -> Tuple[bool, List[str], List[str]]:
+    """
+    Validate 8-layer strategy contract schema.
+    
+    Returns: (ok: bool, errors: List[str], warnings: List[str])
+    """
+    errors = []
+    warnings = []
+    
+    # Layer 1: Business Reality Alignment
+    if "layer1_business_reality" not in content:
+        errors.append("Missing Layer 1: Business Reality Alignment")
+    else:
+        l1 = content["layer1_business_reality"]
+        required_l1 = ["business_model_summary", "revenue_streams", "unit_economics", 
+                       "pricing_logic", "growth_constraint", "bottleneck"]
+        for field in required_l1:
+            if not l1.get(field):
+                errors.append(f"Layer 1 missing required field: {field}")
+    
+    # Layer 2: Market & Competitive Truth
+    if "layer2_market_truth" not in content:
+        errors.append("Missing Layer 2: Market & Competitive Truth")
+    else:
+        l2 = content["layer2_market_truth"]
+        required_l2 = ["category_maturity", "white_space_logic", "what_not_to_do"]
+        for field in required_l2:
+            if not l2.get(field):
+                errors.append(f"Layer 2 missing required field: {field}")
+    
+    # Layer 3: Audience Decision Psychology
+    if "layer3_audience_psychology" not in content:
+        errors.append("Missing Layer 3: Audience Decision Psychology")
+    else:
+        l3 = content["layer3_audience_psychology"]
+        required_l3 = ["awareness_state", "objection_hierarchy", "trust_transfer_mechanism"]
+        for field in required_l3:
+            if not l3.get(field):
+                errors.append(f"Layer 3 missing required field: {field}")
+    
+    # Layer 4: Value Proposition Architecture
+    if "layer4_value_architecture" not in content:
+        errors.append("Missing Layer 4: Value Proposition Architecture")
+    else:
+        l4 = content["layer4_value_architecture"]
+        required_l4 = ["core_promise", "sacrifice_framing", "differentiation_logic"]
+        for field in required_l4:
+            if not l4.get(field):
+                errors.append(f"Layer 4 missing required field: {field}")
+    
+    # Layer 5: Strategic Narrative
+    if "layer5_narrative" not in content:
+        errors.append("Missing Layer 5: Strategic Narrative")
+    else:
+        l5 = content["layer5_narrative"]
+        required_l5 = ["narrative_problem", "narrative_tension", "narrative_resolution", 
+                       "enemy_definition", "repetition_logic"]
+        for field in required_l5:
+            if not l5.get(field):
+                errors.append(f"Layer 5 missing required field: {field}")
+    
+    # Layer 6: Channel Strategy
+    if "layer6_channel_strategy" not in content:
+        errors.append("Missing Layer 6: Channel Strategy")
+    else:
+        l6 = content["layer6_channel_strategy"]
+        if "channels" not in l6 or not l6["channels"]:
+            errors.append("Layer 6 must define at least one channel")
+        else:
+            for idx, channel in enumerate(l6["channels"]):
+                if not channel.get("name"):
+                    errors.append(f"Layer 6 channel {idx+1} missing name")
+                if not channel.get("strategic_role"):
+                    warnings.append(f"Layer 6 channel {idx+1} ({channel.get('name', 'unnamed')}) missing strategic role")
+    
+    # Layer 7: Execution Constraints
+    if "layer7_constraints" not in content:
+        errors.append("Missing Layer 7: Execution Constraints")
+    else:
+        l7 = content["layer7_constraints"]
+        required_l7 = ["tone_boundaries", "forbidden_language", "claim_boundaries", "compliance_rules"]
+        for field in required_l7:
+            if not l7.get(field):
+                errors.append(f"Layer 7 missing required field: {field}")
+    
+    # Layer 8: Measurement & Learning Loop
+    if "layer8_measurement" not in content:
+        errors.append("Missing Layer 8: Measurement & Learning Loop")
+    else:
+        l8 = content["layer8_measurement"]
+        required_l8 = ["success_definition", "leading_indicators", "lagging_indicators", "decision_rules"]
+        for field in required_l8:
+            if not l8.get(field):
+                errors.append(f"Layer 8 missing required field: {field}")
+    
+    # Warnings for common issues
+    if "layer1_business_reality" in content:
+        l1 = content["layer1_business_reality"]
+        if l1.get("bottleneck") not in ["Demand", "Awareness", "Trust", "Conversion", "Retention", ""]:
+            warnings.append("Layer 1 bottleneck should be one of: Demand, Awareness, Trust, Conversion, Retention")
+    
+    if "layer4_value_architecture" in content:
+        l4 = content["layer4_value_architecture"]
+        if l4.get("differentiation_logic") not in ["Structural", "Cosmetic", ""]:
+            warnings.append("Layer 4 differentiation logic should be either Structural or Cosmetic")
+    
+    return (len(errors) == 0, errors, warnings)
+
+
+# ===================================================================
+# ALIASES & TEST HELPERS
+# ===================================================================
+
+# Alias for backward compatibility and cleaner imports
+validate_intake = validate_intake_content
+
+
+def normalize_intake_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Normalize intake payload for approval validation.
+    
+    Mapping rules (exact per user specification):
+    - client_name ← payload.get("client_name") OR payload.get("brand_name")
+    - geography ← payload.get("geography") OR payload.get("geography_served")
+    - primary_offer ← payload.get("primary_offer") OR payload.get("primary_offers")
+    - objective ← payload.get("objective") OR payload.get("primary_objective")
+    
+    Preserves all other fields unchanged (website, industry, target_audience, 
+    pain_points, desired_outcomes, constraints, tone_voice, proof_assets, 
+    unit_economics, etc.)
+    
+    Args:
+        payload: Raw intake dict from UI
+    
+    Returns:
+        Normalized intake dict with canonical field names
+    """
+    normalized = payload.copy()
+    
+    # Apply mapping rules
+    if "brand_name" in payload and "client_name" not in payload:
+        normalized["client_name"] = payload["brand_name"]
+    
+    if "geography_served" in payload and "geography" not in payload:
+        normalized["geography"] = payload["geography_served"]
+    
+    if "primary_offers" in payload and "primary_offer" not in payload:
+        normalized["primary_offer"] = payload["primary_offers"]
+    
+    if "primary_objective" in payload and "objective" not in payload:
+        normalized["objective"] = payload["primary_objective"]
+    
+    return normalized
+
+
+def create_valid_intake_content() -> Dict[str, Any]:
+    """
+    Helper function for tests: creates a valid intake content dict.
+    
+    Returns intake content dict with all required fields populated.
+    """
+    return {
+        "client_name": "Test Company",
+        "website": "https://example.com",
+        "industry": "Technology",
+        "geography": "United States",
+        "primary_offer": "SaaS Platform",
+        "objective": "Lead Generation",
+        "target_audience": "B2B Companies",
+        "pain_points": "Manual processes",
+        "desired_outcomes": "Increased efficiency",
+        "timezone": "America/New_York",
+        "pricing": "$99/month",
+        "differentiators": "AI-powered automation",
+        "kpi_targets": "100 leads/month",
+        "timeline_start": "2025-01-01",
+        "duration_weeks": 12,
+        "budget_range": "$10k-$50k",
+        "tone_voice": "Professional",
+        "languages": ["English"],
+        "context_data": {},
+        "delivery_requirements": {
+            "pdf": True,
+            "pptx": False,
+            "zip": False,
+            "frequency": "One-time"
+        }
+    }
+
