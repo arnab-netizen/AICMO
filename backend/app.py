@@ -1,3 +1,13 @@
+"""
+CANONICAL BACKEND ENTRYPOINT
+
+This is the ONLY backend entrypoint for AICMO.
+All REST API routes are defined here.
+
+Alternative: backend/main.py is DEPRECATED (shim only).
+DO NOT add routes to backend/main.py.
+"""
+import time
 import time
 import logging
 import asyncio

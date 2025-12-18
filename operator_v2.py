@@ -1,4 +1,13 @@
 """
+CANONICAL UI ENTRYPOINT
+
+This is the ONLY operator dashboard for AICMO.
+All UI workflow logic is defined here.
+
+Alternative: deprecated/ui/aicmo_operator_legacy.py is DEPRECATED.
+DO NOT import from deprecated/ui/aicmo_operator_legacy.py.
+"""
+"""
 AICMO Operator Dashboard V2 - Production Entrypoint
 
 Build: OPERATOR_V2_REFACTOR_2025_12_16

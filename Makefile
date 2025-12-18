@@ -39,6 +39,12 @@ metrics:
 	curl -s http://localhost:$(PORT)/metrics | grep -E "capsule_runs_total|capsule_runtime_seconds" -n || true
 .PHONY: minimal-test full-test test api run-minimal
 
+verify-phase-1:
+	@echo "=== Phase 1 Verification ==="
+	@python3 -m py_compile aicmo/tools/verify_phase.py
+	@python3 -m aicmo.tools.verify_phase --phase 1
+	@echo "✅ Phase 1 verification PASSED"
+
 api:
 	uvicorn backend.app:app --reload --port 8080
 
@@ -235,4 +241,14 @@ env-example: inventory
 
 smoke:
 	./scripts/smoke_local_services.sh
+
+# Phase Verification Targets (PHASE_PROTOCOL.md enforcement)
+.PHONY: verify-phase-0
+
+verify-phase-0:
+	@echo "=== Phase 0 Verification ==="
+	@python3 -m py_compile aicmo/tools/verify_phase.py || (echo "❌ verify_phase.py syntax error" && exit 1)
+	@python3 -m aicmo.tools.verify_phase --phase 0 || (echo "❌ Phase 0 verification failed" && exit 1)
+	@echo "✅ Phase 0 verification PASSED"
+
 endif
