@@ -197,10 +197,67 @@ class PhaseVerifier:
             return self.verify_phase_0()
         elif phase == 1:
             return self.verify_phase_1()
+        elif phase == 2:
+            return self.verify_phase_2()
         else:
             print(f"❌ Phase {phase} verification not yet implemented")
             self.errors.append(f"Phase {phase} verification not implemented")
             return False
+
+    def verify_phase_2(self) -> bool:
+        """Verify Phase 2: State machine and gating enforcement"""
+        print("🔍 Verifying Phase 2: State machine and gating enforcement\n")
+
+        # Check 1: ProjectState enum exists and has required values
+        try:
+            from aicmo.domain.state_machine import ProjectState
+        except Exception:
+            self.errors.append("❌ aicmo.domain.state_machine.ProjectState not importable")
+            return False
+
+        required = [
+            "CREATED",
+            "INTAKE_COMPLETE",
+            "STRATEGY_GENERATED",
+            "STRATEGY_APPROVED",
+            "CAMPAIGN_DEFINED",
+            "CREATIVE_GENERATED",
+            "QC_FAILED",
+            "QC_APPROVED",
+            "DELIVERED",
+        ]
+        missing = [r for r in required if not hasattr(ProjectState, r)]
+        if missing:
+            self.errors.append(f"❌ ProjectState missing values: {missing}")
+
+        # Check 2: gating.py imports ProjectState and defines require_state
+        gating_path = self.repo_root / "aicmo" / "ui" / "gating.py"
+        if not gating_path.exists():
+            self.errors.append("❌ aicmo/ui/gating.py missing")
+        else:
+            src = gating_path.read_text(encoding="utf-8")
+            if "ProjectState" not in src:
+                self.errors.append("❌ gating.py does not reference ProjectState")
+            if "def require_state" not in src:
+                self.errors.append("❌ gating.py missing require_state definition")
+
+        # Check 3: tests exist
+        t1 = self.repo_root / "tests" / "test_state_machine_transitions.py"
+        t2 = self.repo_root / "tests" / "test_gating_enforcement.py"
+        if not t1.exists() or not t2.exists():
+            self.errors.append("❌ Phase 2 tests missing")
+
+        # Summary
+        print("\n" + "=" * 60)
+        if self.errors:
+            print("❌ Phase 2 Verification: FAIL\n")
+            for error in self.errors:
+                print(f"   {error}")
+        else:
+            print("✅ Phase 2 Verification: PASS\n")
+
+        print("=" * 60)
+        return len(self.errors) == 0
 
 
 def main() -> int:
