@@ -1,0 +1,39 @@
+Makefile:88: warning: overriding recipe for target 'test'
+Makefile:33: warning: ignoring old recipe for target 'test'
+Makefile:102: warning: overriding recipe for target 'api'
+Makefile:58: warning: ignoring old recipe for target 'api'
+Makefile:185: warning: overriding recipe for target 'migrate'
+Makefile:18: warning: ignoring old recipe for target 'migrate'
+Makefile:252: warning: overriding recipe for target 'smoke'
+Makefile:28: warning: ignoring old recipe for target 'smoke'
+=== Phase 2 Verification ===
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0
+rootdir: /workspaces/AICMO
+configfile: pytest.ini
+plugins: asyncio-1.3.0, anyio-4.12.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 6 items
+
+tests/test_state_machine_transitions.py ..                               [ 33%]
+tests/test_gating_enforcement.py ....                                    [100%]
+
+=============================== warnings summary ===============================
+../../usr/local/py-utils/venvs/pytest/lib/python3.11/site-packages/_pytest/config/__init__.py:1474
+  /usr/local/py-utils/venvs/pytest/lib/python3.11/site-packages/_pytest/config/__init__.py:1474: PytestConfigWarning: Unknown config option: env
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+========================= 6 passed, 1 warning in 0.13s =========================
+🔍 Verifying Phase 2: State machine and gating enforcement
+
+
+============================================================
+✅ Phase 2 Verification: PASS
+
+============================================================
+
+🎯 VERDICT: PHASE 2 COMPLETE
+
+✅ Phase 2 verification PASSED

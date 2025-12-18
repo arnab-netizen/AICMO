@@ -1,0 +1,8 @@
+M	Makefile
+A	aicmo/domain/state_machine.py
+M	aicmo/tools/verify_phase.py
+M	aicmo/ui/gating.py
+A	docs/PHASE_2_SPEC.md
+A	docs/PHASE_2_TESTPLAN.md
+A	tests/test_gating_enforcement.py
+A	tests/test_state_machine_transitions.py
