@@ -141,7 +141,7 @@ def required_upstreams_for(artifact_type: str, selected_job_ids: Optional[List[s
     
     Args:
         artifact_type: Target artifact type (strategy, creatives, execution, etc.)
-        selected_job_ids: Optional list of selected job IDs (for execution dependency resolution)
+        selected_job_ids: Optional list of selected job IDs (for execution/delivery dependency resolution)
     
     Returns:
         Set of required upstream artifact type strings (e.g., {"intake", "strategy"})
@@ -152,7 +152,11 @@ def required_upstreams_for(artifact_type: str, selected_job_ids: Optional[List[s
         - Execution always requires: {strategy}
         - Execution conditionally requires: {creatives} if any selected_job_ids are creative-dependent
         - Monitoring requires: {execution}
-        - Delivery requires: {strategy, creatives, execution}
+        - Delivery CONDITIONALLY requires upstream artifacts based on what was generated:
+          * Strategy-only plan: {strategy}
+          * Strategy + Creatives: {strategy, creatives}
+          * Strategy + Creatives + Execution: {strategy, creatives, execution}
+          * Execution-only plan (rare): {strategy, execution}
     """
     selected_job_ids = selected_job_ids or []
     
@@ -176,7 +180,42 @@ def required_upstreams_for(artifact_type: str, selected_job_ids: Optional[List[s
         return {"execution"}
     
     elif artifact_type == "delivery":
-        return {"strategy", "creatives", "execution"}
+        # CONDITIONAL LOGIC: Delivery packages what was generated
+        # Inspect selected_job_ids to determine generation plan scope
+        
+        # Strategy is always required (Delivery always needs at least strategy)
+        required = {"strategy"}
+        
+        # Check if creative jobs were selected (any job name containing "creative" or known creative jobs)
+        creative_job_indicators = [
+            "creative", "creatives", "asset", "content_library", "copy", "visual",
+            "reel_covers", "image_prompts", "video_scripts", "thumbnails"
+        ]
+        has_creative_jobs = any(
+            any(indicator in job_id.lower() for indicator in creative_job_indicators)
+            for job_id in selected_job_ids
+        )
+        
+        if has_creative_jobs:
+            required.add("creatives")
+        
+        # Check if execution jobs were selected (any job containing "execution", "schedule", "calendar")
+        execution_job_indicators = [
+            "execution", "schedule", "calendar", "utm", "posts_week", "cadence"
+        ]
+        has_execution_jobs = any(
+            any(indicator in job_id.lower() for indicator in execution_job_indicators)
+            for job_id in selected_job_ids
+        )
+        
+        if has_execution_jobs:
+            required.add("execution")
+        
+        # Fallback: If no job IDs provided (legacy), require all (backward compatible)
+        if not selected_job_ids:
+            required = {"strategy", "creatives", "execution"}
+        
+        return required
     
     else:
         # Intake, leadgen, or unknown types have no upstream requirements

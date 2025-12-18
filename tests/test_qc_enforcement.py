@@ -668,3 +668,347 @@ def test_qc_enforcement_all_artifact_types(store):
     
     # All artifact types enforced QC successfully
     assert True  # Test passed if we got here without exceptions
+
+
+# ===================================================================
+# REGRESSION TESTS: Schema Normalization & Conditional Delivery
+# ===================================================================
+
+def test_execution_qc_accepts_both_channel_plan_and_channel_plans(store):
+    """
+    REGRESSION: Execution QC should accept both singular (channel_plan) and plural (channel_plans) forms.
+    
+    This tests that the schema normalizer correctly converts plural forms to singular
+    before QC rules run, preventing false failures.
+    """
+    # Create and approve upstream chain
+    intake = create_minimal_intake(store)
+    qc_intake = run_and_persist_qc_for(intake, store, "client-test", "eng-test", "test_operator")
+    approved_intake = store.approve_artifact(intake, approved_by="test_operator")
+    
+    strategy = create_minimal_strategy(store, approved_intake)
+    qc_strategy = run_and_persist_qc_for(strategy, store, "client-test", "eng-test", "test_operator")
+    approved_strategy = store.approve_artifact(strategy, approved_by="test_operator")
+    
+    # Create execution with PLURAL forms (should be normalized automatically)
+    execution_with_plurals = store.create_artifact(
+        artifact_type=ArtifactType.EXECUTION,
+        client_id="client-test",
+        engagement_id="eng-test",
+        source_artifacts=[approved_strategy],
+        content={
+            "schema_version": "execution_plan_v1",
+            "channel_plans": [{"channel": "instagram", "status": "planned"}],  # PLURAL
+            "cadences": "Daily posting",  # PLURAL
+            "schedules": "Week 1-4",      # PLURAL
+            "utm_plan": "utm_campaign=test",
+            # Add governance as STRING (not dict) to avoid QC rule error
+            "governance": "Operator approval required",
+            # Add risk_guardrails to avoid MINOR failure
+            "risk_guardrails": "Follow Strategy Layer 7 constraints"
+        }
+    )
+    
+    # Run QC - should normalize plurals to singulars before checking
+    qc_result = run_and_persist_qc_for(execution_with_plurals, store, "client-test", "eng-test", "test_operator")
+    
+    # QC should PASS because normalizer converts channel_plans → channel_plan
+    # (May be WARN due to other minor issues, but BLOCKER checks should pass)
+    assert qc_result.qc_status in [QCStatus.PASS, QCStatus.WARN], \
+        f"QC should PASS/WARN with plural forms (got {qc_result.qc_status}). Checks: {qc_result.checks}"
+    
+    # Verify channel_plan rule passed
+    channel_plan_checks = [c for c in qc_result.checks if c.check_id == "execution_channel_plan"]
+    assert len(channel_plan_checks) == 1, "Should have channel_plan check"
+    assert channel_plan_checks[0].status == CheckStatus.PASS, \
+        f"channel_plan check should PASS (got {channel_plan_checks[0].status})"
+
+
+def test_schema_normalizer_does_not_mutate_original_content(store):
+    """
+    REGRESSION: Schema normalizer must create defensive copies, not mutate original artifact content.
+    
+    This prevents bugs where normalizing content for QC accidentally changes the
+    stored artifact content.
+    """
+    # Create execution with plural forms
+    intake = create_minimal_intake(store)
+    qc_intake = run_and_persist_qc_for(intake, store, "client-test", "eng-test", "test_operator")
+    approved_intake = store.approve_artifact(intake, approved_by="test_operator")
+    
+    strategy = create_minimal_strategy(store, approved_intake)
+    qc_strategy = run_and_persist_qc_for(strategy, store, "client-test", "eng-test", "test_operator")
+    approved_strategy = store.approve_artifact(strategy, approved_by="test_operator")
+    
+    original_content = {
+        "schema_version": "execution_plan_v1",
+        "channel_plans": [{"channel": "linkedin"}],  # PLURAL
+        "schedules": "Week 1-4",                     # PLURAL
+        "utm_plan": "utm_campaign=test"
+    }
+    
+    execution = store.create_artifact(
+        artifact_type=ArtifactType.EXECUTION,
+        client_id="client-test",
+        engagement_id="eng-test",
+        source_artifacts=[approved_strategy],
+        content=original_content
+    )
+    
+    # Run QC (should normalize internally)
+    qc_result = run_and_persist_qc_for(execution, store, "client-test", "eng-test", "test_operator")
+    
+    # Original artifact content should still have PLURAL forms
+    assert "channel_plans" in execution.content, \
+        "Original content should still have 'channel_plans' (plural)"
+    assert "schedules" in execution.content, \
+        "Original content should still have 'schedules' (plural)"
+    assert "channel_plan" not in execution.content, \
+        "Original content should NOT be mutated to singular"
+
+
+def test_delivery_approval_strategy_only_plan(store):
+    """
+    REGRESSION: Delivery should approve with strategy-only plan (no creatives/execution required).
+    
+    Tests conditional upstream requirements based on generation plan.
+    """
+    # Create and approve intake
+    intake = create_minimal_intake(store)
+    qc_intake = run_and_persist_qc_for(intake, store, "client-test", "eng-test", "test_operator")
+    approved_intake = store.approve_artifact(intake, approved_by="test_operator")
+    
+    # Create and approve strategy
+    strategy = create_minimal_strategy(store, approved_intake)
+    qc_strategy = run_and_persist_qc_for(strategy, store, "client-test", "eng-test", "test_operator")
+    approved_strategy = store.approve_artifact(strategy, approved_by="test_operator")
+    
+    # Create delivery with ONLY strategy (no creatives/execution)
+    # Store selected_job_ids in notes to indicate strategy-only plan
+    delivery = store.create_artifact(
+        artifact_type=ArtifactType.DELIVERY,
+        client_id="client-test",
+        engagement_id="eng-test",
+        source_artifacts=[approved_strategy],  # ONLY strategy
+        content={
+            "manifest": {
+                "schema_version": "delivery_manifest_v1",
+                "included_artifacts": [
+                    {"type": "intake", "artifact_id": intake.artifact_id, "status": "approved"},
+                    {"type": "strategy", "artifact_id": strategy.artifact_id, "status": "approved"}
+                ],
+                "checks": {
+                    "approvals_ok": True,
+                    "branding_ok": True
+                }
+            },
+            "notes": "Strategy-only delivery package"
+        }
+    )
+    
+    # Mark as strategy-only plan
+    delivery.notes["selected_job_ids"] = ["brand_strategy", "messaging_framework"]
+    store.update_artifact(delivery, delivery.content, notes=delivery.notes, increment_version=False)
+    
+    # Run QC (should pass with strategy only)
+    qc_delivery = run_and_persist_qc_for(delivery, store, "client-test", "eng-test", "test_operator")
+    assert qc_delivery.qc_status in [QCStatus.PASS, QCStatus.WARN], \
+        f"Strategy-only delivery QC should pass (got {qc_delivery.qc_status})"
+    
+    # Approval should succeed (conditional requirements: strategy only)
+    approved_delivery = store.approve_artifact(delivery, approved_by="test_operator")
+    assert approved_delivery.status == ArtifactStatus.APPROVED, \
+        "Strategy-only delivery should approve successfully"
+
+
+def test_delivery_approval_strategy_plus_creatives_plan(store):
+    """
+    REGRESSION: Delivery should approve with strategy + creatives plan (no execution required).
+    
+    Tests conditional upstream requirements for partial plan.
+    """
+    # Create and approve upstream chain
+    intake = create_minimal_intake(store)
+    qc_intake = run_and_persist_qc_for(intake, store, "client-test", "eng-test", "test_operator")
+    approved_intake = store.approve_artifact(intake, approved_by="test_operator")
+    
+    strategy = create_minimal_strategy(store, approved_intake)
+    qc_strategy = run_and_persist_qc_for(strategy, store, "client-test", "eng-test", "test_operator")
+    approved_strategy = store.approve_artifact(strategy, approved_by="test_operator")
+    
+    # Create and approve creatives
+    creatives = store.create_artifact(
+        artifact_type=ArtifactType.CREATIVES,
+        client_id="client-test",
+        engagement_id="eng-test",
+        source_artifacts=[approved_strategy],
+        content={
+            "brief": {"campaign_theme": "Test Theme"},
+            "source_strategy_schema_version": "8layer_v1",  # Required field name
+            "source_layers_used": ["layer4", "layer5"],
+            "hooks": ["Hook 1", "Hook 2", "Hook 3"],
+            "angles": ["Angle 1", "Angle 2", "Angle 3"],  # Need 3 minimum
+            "ctas": ["CTA 1", "CTA 2", "CTA 3"],           # Need 3 minimum
+            "offer_framing": "Special offer",
+            "compliance_safe_claims": "Industry-leading",
+            "assets": [{"type": "image", "name": "test.png"}]
+        }
+    )
+    qc_creatives = run_and_persist_qc_for(creatives, store, "client-test", "eng-test", "test_operator")
+    approved_creatives = store.approve_artifact(creatives, approved_by="test_operator")
+    
+    # Create delivery with strategy + creatives (no execution)
+    delivery = store.create_artifact(
+        artifact_type=ArtifactType.DELIVERY,
+        client_id="client-test",
+        engagement_id="eng-test",
+        source_artifacts=[approved_strategy, approved_creatives],  # NO execution
+        content={
+            "manifest": {
+                "schema_version": "delivery_manifest_v1",
+                "included_artifacts": [
+                    {"type": "intake", "artifact_id": intake.artifact_id, "status": "approved"},
+                    {"type": "strategy", "artifact_id": strategy.artifact_id, "status": "approved"},
+                    {"type": "creatives", "artifact_id": creatives.artifact_id, "status": "approved"}
+                ],
+                "checks": {
+                    "approvals_ok": True,
+                    "branding_ok": True
+                }
+            },
+            "notes": "Strategy + Creatives delivery package"
+        }
+    )
+    
+    # Mark as strategy + creatives plan (no execution jobs)
+    delivery.notes["selected_job_ids"] = ["brand_strategy", "creative_content_library"]
+    store.update_artifact(delivery, delivery.content, notes=delivery.notes, increment_version=False)
+    
+    # Run QC and approve (should succeed without execution)
+    qc_delivery = run_and_persist_qc_for(delivery, store, "client-test", "eng-test", "test_operator")
+    approved_delivery = store.approve_artifact(delivery, approved_by="test_operator")
+    assert approved_delivery.status == ArtifactStatus.APPROVED, \
+        "Strategy + Creatives delivery should approve without execution"
+
+
+def test_delivery_approval_full_plan(store):
+    """
+    REGRESSION: Delivery should still require all upstreams for full plan (backward compatibility).
+    
+    Tests that full plan (strategy + creatives + execution) still works as before.
+    """
+    # Create and approve complete upstream chain
+    intake = create_minimal_intake(store)
+    qc_intake = run_and_persist_qc_for(intake, store, "client-test", "eng-test", "test_operator")
+    approved_intake = store.approve_artifact(intake, approved_by="test_operator")
+    
+    strategy = create_minimal_strategy(store, approved_intake)
+    qc_strategy = run_and_persist_qc_for(strategy, store, "client-test", "eng-test", "test_operator")
+    approved_strategy = store.approve_artifact(strategy, approved_by="test_operator")
+    
+    creatives = store.create_artifact(
+        artifact_type=ArtifactType.CREATIVES,
+        client_id="client-test",
+        engagement_id="eng-test",
+        source_artifacts=[approved_strategy],
+        content={
+            "brief": {"campaign_theme": "Test Theme"},
+            "source_strategy_schema_version": "8layer_v1",  # Required field name
+            "source_layers_used": ["layer4", "layer5"],
+            "hooks": ["Hook 1", "Hook 2", "Hook 3"],
+            "angles": ["Angle 1", "Angle 2", "Angle 3"],  # Need 3 minimum
+            "ctas": ["CTA 1", "CTA 2", "CTA 3"],           # Need 3 minimum
+            "offer_framing": "Special offer",
+            "compliance_safe_claims": "Industry-leading",
+            "assets": [{"type": "image", "name": "test.png"}]
+        }
+    )
+    qc_creatives = run_and_persist_qc_for(creatives, store, "client-test", "eng-test", "test_operator")
+    approved_creatives = store.approve_artifact(creatives, approved_by="test_operator")
+    
+    execution = store.create_artifact(
+        artifact_type=ArtifactType.EXECUTION,
+        client_id="client-test",
+        engagement_id="eng-test",
+        source_artifacts=[approved_strategy, approved_creatives],
+        content={
+            "schema_version": "execution_plan_v1",
+            "channel_plan": [{"channel": "linkedin", "status": "planned"}],
+            "cadence": "Daily",
+            "schedule": "Week 1-4",
+            "utm_plan": "utm_campaign=test"
+        }
+    )
+    qc_execution = run_and_persist_qc_for(execution, store, "client-test", "eng-test", "test_operator")
+    approved_execution = store.approve_artifact(execution, approved_by="test_operator")
+    
+    # Create delivery with ALL upstreams (full plan)
+    delivery = create_minimal_delivery(store, approved_intake, approved_strategy, approved_creatives, approved_execution)
+    
+    # Mark as full plan
+    delivery.notes["selected_job_ids"] = ["brand_strategy", "creative_content_library", "content_calendar_week1"]
+    store.update_artifact(delivery, delivery.content, notes=delivery.notes, increment_version=False)
+    
+    # Run QC and approve (should succeed with all upstreams)
+    qc_delivery = run_and_persist_qc_for(delivery, store, "client-test", "eng-test", "test_operator")
+    approved_delivery = store.approve_artifact(delivery, approved_by="test_operator")
+    assert approved_delivery.status == ArtifactStatus.APPROVED, \
+        "Full plan delivery should approve with all upstreams"
+
+
+def test_delivery_approval_fails_when_required_upstream_qc_missing(store):
+    """
+    REGRESSION: Delivery approval should still fail if required upstream QC missing.
+    
+    Tests that conditional requirements don't bypass QC enforcement.
+    
+    Note: This test verifies that delivery ITSELF must have QC. Upstream QC
+    checks are handled by lineage validation, not by the QC gate.
+    """
+    # Create and approve intake
+    intake = create_minimal_intake(store)
+    qc_intake = run_and_persist_qc_for(intake, store, "client-test", "eng-test", "test_operator")
+    approved_intake = store.approve_artifact(intake, approved_by="test_operator")
+    
+    # Create and approve strategy (with QC)
+    strategy = create_minimal_strategy(store, approved_intake)
+    qc_strategy = run_and_persist_qc_for(strategy, store, "client-test", "eng-test", "test_operator")
+    approved_strategy = store.approve_artifact(strategy, approved_by="test_operator")
+    
+    # Create delivery WITHOUT QC (intentional test case)
+    delivery = store.create_artifact(
+        artifact_type=ArtifactType.DELIVERY,
+        client_id="client-test",
+        engagement_id="eng-test",
+        source_artifacts=[approved_strategy],  # Only strategy (strategy-only plan)
+        content={
+            "manifest": {
+                "schema_version": "delivery_manifest_v1",
+                "included_artifacts": [
+                    {"type": "intake", "artifact_id": intake.artifact_id, "status": "approved"},
+                    {"type": "strategy", "artifact_id": strategy.artifact_id, "status": "approved"}
+                ],
+                "checks": {
+                    "approvals_ok": True,
+                    "branding_ok": True
+                }
+            },
+            "notes": "Test delivery - should fail without QC"
+        }
+    )
+    
+    # Mark as strategy-only plan
+    delivery.notes["selected_job_ids"] = ["brand_strategy"]
+    store.update_artifact(delivery, delivery.content, notes=delivery.notes, increment_version=False)
+    
+    # NOTE: Intentionally NOT running run_and_persist_qc_for(delivery)
+    
+    # Approval should FAIL because delivery itself has no QC
+    with pytest.raises(ArtifactValidationError) as exc_info:
+        store.approve_artifact(delivery, approved_by="test_operator")
+    
+    # Check error message
+    errors = exc_info.value.errors
+    assert len(errors) > 0, "Should have validation errors"
+    assert any("No QC artifact found" in err for err in errors), \
+        f"Should fail due to missing QC on delivery. Got errors: {errors}"

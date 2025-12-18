@@ -14,9 +14,11 @@ from aicmo.ui.quality.qc_models import (
     QCCheck,
     QCSummary,
     CheckStatus,
-    CheckSeverity
+    CheckSeverity,
+    CheckType
 )
 from .qc_registry import get_rules
+from aicmo.ui.quality.schema_normalizer import normalize_schema_for_qc
 
 
 # Map ArtifactType to QCType
@@ -39,15 +41,20 @@ def run_qc_for_artifact(store: ArtifactStore, artifact: Artifact) -> QCArtifact:
         
     Returns:
         QCArtifact with all check results and computed status/score
+    
+    Note: Content is normalized before rules run to accept both singular/plural forms.
     """
+    # Normalize content before running rules (defensive schema handling)
+    normalized_content = normalize_schema_for_qc(artifact.artifact_type.value, artifact.content)
+    
     # Get rules for this artifact type
     rules = get_rules(artifact.artifact_type)
     
-    # Run all rules
+    # Run all rules on NORMALIZED content
     all_checks = []
     for rule_fn in rules:
         try:
-            checks = rule_fn(artifact.content)
+            checks = rule_fn(normalized_content)
             all_checks.extend(checks)
         except Exception as e:
             # If a rule crashes, create a BLOCKER failure
