@@ -51,3 +51,9 @@ _gh_artifacts
 # Temporary test PDFs
 tmp_demo_*.pdf
 tmp_demo_*.txt
+# Ignore audit artifacts and local junk
+audit_artifacts/
+*.db
+*.html
+self_test_artifacts/
+.aicmo/
