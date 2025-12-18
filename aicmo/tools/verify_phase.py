@@ -17,6 +17,34 @@ from pathlib import Path
 from typing import List, Tuple
 
 
+def pydantic_field_names(model_cls) -> list[str]:
+    """Return a list of field names for a Pydantic model class in a
+    Pydantic-version-safe way.
+
+    - Prefer `model_fields` (Pydantic v2).
+    - Fallback to `__fields__` (Pydantic v1).
+    - If neither present, raise RuntimeError.
+    """
+    # Pydantic v2: `model_fields` is a mapping
+    if hasattr(model_cls, "model_fields"):
+        mf = getattr(model_cls, "model_fields")
+        try:
+            return list(mf.keys())
+        except Exception:
+            # Defensive: convert to list if not dict-like
+            return [str(k) for k in mf]
+
+    # Pydantic v1: __fields__ mapping
+    if hasattr(model_cls, "__fields__"):
+        fld = getattr(model_cls, "__fields__")
+        try:
+            return list(fld.keys())
+        except Exception:
+            return [str(k) for k in fld]
+
+    raise RuntimeError("Unable to introspect Pydantic model fields for %r" % (model_cls,))
+
+
 class PhaseVerifier:
     """Verifies phase completion according to PHASE_PROTOCOL.md"""
 
@@ -199,6 +227,8 @@ class PhaseVerifier:
             return self.verify_phase_1()
         elif phase == 2:
             return self.verify_phase_2()
+        elif phase == 3:
+            return self.verify_phase_3()
         else:
             print(f"❌ Phase {phase} verification not yet implemented")
             self.errors.append(f"Phase {phase} verification not implemented")
@@ -273,6 +303,77 @@ class PhaseVerifier:
                 print(f"   {error}")
         else:
             print("✅ Phase 2 Verification: PASS\n")
+
+        print("=" * 60)
+        return len(self.errors) == 0
+
+    def verify_phase_3(self) -> bool:
+        """Verify Phase 3: Artifact model, store APIs, compat, and client-ready"""
+        print("🔍 Verifying Phase 3: Artifact model + store + compat + client-ready\n")
+
+        # Check: aicmo.domain.artifacts.Artifact exists and has required fields
+        try:
+            from aicmo.domain.artifacts import Artifact as DomainArtifact
+        except Exception:
+            self.errors.append("❌ aicmo.domain.artifacts.Artifact not importable")
+            return False
+
+        required_fields = [
+            "id","tenant_id","project_id","type","status","schema_version",
+            "version","produced_by","produced_at","input_artifact_ids","state_at_creation",
+            "trace_id","created_by","checksum","quality_contract","content"
+        ]
+        # Use Pydantic-safe field introspection
+        try:
+            field_names = pydantic_field_names(DomainArtifact)
+        except RuntimeError:
+            field_names = []
+
+        missing = [f for f in required_fields if not hasattr(DomainArtifact, f) and f not in field_names]
+        if missing:
+            if field_names:
+                pd_missing = [f for f in required_fields if f not in field_names]
+                if pd_missing:
+                    self.errors.append(f"❌ Artifact missing fields: {pd_missing}")
+            else:
+                self.errors.append(f"❌ Artifact missing fields: {missing}")
+
+        # Check ArtifactStore.put signature accepts expected_version
+        try:
+            from aicmo.ui.persistence.artifact_store import ArtifactStore
+            import inspect
+            sig = inspect.signature(ArtifactStore.put)
+            if 'expected_version' not in sig.parameters:
+                self.errors.append("❌ ArtifactStore.put does not accept expected_version")
+        except Exception:
+            self.errors.append("❌ aicmo.ui.persistence.artifact_store.ArtifactStore not importable")
+
+        # ErrorResponse exists
+        try:
+            from aicmo.api.schemas import ErrorResponse
+        except Exception:
+            self.errors.append("❌ aicmo.api.schemas.ErrorResponse not importable")
+
+        # is_client_ready exists
+        try:
+            from aicmo.core.client_ready import is_client_ready
+        except Exception:
+            self.errors.append("❌ aicmo.core.client_ready.is_client_ready not importable")
+
+        # assumptions.md must NOT exist
+        assumptions = list(self.repo_root.glob('**/assumptions.md'))
+        assumptions = [f for f in assumptions if '.git' not in str(f)]
+        if assumptions:
+            for f in assumptions:
+                self.errors.append(f"❌ ASSUMPTIONS FILE DETECTED: {f.relative_to(self.repo_root)}")
+
+        print("\n" + "=" * 60)
+        if self.errors:
+            print("❌ Phase 3 Verification: FAIL\n")
+            for error in self.errors:
+                print(f"   {error}")
+        else:
+            print("✅ Phase 3 Verification: PASS\n")
 
         print("=" * 60)
         return len(self.errors) == 0

@@ -35,6 +35,16 @@ class ArtifactValidationError(Exception):
         super().__init__(f"Validation failed: {', '.join(errors)}")
 
 
+class ConflictError(Exception):
+    """Raised when optimistic locking detects a conflict."""
+    def to_error_response(self):
+        try:
+            from aicmo.api.schemas import ErrorResponse
+        except Exception:
+            return {"error_code": "CONFLICT", "message": "Conflict", "details": None, "trace_id": ""}
+        return ErrorResponse(error_code="CONFLICT", message="Version conflict", details=None, trace_id="")
+
+
 class ArtifactType(str, Enum):
     """Artifact types matching operator workflow"""
     INTAKE = "intake"
@@ -386,6 +396,94 @@ class ArtifactStore:
         self.session_state["_artifacts"][artifact.artifact_id] = artifact.to_dict()
         
         return artifact
+
+    # --- Phase 3 required store API ---
+    def put(self, artifact: Any, expected_version: Optional[int] = None) -> Dict[str, Any]:
+        """Persist an artifact (domain model or dict). Enforce optimistic locking.
+
+        If expected_version is provided and doesn't match latest, raise ConflictError.
+        This method will store a new version (monotonic) rather than mutating immutable fields.
+        Returns the stored artifact dict.
+        """
+        # Accept either domain model or dict. Prefer Pydantic v2 `model_dump` when
+        # available to avoid deprecated `.dict()` usage warnings being treated
+        # as errors in the test environment.
+        if hasattr(artifact, "model_dump"):
+            art_dict = artifact.model_dump()
+        elif hasattr(artifact, "dict"):
+            art_dict = artifact.dict()
+        elif isinstance(artifact, dict):
+            art_dict = artifact
+        else:
+            # Fallback: try to convert dataclass-style
+            try:
+                art_dict = dict(artifact)
+            except Exception:
+                raise ValueError("Unsupported artifact type for put()")
+
+        tenant_id = art_dict.get("tenant_id")
+        project_id = art_dict.get("project_id")
+        art_type = art_dict.get("type") or art_dict.get("artifact_type")
+        if isinstance(art_type, str):
+            art_type_key = str(art_type)
+        else:
+            art_type_key = getattr(art_type, "value", str(art_type))
+
+        # Find latest for (tenant, project, type)
+        latest = self.latest(tenant_id, project_id, art_type_key)
+        latest_version = latest.get("version") if latest else 0
+
+        if expected_version is not None and expected_version != latest_version:
+            raise ConflictError()
+
+        # New version number
+        new_version = latest_version + 1
+        art_dict["version"] = new_version
+
+        # Assign id if missing
+        if not art_dict.get("id") and not art_dict.get("artifact_id"):
+            art_dict["id"] = str(uuid.uuid4())
+
+        # Normalize id key
+        artifact_id = art_dict.get("id") or art_dict.get("artifact_id")
+        # Store consistently under _artifacts
+        self.session_state.setdefault("_artifacts", {})
+        self.session_state["_artifacts"][artifact_id] = art_dict
+
+        # Also store a per-project/type pointer for quick latest lookup
+        key = f"artifact_{art_type_key}_{tenant_id}_{project_id}"
+        self.session_state[key] = art_dict
+
+        return art_dict
+
+    def get(self, tenant_id: str, artifact_id: str) -> Optional[Dict[str, Any]]:
+        self.session_state.setdefault("_artifacts", {})
+        return self.session_state["_artifacts"].get(artifact_id)
+
+    def list_by_project(self, tenant_id: str, project_id: str) -> List[Dict[str, Any]]:
+        out = []
+        for a in self.session_state.get("_artifacts", {}).values():
+            if a.get("tenant_id") == tenant_id and a.get("project_id") == project_id:
+                out.append(a)
+        return out
+
+    def latest(self, tenant_id: str, project_id: str, artifact_type: Any) -> Optional[Dict[str, Any]]:
+        # Accept ArtifactType or str
+        art_type_key = artifact_type
+        if hasattr(artifact_type, "value"):
+            art_type_key = artifact_type.value
+        # Check per-project pointer first
+        key = f"artifact_{art_type_key}_{tenant_id}_{project_id}"
+        candidate = self.session_state.get(key)
+        if candidate:
+            return candidate
+        # Fallback scan
+        latest = None
+        for a in self.session_state.get("_artifacts", {}).values():
+            if a.get("tenant_id") == tenant_id and a.get("project_id") == project_id and (a.get("type") == art_type_key or a.get("artifact_type") == art_type_key or a.get("artifact_type") == art_type_key.lower()):
+                if latest is None or a.get("version", 0) > latest.get("version", 0):
+                    latest = a
+        return latest
     
     def update_artifact(
         self,

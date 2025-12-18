@@ -46,6 +46,13 @@ verify-phase-1:
 	@echo "✅ Phase 1 verification PASSED"
 
 
+
+verify-phase-3:
+	@echo "=== Phase 3 Verification ==="
+	@python3 -m py_compile aicmo/domain/artifacts.py aicmo/ui/persistence/artifact_store.py aicmo/api/schemas.py aicmo/core/compat.py aicmo/core/client_ready.py || (echo "❌ Phase 3 syntax error" && exit 1)
+	@PYTHONPATH=. pytest -q tests/test_artifact_contracts.py tests/test_artifact_optimistic_locking.py tests/test_schema_compatibility.py tests/test_api_contracts.py tests/test_client_ready.py || (echo "❌ Phase 3 tests failed" && exit 1)
+	@python3 -m aicmo.tools.verify_phase --phase 3 || (echo "❌ Phase 3 verification failed" && exit 1)
+	@echo "✅ Phase 3 verification PASSED"
 verify-phase-2:
 	@echo "=== Phase 2 Verification ==="
 	@python3 -m py_compile aicmo/domain/state_machine.py || (echo "❌ state_machine.py syntax error" && exit 1)
