@@ -211,9 +211,11 @@ def required_upstreams_for(artifact_type: str, selected_job_ids: Optional[List[s
         if has_execution_jobs:
             required.add("execution")
         
-        # Fallback: If no job IDs provided (legacy), require all (backward compatible)
+        # Fallback: If no job IDs provided (legacy), default to SAFE minimum
+        # Rationale: Prevents deadlocks from requiring all upstreams
+        # QC will emit WARN for missing plan (visibility requirement)
         if not selected_job_ids:
-            required = {"strategy", "creatives", "execution"}
+            required = {"intake", "strategy"}
         
         return required
     

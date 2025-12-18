@@ -1022,6 +1022,39 @@ def check_delivery_notes(content: Dict[str, Any]) -> List[QCCheck]:
     return checks
 
 
+def check_delivery_generation_plan(content: Dict[str, Any]) -> List[QCCheck]:
+    """
+    MAJOR: Check if generation plan was provided for delivery.
+    When plan is missing, delivery defaults to intake+strategy only (safe minimum).
+    This surfaces visibility warning so users understand scoping.
+    """
+    checks = []
+    
+    manifest = content.get("manifest", {})
+    generation_plan = manifest.get("generation_plan", {})
+    selected_jobs = generation_plan.get("selected_job_ids", [])
+    
+    if not selected_jobs:
+        checks.append(QCCheck(
+            check_id="delivery_generation_plan",
+            check_type=CheckType.DETERMINISTIC,
+            status=CheckStatus.FAIL,
+            severity=CheckSeverity.MAJOR,
+            message="Generation plan missing; defaulted to Intake+Strategy",
+            evidence="Consider specifying selected job IDs for correct delivery scope"
+        ))
+    else:
+        checks.append(QCCheck(
+            check_id="delivery_generation_plan",
+            check_type=CheckType.DETERMINISTIC,
+            status=CheckStatus.PASS,
+            severity=CheckSeverity.MAJOR,
+            message=f"Generation plan specified ({len(selected_jobs)} jobs)"
+        ))
+    
+    return checks
+
+
 # ============================================================================
 # REGISTER ALL RULES
 # ============================================================================
@@ -1071,3 +1104,4 @@ def register_all_rules():
     register_rule(ArtifactType.DELIVERY, check_delivery_approvals_ok)
     register_rule(ArtifactType.DELIVERY, check_delivery_branding_ok)
     register_rule(ArtifactType.DELIVERY, check_delivery_notes)
+    register_rule(ArtifactType.DELIVERY, check_delivery_generation_plan)

@@ -82,10 +82,16 @@ def create_minimal_delivery(store, intake_artifact, strategy_artifact, creatives
         artifact_type=ArtifactType.DELIVERY,
         client_id=client_id,
         engagement_id=engagement_id,
-        source_artifacts=[strategy_artifact, creatives_artifact, execution_artifact],
+        source_artifacts=[intake_artifact, strategy_artifact, creatives_artifact, execution_artifact],
         content={
             "manifest": {
                 "schema_version": "delivery_manifest_v1",
+                "generation_plan": {
+                    "selected_job_ids": [
+                        "brand_strategy", "content_library", 
+                        "content_calendar", "execution_schedule"
+                    ]  # Full plan: strategy + creatives + execution
+                },
                 "included_artifacts": [
                     {"type": "intake", "artifact_id": intake_artifact.artifact_id, "status": "approved"},
                     {"type": "strategy", "artifact_id": strategy_artifact.artifact_id, "status": "approved"},
@@ -1012,3 +1018,109 @@ def test_delivery_approval_fails_when_required_upstream_qc_missing(store):
     assert len(errors) > 0, "Should have validation errors"
     assert any("No QC artifact found" in err for err in errors), \
         f"Should fail due to missing QC on delivery. Got errors: {errors}"
+
+
+# ===================================================================
+# PHASE 2: Safe Default Tests (Empty Generation Plan)
+# ===================================================================
+
+def test_delivery_empty_plan_defaults_to_intake_strategy(store):
+    """
+    REGRESSION: Empty generation plan defaults to {intake, strategy} not ALL.
+    Proves safe default prevents deadlocks from requiring creatives/execution.
+    """
+    from aicmo.ui.generation_plan import required_upstreams_for
+    
+    # Empty selected_job_ids
+    empty_plan_jobs = []
+    
+    # Get required upstreams for delivery with empty plan
+    required = required_upstreams_for("delivery", selected_job_ids=empty_plan_jobs)
+    
+    # Should be SAFE default: intake + strategy only
+    assert required == {"intake", "strategy"}, \
+        f"Empty plan should default to safe minimum {{intake, strategy}}, got {required}"
+    
+    # Should NOT require creatives or execution (prevents deadlocks)
+    assert "creatives" not in required, "Empty plan should not require creatives"
+    assert "execution" not in required, "Empty plan should not require execution"
+
+
+def test_delivery_qc_warns_when_plan_missing(store):
+    """
+    REGRESSION: QC emits MAJOR when generation plan missing (visibility).
+    Proves users are notified of default behavior.
+    """
+    from aicmo.ui.quality.rules.ruleset_v1 import check_delivery_generation_plan
+    
+    # Delivery content with empty/missing generation plan
+    delivery_content = {
+        "manifest": {
+            "schema_version": "delivery_manifest_v1",
+            "generation_plan": {
+                "selected_job_ids": []  # Empty plan
+            }
+        }
+    }
+    
+    # Run the check
+    checks = check_delivery_generation_plan(delivery_content)
+    
+    # Should have exactly one check
+    assert len(checks) == 1, f"Should return 1 check, got {len(checks)}"
+    
+    check = checks[0]
+    assert check.check_id == "delivery_generation_plan"
+    assert check.status == CheckStatus.FAIL, "Empty plan should FAIL (MAJOR severity)"
+    assert check.severity == CheckSeverity.MAJOR, "Should be MAJOR not BLOCKER"
+    assert "Generation plan missing" in check.message or "defaulted" in check.message.lower(), \
+        f"Message should mention plan missing/defaulted. Got: {check.message}"
+
+
+def test_delivery_qc_passes_when_plan_present(store):
+    """
+    REGRESSION: QC passes when generation plan provided.
+    """
+    from aicmo.ui.quality.rules.ruleset_v1 import check_delivery_generation_plan
+    
+    # Delivery content with valid generation plan
+    delivery_content = {
+        "manifest": {
+            "schema_version": "delivery_manifest_v1",
+            "generation_plan": {
+                "selected_job_ids": ["brand_strategy", "content_library"]
+            }
+        }
+    }
+    
+    # Run the check
+    checks = check_delivery_generation_plan(delivery_content)
+    
+    # Should pass
+    assert len(checks) == 1
+    check = checks[0]
+    assert check.status == CheckStatus.PASS, "Plan present should PASS"
+    assert check.severity == CheckSeverity.MAJOR
+
+
+def test_delivery_conditional_strategy_only_safe(store):
+    """
+    REGRESSION: Strategy-only delivery requires {strategy} not ALL.
+    Proves conditional logic doesn't fall into empty plan trap.
+    """
+    from aicmo.ui.generation_plan import required_upstreams_for
+    
+    # Strategy-only plan (explicit job IDs)
+    strategy_jobs = ["brand_strategy", "positioning_framework"]
+    
+    # Get required upstreams
+    required = required_upstreams_for("delivery", selected_job_ids=strategy_jobs)
+    
+    # Should require only strategy (conditional logic working)
+    assert required == {"strategy"}, \
+        f"Strategy-only should require only strategy, got {required}"
+    
+    # Should NOT accidentally trigger empty plan fallback
+    assert "intake" not in required, "Strategy-only should not require intake"
+    assert "creatives" not in required
+    assert "execution" not in required
