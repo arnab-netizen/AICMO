@@ -1,33 +1,11 @@
 """Project domain models."""
 
-from enum import Enum
 from typing import Optional
 
 from .base import AicmoBaseModel
 
-
-class ProjectState(str, Enum):
-    """Project state machine states."""
-
-    NEW_LEAD = "NEW_LEAD"
-    INTAKE_PENDING = "INTAKE_PENDING"
-    INTAKE_CLARIFYING = "INTAKE_CLARIFYING"
-    INTAKE_READY = "INTAKE_READY"
-
-    STRATEGY_IN_PROGRESS = "STRATEGY_IN_PROGRESS"
-    STRATEGY_DRAFT = "STRATEGY_DRAFT"
-    STRATEGY_APPROVED = "STRATEGY_APPROVED"
-
-    CREATIVE_IN_PROGRESS = "CREATIVE_IN_PROGRESS"
-    CREATIVE_DRAFT = "CREATIVE_DRAFT"
-    CREATIVE_APPROVED = "CREATIVE_APPROVED"
-
-    EXECUTION_QUEUED = "EXECUTION_QUEUED"
-    EXECUTION_IN_PROGRESS = "EXECUTION_IN_PROGRESS"
-    EXECUTION_DONE = "EXECUTION_DONE"
-
-    ON_HOLD = "ON_HOLD"
-    CANCELLED = "CANCELLED"
+# Use the canonical ProjectState from the state_machine module.
+from aicmo.domain.state_machine import ProjectState
 
 
 class Project(AicmoBaseModel):
@@ -44,7 +22,8 @@ class Project(AicmoBaseModel):
     id: Optional[int] = None
     campaign_id: Optional[int] = None  # FK to CampaignDB - required for persistence (optional for in-memory tests)
     name: str
-    state: ProjectState = ProjectState.STRATEGY_DRAFT
+    # Default to the canonical strategy-generated state
+    state: ProjectState = ProjectState.STRATEGY_GENERATED
     
     # Client information
     client_name: Optional[str] = None
@@ -105,7 +84,7 @@ class Project(AicmoBaseModel):
             Project domain model
         """
         # Map campaign.project_state to ProjectState if available
-        # Default to STRATEGY_DRAFT if not set
+        # Default to STRATEGY_GENERATED if not set
         project_state_str = getattr(campaign, "project_state", None)
         if project_state_str and hasattr(ProjectState, project_state_str):
             state = ProjectState(project_state_str)
@@ -115,9 +94,9 @@ class Project(AicmoBaseModel):
             if strategy_status == "APPROVED":
                 state = ProjectState.STRATEGY_APPROVED
             elif strategy_status == "REJECTED":
-                state = ProjectState.STRATEGY_DRAFT  # Back to draft
+                state = ProjectState.STRATEGY_GENERATED
             else:
-                state = ProjectState.STRATEGY_DRAFT
+                state = ProjectState.STRATEGY_GENERATED
         
         return cls(
             id=campaign.id,
@@ -146,7 +125,7 @@ class Project(AicmoBaseModel):
         # Sync strategy_status for backward compatibility
         if self.state == ProjectState.STRATEGY_APPROVED:
             campaign.strategy_status = "APPROVED"
-        elif self.state in {ProjectState.STRATEGY_IN_PROGRESS, ProjectState.STRATEGY_DRAFT}:
+        elif self.state in {ProjectState.STRATEGY_GENERATED}:
             campaign.strategy_status = "DRAFT"
         
         # Update other fields if changed

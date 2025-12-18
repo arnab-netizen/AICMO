@@ -230,6 +230,24 @@ class PhaseVerifier:
         if missing:
             self.errors.append(f"❌ ProjectState missing values: {missing}")
 
+        # Check 1b: Ensure there are no duplicate ProjectState definitions elsewhere
+        dup_defs = []
+        canonical_path = (self.repo_root / "aicmo" / "domain" / "state_machine.py").resolve()
+        verifier_path = (self.repo_root / "aicmo" / "tools" / "verify_phase.py").resolve()
+        for py in self.repo_root.glob("**/*.py"):
+            try:
+                # skip the canonical file itself and this verifier script
+                if py.resolve() in {canonical_path, verifier_path}:
+                    continue
+            except Exception:
+                pass
+            txt = py.read_text(encoding="utf-8")
+            if "class ProjectState" in txt:
+                dup_defs.append(str(py.relative_to(self.repo_root)))
+
+        if dup_defs:
+            self.errors.append(f"❌ Duplicate ProjectState definitions found in: {dup_defs}")
+
         # Check 2: gating.py imports ProjectState and defines require_state
         gating_path = self.repo_root / "aicmo" / "ui" / "gating.py"
         if not gating_path.exists():
