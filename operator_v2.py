@@ -737,7 +737,12 @@ def render_approval_widget(
     button_key: Optional[str] = None
 ) -> bool:
     """
-    Render approval widget with comment OR checkbox requirement.
+    Render approval widget with QC-on-Approve and comment OR checkbox requirement.
+    
+    QC-on-Approve Behavior:
+    - If QC missing → auto-runs QC and persists result
+    - If QC FAIL → blocks approval and displays issues
+    - If QC PASS → proceeds to approve
     
     Args:
         artifact_name: Human-readable name (e.g., "Intake", "Strategy")
@@ -780,8 +785,59 @@ def render_approval_widget(
             st.error("❌ **Approval rejected:** You must provide a comment OR check the confirmation box.")
             return False
         
-        # Attempt approval
+        # QC-on-Approve: Ensure QC exists before approval
         try:
+            from aicmo.ui.qc_on_approve import ensure_qc_for_artifact
+            
+            # Get active context
+            client_id = st.session_state.get("client_id")
+            engagement_id = st.session_state.get("engagement_id")
+            
+            if not client_id or not engagement_id:
+                st.error("❌ **Approval failed:** Missing client or engagement context.")
+                return False
+            
+            # Check if QC exists
+            existing_qc = store.get_qc_for_artifact(artifact)
+            qc_was_missing = (existing_qc is None or existing_qc.target_version != artifact.version)
+            
+            # Ensure QC exists (auto-run if missing)
+            qc_artifact = ensure_qc_for_artifact(
+                store=store,
+                artifact=artifact,
+                client_id=client_id,
+                engagement_id=engagement_id,
+                operator_id=approved_by
+            )
+            
+            # Show QC auto-run banner if it was missing
+            if qc_was_missing:
+                st.info(f"ℹ️ **QC Auto-Run:** Quality checks ran automatically (QC artifact: `{qc_artifact.artifact_id[:8]}...`)")
+            
+            # Display QC status
+            from aicmo.ui.quality.qc_models import QCStatus
+            st.write(f"**QC Status:** {qc_artifact.qc_status.value} (version {qc_artifact.target_version})")
+            
+            # If QC FAIL, block approval and show issues
+            if qc_artifact.qc_status == QCStatus.FAIL:
+                st.error("❌ **QC Failed:** Cannot approve artifact with failing quality checks.")
+                
+                # Display blocker issues
+                blocker_checks = [
+                    check for check in qc_artifact.checks
+                    if check.status.value == "FAIL" and check.severity.value == "BLOCKER"
+                ]
+                
+                if blocker_checks:
+                    st.markdown("**Blocker Issues:**")
+                    for check in blocker_checks:
+                        st.markdown(f"- **{check.check_id}**: {check.message}")
+                        if check.evidence:
+                            st.caption(f"  Evidence: {check.evidence}")
+                
+                return False
+            
+            # QC PASS → proceed with approval
             store.approve_artifact(
                 artifact,
                 approved_by=approved_by,
